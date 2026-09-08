@@ -208,3 +208,15 @@ void test_speaker_service__chime_invalid_resource_and_read_failure(void) {
   speaker_service_play_chime_resource(123);
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
 }
+
+void test_speaker_service__chime_preserves_app_finish_subscription(void) {
+  speaker_service_register_finish(PebbleTask_App);
+  fake_event_reset_count();
+  cl_assert(speaker_service_play_chime_resource(123));
+  prv_pump_until_idle();
+  cl_assert_equal_i(fake_event_get_count(), 0);
+  cl_assert(speaker_service_play_tone(440, 100, 0, 0, SpeakerPriorityApp, 100));
+  prv_pump_until_idle();
+  cl_assert_equal_i(fake_event_get_count(), 1);
+  cl_assert_equal_i(fake_event_get_last().type, PEBBLE_SPEAKER_EVENT);
+}

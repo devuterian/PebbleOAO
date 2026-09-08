@@ -286,7 +286,9 @@ static void prv_stop_internal(SpeakerFinishReason reason) {
 
   PBL_LOG_DBG("Speaker stopped (reason=%d)", reason);
 
-  prv_post_finish_event(reason);
+  if (source_type != SpeakerSourceChime) {
+    prv_post_finish_event(reason);
+  }
 }
 
 static bool prv_can_preempt(SpeakerPriority new_pri) {
@@ -755,7 +757,6 @@ bool speaker_service_play_chime_resource(uint32_t resource_id) {
   s_state.state = SpeakerStatePlaying;
   s_state.priority = SpeakerPriorityApp;
   s_state.owner_task = PebbleTask_Unknown;
-  s_state.finish_enabled = false;
   s_state.volume = 100;
   prv_start_audio(100);
   prv_refill_locked();
