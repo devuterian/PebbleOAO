@@ -31,7 +31,12 @@ def get_git_revision():
 
     try:
         tag = _git("describe")
-        if _is_dirty():
+        dirty = _is_dirty()
+        # Marie release names can fill the 31-byte firmware version field.
+        # Development suffixes use the shorter upstream tag plus commit instead.
+        if "-ver" in tag and len(tag) + (6 if dirty else 0) > 31:
+            tag = _git("describe", "--exclude", "*-ver*")
+        if dirty:
             tag += "-dirty"
     except subprocess.CalledProcessError:
         tag = "v9.9.9-dev"

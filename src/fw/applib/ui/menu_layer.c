@@ -958,8 +958,8 @@ void menu_layer_init(MenuLayer *menu_layer, const GRect *frame) {
   scroll_layer_set_context(scroll_layer, menu_layer);
 
   menu_layer_set_normal_colors(menu_layer, system_theme_get_bg_color(), system_theme_get_fg_color());
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
+  menu_layer_set_highlight_colors(menu_layer, system_theme_get_fg_color(),
+                                 system_theme_get_bg_color());
 
   InverterLayer *inverter = &menu_layer->inverter;
   inverter_layer_init(inverter, &GRectZero);

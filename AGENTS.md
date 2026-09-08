@@ -72,6 +72,8 @@ become callable from user apps.
 
 - Release titles use `v<upstream-base>-ver<NNN>-<dessert name>`, starting with
   `v4.37.0-ver001-ang butter bread`. Use hyphens instead of spaces in Git tags.
+- Keep the ASCII Git tag at most 31 bytes and build releases from the exact
+  annotated tag. Firmware metadata has a 32-byte field including its terminator.
 - Increment the custom version globally for every new release, including
   prereleases. Do not reset it when the upstream base version changes.
 - Dessert names start with A, then B through Z, then cycle back to A. Choose
@@ -88,8 +90,9 @@ become callable from user apps.
   `docs/releases/`; the helper checks remote releases/drafts/tags, the A–Z cycle,
   name reuse and the firmware's 31-character version limit. Choose a familiar
   dessert with a short enough English name rather than truncating the version.
-- Release notes are prepared before tagging. The release workflow validates the
-  matching notes file and uses it verbatim; preparation does not publish.
+- Release notes are prepared before tagging. Run `python3 tools/marie_release.py check TAG` before publishing and use the
+  matching notes file verbatim with the validated Time 2 bundle. Preparation
+  does not publish; Marie tags remain excluded from the upstream release workflow.
 
 ## Commit rules
 
