@@ -41,6 +41,9 @@
 void prefs_sync_init(void) {
 }
 
+void battery_charge_limit_refresh(void) {
+}
+
 void event_put(PebbleEvent *event) {
 }
 
@@ -131,5 +134,4 @@ void test_prefs_db__insert_and_read(void) {
   cl_assert(prefs_db_read((uint8_t *)key, key_len, (uint8_t *)&get_value,
                                   sizeof(get_value) + 1) < 0);
 }
-
 
