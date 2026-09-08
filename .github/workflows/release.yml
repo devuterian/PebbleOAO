@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - v*
+      - v*-ver*-*
 
 permissions:
   contents: read
@@ -55,10 +55,19 @@ jobs:
           find artifacts -type f -exec cp {} release/ \;
           ls -l release
 
+      - name: Validate release name and handwritten notes
+        id: metadata
+        run: |
+          title=$(python3 tools/marie_release.py check "$TAG")
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+
       - name: Create release
         uses: softprops/action-gh-release@v3.0.3
         with:
           files: release/*
+          name: ${{ steps.metadata.outputs.title }}
+          body_path: docs/releases/${{ github.ref_name }}.md
+          generate_release_notes: false
 
       - name: Publish release to eng-dash
         if: ${{ github.repository == 'coredevices/PebbleOS' }}
