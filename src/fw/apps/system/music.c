@@ -1502,7 +1502,7 @@ static void prv_init_ui(Window *window) {
 
   progress_layer_init(&data->track_pos_bar, &track_rect);
   progress_layer_set_background_color(&data->track_pos_bar,
-                                      PBL_IF_COLOR_ELSE(system_theme_get_bg_color(), GColorWhite));
+                                      PBL_IF_COLOR_ELSE(system_theme_get_fg_color(), GColorWhite));
   progress_layer_set_foreground_color(&data->track_pos_bar,
                                       PBL_IF_COLOR_ELSE(GColorRed, GColorBlack));
   progress_layer_set_corner_radius(&data->track_pos_bar, config->track_corner_radius);
@@ -1680,4 +1680,3 @@ const PebbleProcessMd* music_app_get_info(void) {
   };
   return (const PebbleProcessMd*) &s_app_info;
 }
-
