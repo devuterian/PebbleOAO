@@ -598,3 +598,19 @@ void test_touch__event_abi_unchanged(void) {
   cl_assert_equal_i(offsetof(TouchEvent, y), 4);
   cl_assert(sizeof(TouchEvent) <= 9);
 }
+
+void test_touch__palm_gesture(void) {
+  touch_handle_gesture(TouchGesture_Palm, 20, 30);
+  cl_assert_equal_i(fake_event_get_count(), 1);
+  PebbleEvent event = fake_event_get_last();
+  cl_assert_equal_i(event.type, PEBBLE_GESTURE_EVENT);
+  cl_assert_equal_i(event.gesture.event.type, GestureEvent_Palm);
+  cl_assert_equal_i(event.gesture.event.x, 20);
+  cl_assert_equal_i(event.gesture.event.y, 30);
+}
+
+void test_touch__disabled_touch_ignores_palm(void) {
+  touch_service_set_globally_enabled(false);
+  touch_handle_gesture(TouchGesture_Palm, 20, 30);
+  cl_assert_equal_i(fake_event_get_count(), 0);
+}

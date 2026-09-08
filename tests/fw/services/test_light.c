@@ -324,3 +324,20 @@ void test_light__touch_hold_released_on_app_teardown(void) {
 
   check_on_timed_and_consume();
 }
+
+void test_light__palm_off_allows_next_wake(void) {
+  light_enable_interaction();
+  light_off_now();
+  check_off();
+  light_enable_interaction();
+  check_on_timed();
+}
+
+void test_light__palm_off_respects_held_button(void) {
+  light_button_pressed();
+  light_off_now();
+  check_on();
+  light_button_released();
+  light_off_now();
+  check_off();
+}

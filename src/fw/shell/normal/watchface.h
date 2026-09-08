@@ -17,6 +17,9 @@ AppInstallId watchface_get_default_install_id(void);
 
 void watchface_launch_default(const CompositorTransition *animation);
 
+//! Return from apps and dismiss ordinary popups on KernelMain.
+void watchface_return_from_palm(void);
+
 void watchface_start_low_power(void);
 
 void watchface_reset_click_manager(void);
