@@ -2401,6 +2401,60 @@
     },
     {
       "type": "mo",
+      "name": "STRINGS_KO_KR",
+      "file": "normal/base/lang/ko_KR/tintin.po",
+      "config": "CONFIG_SERVICE_I18N_KOREAN"
+    },
+    {
+      "type": "raw",
+      "name": "GOTHIC_14_BUILTIN_EXTENDED",
+      "file": "normal/base/fonts/tumbled/MARIE_TUMBLED_14.pbf",
+      "config": "CONFIG_SERVICE_I18N_KOREAN",
+      "aliases": [
+        "GOTHIC_14_BOLD_BUILTIN_EXTENDED"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GOTHIC_18_BUILTIN_EXTENDED",
+      "file": "normal/base/fonts/tumbled/MARIE_TUMBLED_18.pbf",
+      "config": "CONFIG_SERVICE_I18N_KOREAN"
+    },
+    {
+      "type": "raw",
+      "name": "GOTHIC_18_BOLD_BUILTIN_EXTENDED",
+      "file": "normal/base/fonts/tumbled/MARIE_TUMBLED_18_BOLD.pbf",
+      "config": "CONFIG_SERVICE_I18N_KOREAN"
+    },
+    {
+      "type": "raw",
+      "name": "GOTHIC_24_BOLD_BUILTIN_EXTENDED",
+      "file": "normal/base/fonts/tumbled/MARIE_TUMBLED_24_BOLD.pbf",
+      "config": "CONFIG_SERVICE_I18N_KOREAN",
+      "aliases": [
+        "GOTHIC_24_BUILTIN_EXTENDED"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GOTHIC_28_BUILTIN_EXTENDED",
+      "file": "normal/base/fonts/tumbled/MARIE_TUMBLED_28.pbf",
+      "config": "CONFIG_SERVICE_I18N_KOREAN",
+      "aliases": [
+        "GOTHIC_28_BOLD_BUILTIN_EXTENDED"
+      ]
+    },
+    {
+      "type": "raw",
+      "name": "GOTHIC_36_BUILTIN_EXTENDED",
+      "file": "normal/base/fonts/tumbled/MARIE_TUMBLED_36.pbf",
+      "config": "CONFIG_SERVICE_I18N_KOREAN",
+      "aliases": [
+        "GOTHIC_36_BOLD_BUILTIN_EXTENDED"
+      ]
+    },
+    {
+      "type": "mo",
       "name": "STRINGS_CA_ES",
       "file": "normal/base/lang/ca_ES/tintin.po",
       "config": "CONFIG_SERVICE_I18N_BUILTIN_LANGUAGES"

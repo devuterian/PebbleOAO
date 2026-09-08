@@ -332,7 +332,7 @@ void weather_report_push(const WeatherLocationForecast *days, size_t num_days, i
     s_report = NULL;
     return;
   }
-  window_set_background_color(s_report->window, GColorWhite);
+  window_set_background_color(s_report->window, system_theme_get_bg_color());
   window_set_window_handlers(s_report->window, (WindowHandlers){
     .load   = prv_window_load,
     .appear = prv_window_appear,
@@ -627,7 +627,7 @@ void weather_report_push(const WeatherLocationForecast *days, size_t num_days, i
     s_report = NULL;
     return;
   }
-  window_set_background_color(s_report->window, GColorWhite);
+  window_set_background_color(s_report->window, system_theme_get_bg_color());
   window_set_window_handlers(s_report->window, (WindowHandlers){
     .load   = prv_window_load,
     .appear = prv_window_appear,

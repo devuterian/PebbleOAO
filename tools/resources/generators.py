@@ -230,11 +230,15 @@ static const struct {
   ResourceId extension_id;
 } s_font_resource_keys[] = {
 """)
-        f.writelines(
-            f"  {{ FONT_KEY_{key}, RESOURCE_ID_{key}, "
-            f"RESOURCE_ID_{key}_EXTENDED }},\n"
-            for key in font_keys(ball_path)
-        )
+        declarations = set()
+        for declaration in ResourceBall.load(ball_path).get_all_declarations():
+            declarations.add(declaration.name)
+            declarations.update(getattr(declaration, "aliases", ()))
+        for key in font_keys(ball_path):
+            extension = key + "_BUILTIN_EXTENDED"
+            if extension not in declarations:
+                extension = key + "_EXTENDED"
+            f.write(f"  {{ FONT_KEY_{key}, RESOURCE_ID_{key}, RESOURCE_ID_{extension} }},\n")
         f.write("};\n")
 
 

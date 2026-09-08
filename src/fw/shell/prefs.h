@@ -209,6 +209,9 @@ typedef enum ShellLanguage {
   ShellLanguagePortuguese,
   ShellLanguagePolish,
 #endif
+#ifdef CONFIG_SERVICE_I18N_KOREAN
+  ShellLanguageKorean,
+#endif
   ShellLanguageCount,
 } ShellLanguage;
 
@@ -270,6 +273,9 @@ bool display_orientation_is_left(void);
 void display_orientation_set_left(bool left);
 #endif
 
+bool shell_prefs_get_charge_limit_enabled(void);
+void shell_prefs_set_charge_limit_enabled(bool enabled);
+
 GColor shell_prefs_get_theme_highlight_color(void);
 void shell_prefs_set_theme_highlight_color(GColor color);
 
@@ -294,3 +300,24 @@ void shell_prefs_set_music_show_progress_bar(bool enable);
 
 bool shell_prefs_get_music_show_album_art(void);
 void shell_prefs_set_music_show_album_art(bool enable);
+
+typedef struct DarkModeSchedule {
+  uint8_t from_hour;
+  uint8_t from_minute;
+  uint8_t to_hour;
+  uint8_t to_minute;
+} DarkModeSchedule;
+
+typedef enum DarkMode {
+  DarkModeOff = 0,
+  DarkModeOn = 1,
+  DarkModeAmbient = 2,  // Follows the ambient light sensor; dark mode when ambient light is low
+  DarkModeScheduled = 3, // Follows the configured start/end time schedule
+  DarkModeCount
+} DarkMode;
+
+DarkMode shell_prefs_get_dark_mode(void);
+void shell_prefs_set_dark_mode(DarkMode mode);
+
+void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out);
+void shell_prefs_set_dark_mode_schedule(const DarkModeSchedule *schedule);

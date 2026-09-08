@@ -19,6 +19,14 @@ config SERVICE_I18N_BUILTIN_LANGUAGES
       resource pack, so boards with a small resource bank turn this
       off.
 
+config SERVICE_I18N_KOREAN
+    bool "Built-in Korean and TUMBLED fonts"
+    depends on SERVICE_I18N_BUILTIN_LANGUAGES
+    default y if BOARD_OBELIX || BOARD_QEMU_EMERY
+    help
+      Include Korean strings and Korean/Japanese TUMBLED font subsets
+      on Time 2 without changing the flash partition layout.
+
 module = SERVICE_I18N
 module-str = Internationalization
 source "subsys/logging/Kconfig.template.log_level"

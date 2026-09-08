@@ -7,6 +7,9 @@
 
 #include "clar.h"
 
+void battery_charge_limit_init(void) {}
+void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {}
+
 // Stubs
 ////////////////////////////////////
 #include "stubs_analytics.h"

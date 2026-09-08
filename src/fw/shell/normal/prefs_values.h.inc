@@ -24,6 +24,7 @@
   PREFS_MACRO(PREF_KEY_BACKLIGHT_PRESET, s_backlight_preset)
   PREFS_MACRO(PREF_KEY_BACKLIGHT_AMBIENT_THRESHOLD, s_backlight_ambient_threshold)
   PREFS_MACRO(PREF_KEY_STATIONARY, s_stationary_mode_enabled)
+  PREFS_MACRO(PREF_KEY_CHARGE_LIMIT_ENABLED, s_charge_limit_enabled)
   PREFS_MACRO(PREF_KEY_DEFAULT_WORKER, s_default_worker)
   PREFS_MACRO(PREF_KEY_TEXT_STYLE, s_text_style)
   PREFS_MACRO(PREF_KEY_LANG_ENGLISH, s_language_english)
@@ -75,3 +76,5 @@
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS, s_music_show_volume_controls)
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_PROGRESS_BAR, s_music_show_progress_bar)
   PREFS_MACRO(PREF_KEY_MUSIC_SHOW_ALBUM_ART, s_music_show_album_art)
+  PREFS_MACRO(PREF_KEY_DARK_MODE, s_dark_mode)
+  PREFS_MACRO(PREF_KEY_DARK_MODE_SCHEDULE, s_dark_mode_schedule)

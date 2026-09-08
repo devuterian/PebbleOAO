@@ -15,6 +15,10 @@
 #include "stubs_passert.h"
 #include "stubs_process_manager.h"
 #include "stubs_shell_prefs.h"
+#include "stubs_ambient_light.h"
+#include "stubs_rtc.h"
+#include "stubs_pebble_process_md.h"
+#include "stubs_pebble_tasks.h"
 
 // Tests
 ///////////////

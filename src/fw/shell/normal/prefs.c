@@ -37,6 +37,7 @@
 #include "pbl/util/uuid.h"
 
 #include "pbl/services/activity/activity.h"
+#include "pbl/services/battery/battery_charge_limit.h"
 #include "pbl/services/activity/activity_insights.h"
 
 #include "pbl/services/analytics/analytics.h"
@@ -165,13 +166,16 @@ static const BacklightPresetSettings s_backlight_preset_settings[] = {
 #ifdef CONFIG_ORIENTATION_MANAGER
 #define PREF_KEY_DISPLAY_ORIENTATION_LEFT_HANDED "displayOrientationLeftHanded"
 static bool s_display_orientation_left = false;
-#endif 
+#endif
 
 #define PREF_KEY_BACKLIGHT_AMBIENT_THRESHOLD "lightAmbientThreshold"
 static uint32_t s_backlight_ambient_threshold = 0; // default set from board config in shell_prefs_init()
 
 #define PREF_KEY_STATIONARY "stationaryMode"
 static bool s_stationary_mode_enabled = true;
+
+#define PREF_KEY_CHARGE_LIMIT_ENABLED "chargeLimitEnabled"
+static bool s_charge_limit_enabled = false;
 
 #define PREF_KEY_DEFAULT_WORKER "workerId"
 static Uuid s_default_worker = UUID_INVALID_INIT;
@@ -323,12 +327,21 @@ static GColor s_theme_highlight_color = GColorVividCerulean;
 #define PREF_KEY_MUSIC_SHOW_VOLUME_CONTROLS "musicShowVolumeControls"
 #define PREF_KEY_MUSIC_SHOW_PROGRESS_BAR "musicShowProgressBar"
 #define PREF_KEY_MUSIC_SHOW_ALBUM_ART "musicShowAlbumArt"
+#define PREF_KEY_DARK_MODE "darkMode"
+#define PREF_KEY_DARK_MODE_SCHEDULE "darkModeSchedule"
 
 static bool s_menu_scroll_wrap_around = false;
 static MenuScrollVibeBehavior s_menu_scroll_vibe_behavior = MenuScrollNoVibe;
 static bool s_music_show_volume_controls = true;
 static bool s_music_show_progress_bar = true;
 static bool s_music_show_album_art = false;
+static uint8_t s_dark_mode = DarkModeOff;
+static DarkModeSchedule s_dark_mode_schedule = {
+  .from_hour = 19,
+  .from_minute = 0,
+  .to_hour = 7,
+  .to_minute = 0,
+};
 
 // ============================================================================================
 // Handlers for each pref that validate the new setting and store the new value in our globals.
@@ -527,13 +540,13 @@ static bool prv_set_s_motion_sensitivity(uint8_t *sensitivity) {
     return false;
   }
   s_motion_sensitivity = *sensitivity;
-  
+
   // Update accelerometer sensitivity in accel_manager
   // This applies the setting to the hardware
   #ifdef CONFIG_ACCEL_SENSITIVITY
   accel_manager_update_sensitivity(*sensitivity);
   #endif
-  
+
   return true;
 }
 
@@ -563,6 +576,12 @@ static bool prv_set_s_display_orientation_left(bool *left) {
 
 static bool prv_set_s_stationary_mode_enabled(bool *enabled) {
   s_stationary_mode_enabled = *enabled;
+  return true;
+}
+
+static bool prv_set_s_charge_limit_enabled(bool *enabled) {
+  s_charge_limit_enabled = *enabled;
+  battery_charge_limit_refresh();
   return true;
 }
 
@@ -908,6 +927,24 @@ static bool prv_set_s_music_show_album_art(bool *enabled) {
   return true;
 }
   
+static bool prv_set_s_dark_mode(uint8_t *mode) {
+  if (*mode >= DarkModeCount) {
+    s_dark_mode = DarkModeOn;
+    return false;
+  }
+  s_dark_mode = *mode;
+  return true;
+}
+
+static bool prv_set_s_dark_mode_schedule(DarkModeSchedule *schedule) {
+  if (schedule->from_hour >= 24 || schedule->from_minute >= 60 ||
+      schedule->to_hour >= 24 || schedule->to_minute >= 60) {
+    return false;
+  }
+  s_dark_mode_schedule = *schedule;
+  return true;
+}
+
 // ------------------------------------------------------------------------------------
 // Table of all prefs
 typedef bool (*PrefSetHandler)(const void *value, size_t val_len);
@@ -1081,7 +1118,7 @@ void shell_prefs_init(void) {
 
   // Update the ambient light driver with the loaded threshold value
   ambient_light_set_dark_threshold(s_backlight_ambient_threshold);
-  
+
   // Initialize prefs sync (must be after prefs are loaded)
   prefs_sync_init();
 
@@ -1544,6 +1581,14 @@ void shell_prefs_set_stationary_enabled(bool enabled) {
   prv_pref_set(PREF_KEY_STATIONARY, &enabled, sizeof(enabled));
 }
 
+bool shell_prefs_get_charge_limit_enabled(void) {
+  return s_charge_limit_enabled;
+}
+
+void shell_prefs_set_charge_limit_enabled(bool enabled) {
+  prv_pref_set(PREF_KEY_CHARGE_LIMIT_ENABLED, &enabled, sizeof(enabled));
+}
+
 AppInstallId worker_preferences_get_default_worker(void) {
   return app_install_get_id_for_uuid(&s_default_worker);
 }
@@ -1880,6 +1925,10 @@ uint32_t shell_prefs_get_language_resource_id(void) {
       return RESOURCE_ID_STRINGS_PT_PT;
     case ShellLanguagePolish:
       return RESOURCE_ID_STRINGS_PL_PL;
+#endif
+#ifdef CONFIG_SERVICE_I18N_KOREAN
+    case ShellLanguageKorean:
+      return RESOURCE_ID_STRINGS_KO_KR;
 #endif
     case ShellLanguageEnglish:
     case ShellLanguageInstalledPack:
@@ -2234,4 +2283,25 @@ bool shell_prefs_get_music_show_album_art(void) {
 
 void shell_prefs_set_music_show_album_art(bool enable) {
   prv_pref_set(PREF_KEY_MUSIC_SHOW_ALBUM_ART, &enable, sizeof(enable));
+}
+
+DarkMode shell_prefs_get_dark_mode(void) {
+  return (DarkMode)s_dark_mode;
+}
+
+void shell_prefs_set_dark_mode(DarkMode mode) {
+  uint8_t val = (uint8_t)mode;
+  prv_pref_set(PREF_KEY_DARK_MODE, &val, sizeof(val));
+}
+
+void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
+  if (schedule_out) {
+    *schedule_out = s_dark_mode_schedule;
+  }
+}
+
+void shell_prefs_set_dark_mode_schedule(const DarkModeSchedule *schedule) {
+  if (schedule) {
+    prv_pref_set(PREF_KEY_DARK_MODE_SCHEDULE, schedule, sizeof(*schedule));
+  }
 }

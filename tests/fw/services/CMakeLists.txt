@@ -502,3 +502,8 @@ pbl_clar_test(test_app_glance_service
     tests/fakes/fake_settings_file.c
   OVERRIDES dummy_board
 )
+
+pbl_clar_test(test_battery_charge_limit
+  SOURCES
+    src/fw/services/battery/battery_charge_limit.c
+)

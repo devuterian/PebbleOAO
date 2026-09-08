@@ -1,0 +1,78 @@
+/* SPDX-FileCopyrightText: 2026 PebbleOS contributors */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+#include "clar.h"
+#include "pbl/services/battery/battery_charge_limit.h"
+#include "pbl/services/regular_timer.h"
+#include "kernel/event_loop.h"
+#include "stubs_logging.h"
+
+static bool s_enabled, s_charging;
+static int s_writes, s_callbacks;
+static BatteryChargeState s_charge;
+static RegularTimerInfo *s_timer;
+static CallbackEventCallback s_callback;
+
+bool shell_prefs_get_charge_limit_enabled(void) { return s_enabled; }
+void battery_set_charge_enable(bool enabled) { s_charging = enabled; s_writes++; }
+BatteryChargeState battery_get_charge_state(void) { return s_charge; }
+void regular_timer_add_multisecond_callback(RegularTimerInfo *cb, uint16_t seconds) {
+  cl_assert_equal_i(seconds, 60);
+  s_timer = cb;
+}
+void launcher_task_add_callback(CallbackEventCallback callback, void *data) {
+  s_callbacks++;
+  s_callback = callback;
+}
+
+static void prv_evaluate(int pct, bool plugged) {
+  battery_charge_limit_evaluate((PreciseBatteryChargeState){ .pct = pct, .is_plugged = plugged });
+}
+
+void test_battery_charge_limit__initialize(void) {
+  s_enabled = false;
+  prv_evaluate(0, false);
+  s_enabled = s_charging = true;
+  s_writes = s_callbacks = 0;
+  battery_charge_limit_init();
+}
+
+void test_battery_charge_limit__stops_at_80_and_resumes_at_77(void) {
+  prv_evaluate(79, true);
+  cl_assert_equal_i(s_writes, 0);
+  prv_evaluate(80, true);
+  cl_assert(!s_charging);
+  cl_assert(battery_charge_limit_is_active());
+  prv_evaluate(79, true);
+  prv_evaluate(78, true);
+  cl_assert_equal_i(s_writes, 1);
+  prv_evaluate(77, true);
+  cl_assert(s_charging);
+  cl_assert(!battery_charge_limit_is_active());
+}
+
+void test_battery_charge_limit__unplug_restores_charger_for_next_connection(void) {
+  prv_evaluate(85, true);
+  prv_evaluate(85, false);
+  cl_assert(s_charging);
+  cl_assert(!battery_charge_limit_is_active());
+  prv_evaluate(70, true);
+  cl_assert(s_charging);
+}
+
+void test_battery_charge_limit__disabling_restores_charging(void) {
+  prv_evaluate(80, true);
+  s_enabled = false;
+  prv_evaluate(80, true);
+  cl_assert(s_charging);
+  cl_assert(!battery_charge_limit_is_active());
+}
+
+void test_battery_charge_limit__timer_defers_hardware_write_to_kernel(void) {
+  s_charge = (BatteryChargeState){ .charge_percent = 80, .is_plugged = true };
+  s_timer->cb(NULL);
+  cl_assert_equal_i(s_callbacks, 1);
+  cl_assert_equal_i(s_writes, 0);
+  s_callback(NULL);
+  cl_assert(!s_charging);
+}

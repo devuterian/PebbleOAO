@@ -160,6 +160,13 @@ void app_storage_get_file_name(char *name, size_t buf_length, AppInstallId app_i
   *name = 0;
 }
 
+bool shell_prefs_get_charge_limit_enabled(void) {
+  return false;
+}
+
+void shell_prefs_set_charge_limit_enabled(bool enabled) {
+}
+
 bool shell_prefs_get_clock_24h_style(void) {
   return true;
 }
@@ -285,6 +292,26 @@ uint32_t shell_prefs_get_language_resource_id(void) {
   return RESOURCE_ID_INVALID;
 }
 void shell_prefs_set_language(ShellLanguage language) {
+}
+
+GColor shell_prefs_get_theme_highlight_color(void) {
+  return PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
+}
+
+DarkMode shell_prefs_get_dark_mode(void) {
+  return DarkModeOff;
+}
+
+void shell_prefs_set_dark_mode(DarkMode mode) {
+}
+
+void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
+  if (schedule_out) {
+    *schedule_out = (DarkModeSchedule){ .from_hour = 19, .from_minute = 0, .to_hour = 7, .to_minute = 0 };
+  }
+}
+
+void shell_prefs_set_dark_mode_schedule(const DarkModeSchedule *schedule) {
 }
 
 FontInfo *fonts_get_system_emoji_font_for_size(unsigned int font_height) {

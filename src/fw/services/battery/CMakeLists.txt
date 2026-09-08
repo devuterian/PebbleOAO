@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
-set(sources battery_monitor.c)
+set(sources battery_monitor.c battery_charge_limit.c)
 if(CONFIG_NRF_FUEL_GAUGE)
   list(APPEND sources
     nrf_fuel_gauge/battery_curve.c
