@@ -4,3 +4,7 @@
 pbl_library()
 pbl_library_sources(service.c)
 pbl_service_gettext(clock service.c)
+
+if(CONFIG_SPEAKER AND NOT CONFIG_RECOVERY_FW)
+  pbl_library_sources(hourly_chime.c)
+endif()

@@ -2400,6 +2400,12 @@
       "file": "../third_party/resources/iconography/brand-logos/Tapo_80px.svg"
     },
     {
+      "type": "raw",
+      "name": "HOURLY_CHIME",
+      "file": "normal/base/audio/hourly_chime.pcm",
+      "config": "CONFIG_SPEAKER"
+    },
+    {
       "type": "mo",
       "name": "STRINGS_KO_KR",
       "file": "normal/base/lang/ko_KR/tintin.po",

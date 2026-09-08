@@ -85,6 +85,15 @@ become callable from user apps.
 - The first release under this convention reserves `ver001` and
   `ang butter bread` for the Korean/TUMBLED/jamo feature integration.
 
+- Prepare the next name and notes with `python3 tools/marie_release.py prepare
+  --base v4.37.0 --dessert "..." --notes /path/to/notes.md`. Keep every record in
+  `docs/releases/`; the helper checks remote releases/drafts/tags, the A–Z cycle,
+  name reuse and the firmware's 31-character version limit. Choose a familiar
+  dessert with a short enough English name rather than truncating the version.
+- Release notes are prepared before tagging. Run `python3 tools/marie_release.py check TAG` before publishing and use the
+  matching notes file verbatim with the validated Time 2 bundle. Preparation
+  does not publish; Marie tags remain excluded from the upstream release workflow.
+
 ## Commit rules
 
 Main rules:

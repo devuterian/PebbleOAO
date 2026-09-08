@@ -19,6 +19,9 @@
 #include "pbl/util/string.h"
 
 #include "pbl/services/clock.h"
+#ifdef CONFIG_SPEAKER
+#include "pbl/services/hourly_chime.h"
+#endif
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/timezone_database.h"
 #include "shell/prefs.h"
@@ -55,6 +58,9 @@ typedef struct {
   // Manual time / date picker windows
   TimeSelectionWindowData time_picker;
   DateSelectionWindowData date_picker;
+#ifdef CONFIG_SPEAKER
+  bool editing_chime_end;
+#endif
 } SettingsTimeData;
 
 typedef enum {
@@ -64,6 +70,12 @@ typedef enum {
   TimeRow_Format,
   TimeRow_TimezoneSource,
   TimeRow_Timezone,
+#ifdef CONFIG_SPEAKER
+  TimeRow_Chime,
+  TimeRow_ChimeInterval,
+  TimeRow_ChimeStart,
+  TimeRow_ChimeEnd,
+#endif
   TimeRowNum,
 } TimeRow;
 
@@ -310,9 +322,60 @@ static void prv_date_picker_push(SettingsTimeData *data) {
 
 // Date & Time Menu
 ////////////////////////////
+#ifdef CONFIG_SPEAKER
+static void prv_chime_time_complete(TimeSelectionWindowData *picker, void *context) {
+  SettingsTimeData *data = context;
+  HourlyChimeSettings settings = hourly_chime_get_settings();
+  uint16_t minute = picker->time_data.hour * 60 + picker->time_data.minute;
+  if (data->editing_chime_end) {
+    settings.end_minute = minute;
+  } else {
+    settings.start_minute = minute;
+  }
+  hourly_chime_set_settings(&settings);
+  app_window_stack_remove(&picker->window, true);
+  settings_menu_mark_dirty(SettingsMenuItemDateTime);
+}
+
+static void prv_chime_time_push(SettingsTimeData *data, bool end) {
+  data->editing_chime_end = end;
+  const HourlyChimeSettings settings = hourly_chime_get_settings();
+  const uint16_t minute = end ? settings.end_minute : settings.start_minute;
+  TimeSelectionWindowData *picker = &data->time_picker;
+  time_selection_window_deinit(picker);
+  const TimeSelectionWindowConfig config = {
+      .label = end ? i18n_noop("Chime End") : i18n_noop("Chime Start"),
+      .color = PBL_IF_COLOR_ELSE(GColorJaegerGreen, GColorBlack),
+      .range = {.update = true, .enabled = false},
+      .callback = {.update = true, .complete = prv_chime_time_complete, .context = data},
+  };
+  time_selection_window_init(picker, &config);
+  picker->time_data.hour = minute / 60;
+  picker->time_data.minute = minute % 60;
+  app_window_stack_push(&picker->window, true);
+}
+#endif
+
 static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
   SettingsTimeData *data = (SettingsTimeData*) context;
   switch (prv_row_for_index(row)) {
+#ifdef CONFIG_SPEAKER
+    case TimeRow_Chime:
+    case TimeRow_ChimeInterval: {
+      HourlyChimeSettings settings = hourly_chime_get_settings();
+      if (prv_row_for_index(row) == TimeRow_Chime) {
+        settings.enabled = !settings.enabled;
+      } else {
+        settings.interval_minutes = settings.interval_minutes == 60 ? 30 : 60;
+      }
+      hourly_chime_set_settings(&settings);
+      break;
+    }
+    case TimeRow_ChimeStart:
+    case TimeRow_ChimeEnd:
+      prv_chime_time_push(data, prv_row_for_index(row) == TimeRow_ChimeEnd);
+      return;
+#endif
     case TimeRow_TimeSource:
       // Toggle automatic / manual time
       prv_cycle_clock_time_source();
@@ -358,6 +421,27 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
   char date_buf[16];
 
   switch (prv_row_for_index(row)) {
+#ifdef CONFIG_SPEAKER
+    case TimeRow_Chime:
+      title = i18n_noop("Hourly Chime");
+      subtitle = hourly_chime_get_settings().enabled ? i18n_noop("On") : i18n_noop("Off");
+      break;
+    case TimeRow_ChimeInterval:
+      title = i18n_noop("Chime Interval");
+      subtitle = hourly_chime_get_settings().interval_minutes == 60 ? i18n_noop("1 hour")
+                                                                    : i18n_noop("30 minutes");
+      break;
+    case TimeRow_ChimeStart:
+    case TimeRow_ChimeEnd: {
+      const bool end = prv_row_for_index(row) == TimeRow_ChimeEnd;
+      const HourlyChimeSettings settings = hourly_chime_get_settings();
+      const uint16_t minute = end ? settings.end_minute : settings.start_minute;
+      title = end ? i18n_noop("Chime End") : i18n_noop("Chime Start");
+      clock_format_time(time_buf, sizeof(time_buf), minute / 60, minute % 60, true);
+      subtitle = time_buf;
+      break;
+    }
+#endif
     case TimeRow_TimeSource: {
       title = i18n_noop("Time Source");
       subtitle = clock_time_source_is_manual() ? i18n_noop("Manual") :
