@@ -72,6 +72,8 @@ become callable from user apps.
 
 - Release titles use `v<upstream-base>-ver<NNN>-<dessert name>`, starting with
   `v4.37.0-ver001-ang butter bread`. Use hyphens instead of spaces in Git tags.
+- Keep the ASCII Git tag at most 31 bytes and build releases from the exact
+  annotated tag. Firmware metadata has a 32-byte field including its terminator.
 - Increment the custom version globally for every new release, including
   prereleases. Do not reset it when the upstream base version changes.
 - Dessert names start with A, then B through Z, then cycle back to A. Choose
