@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - v*
+      - '!v*-ver*' # Marie releases use the validated Time 2 bundle and handwritten notes.
 
 permissions:
   contents: read
