@@ -29,7 +29,7 @@ static void prv_backlight_submenu_push(void);
 
 typedef struct SettingsDisplayData {
   SettingsCallbacks callbacks;
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
   TimeRangeSelectionWindowData schedule_window;
 #endif
 } SettingsDisplayData;
@@ -601,7 +601,7 @@ enum SettingsDisplayItem {
 #ifdef CONFIG_APP_SCALING
   SettingsDisplayLegacyAppMode,
 #endif
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
   SettingsDisplayDarkMode,
   SettingsDisplayDarkModeSchedule,
 #endif
@@ -621,7 +621,7 @@ static bool prv_display_item_is_visible(uint16_t item) {
     return touch_is_globally_enabled();
   }
 #endif
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
   if (item == SettingsDisplayDarkModeSchedule) {
     return shell_prefs_get_dark_mode() == DarkModeScheduled;
   }
@@ -629,7 +629,7 @@ static bool prv_display_item_is_visible(uint16_t item) {
   return true;
 }
 
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
 static const char * const s_dark_mode_labels[] = {
   [DarkModeOff] = i18n_noop("Off"),
   [DarkModeOn] = i18n_noop("On"),
@@ -746,7 +746,7 @@ static void prv_display_select_click_cb(SettingsCallbacks *context, uint16_t row
       prv_legacy_app_mode_menu_push((SettingsDisplayData*)context);
       break;
 #endif
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
     case SettingsDisplayDarkMode:
       prv_dark_mode_menu_push((SettingsDisplayData *)context);
       break;
@@ -810,7 +810,7 @@ static void prv_display_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
       subtitle = s_legacy_app_mode_labels[shell_prefs_get_legacy_app_render_mode()];
       break;
 #endif
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
     case SettingsDisplayDarkMode:
       title = i18n_noop("Dark Mode");
       subtitle = s_dark_mode_labels[shell_prefs_get_dark_mode()];
@@ -845,7 +845,7 @@ static uint16_t prv_display_num_rows_cb(SettingsCallbacks *context) {
 
 static void prv_display_deinit_cb(SettingsCallbacks *context) {
   SettingsDisplayData *data = (SettingsDisplayData*) context;
-#if !CAPABILITY_HAS_THEMING
+#if !defined(CONFIG_THEMING)
   time_range_selection_window_deinit(&data->schedule_window);
 #endif
   i18n_free_all(data);

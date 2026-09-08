@@ -23,7 +23,8 @@ coverage, attribution, and reproducible generation instructions.
 
 ## Additional settings
 
-- **Settings → Display → Dark Mode**: Off, On, Ambient, or Scheduled. This ports
+- **Settings → Display → Dark Mode** (under Themes in builds with color theming):
+  Off, On, Ambient, or Scheduled. This ports
   [PR #1119](https://github.com/coredevices/PebbleOS/pull/1119) to the current
   system UI. Third-party apps retain their own colors.
 - **Settings → System → Charge Limit (80%)**: disabled by default. This adapts
