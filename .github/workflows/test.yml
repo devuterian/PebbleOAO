@@ -65,7 +65,12 @@ jobs:
       - name: Run tests
         # ctest runs the whole suite before reporting, so one failure does
         # not hide the rest. The job still fails if anything failed.
-        run: pbl test
+        run: |
+          pbl test || {
+            # Finish independent compilation/link steps to report all missing dependencies.
+            cmake --build build-test -- -k 0
+            exit 1
+          }
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6
