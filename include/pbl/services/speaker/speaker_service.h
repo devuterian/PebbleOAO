@@ -31,6 +31,7 @@ typedef enum {
   SpeakerSourceStream,
   SpeakerSourceTracks,
   SpeakerSourceTone,
+  SpeakerSourceChime,
 } SpeakerSourceType;
 
 //! Initialize the speaker service. Called once at boot.
@@ -75,6 +76,10 @@ bool speaker_service_play_volume_preview(uint8_t vol);
 //!         allocation failure, or priority blocked.
 bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks,
                                  SpeakerPriority pri, uint8_t vol);
+
+//! Play a system chime resource (mono signed 16-bit little-endian PCM at 16 kHz).
+//! Reads in DMA-sized chunks; only starts when idle, unmuted and outside Quiet Time.
+bool speaker_service_play_chime_resource(uint32_t resource_id);
 
 //! Ask the service to post PEBBLE_SPEAKER_EVENT with the finish reason to the
 //! given task whenever playback ends.

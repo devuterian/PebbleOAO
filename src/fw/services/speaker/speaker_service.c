@@ -21,6 +21,7 @@
 #include "pbl/services/system_task.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
+#include "resource/resource.h"
 
 #include <string.h>
 
@@ -60,6 +61,10 @@ typedef struct {
   // PCM stream source
   PcmStreamState pcm_stream;
   SpeakerPcmFormat pcm_format;
+
+  uint32_t chime_resource_id;
+  uint32_t chime_offset;
+  uint32_t chime_size;
 
   // Previous decoded samples for cubic interpolation across chunk boundaries.
   // [0] = second-to-last sample (s_{n-2}), [1] = last sample (s_{n-1}).
@@ -431,6 +436,24 @@ static void prv_refill_locked(void) {
       memset(s_state.refill_buf, 0, SPEAKER_REFILL_SAMPLES * sizeof(int16_t));
       samples_generated = SPEAKER_REFILL_SAMPLES;
     }
+  } else if (s_state.source_type == SpeakerSourceChime) {
+    if (do_not_disturb_is_active() || prv_effective_volume(s_state.volume) == 0) {
+      prv_stop_internal(SpeakerFinishReasonStopped);
+      return;
+    }
+    uint32_t bytes = s_state.chime_size - s_state.chime_offset;
+    if (bytes > sizeof(s_state.refill_buf)) {
+      bytes = sizeof(s_state.refill_buf);
+    }
+    if (bytes &&
+        resource_load_byte_range_system(SYSTEM_APP, s_state.chime_resource_id, s_state.chime_offset,
+                                        (uint8_t *)s_state.refill_buf, bytes) != bytes) {
+      prv_stop_internal(SpeakerFinishReasonStopped);
+      return;
+    }
+    s_state.chime_offset += bytes;
+    samples_generated = bytes / sizeof(int16_t);
+    source_exhausted = bytes == 0;
   } else if (s_state.source_type == SpeakerSourceTone) {
     uint32_t to_gen = s_state.tone_samples_remaining;
     if (to_gen > SPEAKER_REFILL_SAMPLES) {
@@ -713,6 +736,33 @@ alloc_fail:
   return false;
 }
 
+bool speaker_service_play_chime_resource(uint32_t resource_id) {
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (!s_state.initialized || s_state.state != SpeakerStateIdle || do_not_disturb_is_active() ||
+      prv_effective_volume(100) == 0) {
+    pbl_mutex_unlock(&s_lock);
+    return false;
+  }
+  const size_t size = resource_size(SYSTEM_APP, resource_id);
+  if (size == 0 || size % sizeof(int16_t) != 0) {
+    pbl_mutex_unlock(&s_lock);
+    return false;
+  }
+  s_state.chime_resource_id = resource_id;
+  s_state.chime_size = size;
+  s_state.chime_offset = 0;
+  s_state.source_type = SpeakerSourceChime;
+  s_state.state = SpeakerStatePlaying;
+  s_state.priority = SpeakerPriorityApp;
+  s_state.owner_task = PebbleTask_Unknown;
+  s_state.finish_enabled = false;
+  s_state.volume = 100;
+  prv_start_audio(100);
+  prv_refill_locked();
+  pbl_mutex_unlock(&s_lock);
+  return true;
+}
+
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
@@ -887,6 +937,10 @@ bool speaker_service_play_volume_preview(uint8_t vol) {
 
 bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks,
                                  SpeakerPriority pri, uint8_t vol) {
+  return false;
+}
+
+bool speaker_service_play_chime_resource(uint32_t resource_id) {
   return false;
 }
 

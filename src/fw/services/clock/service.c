@@ -2,6 +2,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "pbl/services/clock.h"
+#if defined(CONFIG_SPEAKER) && !defined(CONFIG_RECOVERY_FW)
+#include "pbl/services/hourly_chime.h"
+#endif
 
 #include "console/prompt.h"
 #include <pbl/drivers/rtc.h>
@@ -393,6 +396,11 @@ T_STATIC void prv_watch_dst(void* user) {
   const bool is_dst = time_get_isdst(rtc_get_time());
 
 #ifndef CONFIG_RECOVERY_FW
+#ifdef CONFIG_SPEAKER
+  if (s_hourly_chime_armed) {
+    hourly_chime_tick(rtc_get_time());
+  }
+#endif
   const time_t seconds_into_hour = time_utc_to_local(rtc_get_time()) % SECONDS_PER_HOUR;
   if (s_hourly_chime_armed && alerts_should_vibrate_for_type(AlertOther) &&
       (seconds_into_hour < HOURLY_CHIME_GRACE_PERIOD_SECONDS)) {
@@ -448,6 +456,9 @@ void clock_init(void) {
 
 #ifndef CONFIG_RECOVERY_FW
 void clock_hourly_chime_arm(void) {
+#ifdef CONFIG_SPEAKER
+  hourly_chime_init();
+#endif
   s_hourly_chime_armed = true;
 }
 #endif

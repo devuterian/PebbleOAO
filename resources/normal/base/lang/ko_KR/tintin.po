@@ -3615,3 +3615,15 @@ msgstr "모레"
 #: src/fw/services/clock/service.c:1039
 msgid "the foreseeable future"
 msgstr "당분간"
+
+msgid "Hourly Chime"
+msgstr "정각 알림 소리"
+
+msgid "Chime Interval"
+msgstr "알림 간격"
+
+msgid "Chime Start"
+msgstr "알림 시작"
+
+msgid "Chime End"
+msgstr "알림 종료"
