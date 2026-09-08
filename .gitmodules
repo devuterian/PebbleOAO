@@ -27,7 +27,7 @@
 	url = https://github.com/xiph/speex
 [submodule "third_party/resources/iconography"]
 	path = third_party/resources/iconography
-	url = https://github.com/pebble-dev/iconography
+	url = https://github.com/devuterian/iconography.git
 [submodule "third_party/moddable/moddable"]
 	path = third_party/moddable/moddable
 	url = https://github.com/coredevices/moddable.git

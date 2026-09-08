@@ -2789,6 +2789,216 @@
       "type": "pdc",
       "name": "WEATHER_REPORT_PAPER",
       "file": "normal/base/images/Pebble_80x80_Weather_report.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_CHATGPT_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/ChatGPT_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_CHATGPT_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/ChatGPT_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_CHATGPT_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/ChatGPT_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_CAFE_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_Cafe_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_CAFE_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_Cafe_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_CAFE_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_Cafe_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_KARROT_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Karrot_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_KARROT_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Karrot_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_KARROT_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Karrot_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_TOSS_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Toss_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_TOSS_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Toss_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_TOSS_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Toss_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_JOONGGONARA_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Joonggonara_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_JOONGGONARA_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Joonggonara_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_JOONGGONARA_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Joonggonara_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_PAY_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_Pay_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_PAY_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_Pay_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_NAVER_PAY_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/NAVER_Pay_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_KAKAOPAY_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/KakaoPay_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_KAKAOPAY_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/KakaoPay_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_KAKAOPAY_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/KakaoPay_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_COUPANG_EATS_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Coupang_Eats_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_COUPANG_EATS_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Coupang_Eats_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_COUPANG_EATS_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Coupang_Eats_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_DCINSIDE_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/DCInside_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_DCINSIDE_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/DCInside_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_DCINSIDE_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/DCInside_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_FALLCENT_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Fallcent_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_FALLCENT_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Fallcent_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_FALLCENT_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Fallcent_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_HANA_PAY_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Hana_Pay_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_HANA_PAY_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Hana_Pay_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_HANA_PAY_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Hana_Pay_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_BANKSALAD_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Banksalad_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_BANKSALAD_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Banksalad_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_BANKSALAD_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Banksalad_80px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_SETLOG_TINY",
+      "file": "../third_party/resources/iconography/brand-logos/Setlog_25px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_SETLOG_SMALL",
+      "file": "../third_party/resources/iconography/brand-logos/Setlog_50px.svg"
+    },
+    {
+      "type": "pdc",
+      "name": "NOTIFICATION_SETLOG_LARGE",
+      "file": "../third_party/resources/iconography/brand-logos/Setlog_80px.svg"
     }
   ],
   "timeline": [
@@ -3940,6 +4150,132 @@
         "tiny": "RESOURCE_ID_NOTIFICATION_TAPO_TINY",
         "small": "RESOURCE_ID_NOTIFICATION_TAPO_SMALL",
         "large": "RESOURCE_ID_NOTIFICATION_TAPO_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_CHATGPT",
+      "id": 141,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_CHATGPT_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_CHATGPT_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_CHATGPT_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_NAVER",
+      "id": 142,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_NAVER_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_NAVER_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_NAVER_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_NAVER_CAFE",
+      "id": 143,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_NAVER_CAFE_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_NAVER_CAFE_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_NAVER_CAFE_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_KARROT",
+      "id": 144,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_KARROT_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_KARROT_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_KARROT_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_TOSS",
+      "id": 145,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_TOSS_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_TOSS_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_TOSS_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_JOONGGONARA",
+      "id": 146,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_JOONGGONARA_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_JOONGGONARA_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_JOONGGONARA_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_NAVER_PAY",
+      "id": 147,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_NAVER_PAY_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_NAVER_PAY_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_NAVER_PAY_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_KAKAOPAY",
+      "id": 148,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_KAKAOPAY_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_KAKAOPAY_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_KAKAOPAY_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_COUPANG_EATS",
+      "id": 149,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_COUPANG_EATS_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_COUPANG_EATS_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_COUPANG_EATS_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_DCINSIDE",
+      "id": 150,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_DCINSIDE_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_DCINSIDE_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_DCINSIDE_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_FALLCENT",
+      "id": 151,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_FALLCENT_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_FALLCENT_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_FALLCENT_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_HANA_PAY",
+      "id": 152,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_HANA_PAY_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_HANA_PAY_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_HANA_PAY_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_BANKSALAD",
+      "id": 153,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_BANKSALAD_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_BANKSALAD_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_BANKSALAD_LARGE"
+      }
+    },
+    {
+      "name": "NOTIFICATION_SETLOG",
+      "id": 154,
+      "sizes": {
+        "tiny": "RESOURCE_ID_NOTIFICATION_SETLOG_TINY",
+        "small": "RESOURCE_ID_NOTIFICATION_SETLOG_SMALL",
+        "large": "RESOURCE_ID_NOTIFICATION_SETLOG_LARGE"
       }
     }
   ],
