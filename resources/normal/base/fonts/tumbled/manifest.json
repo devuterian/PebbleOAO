@@ -3,48 +3,60 @@
     "file": "MARIE_TUMBLED_14.pbf",
     "source": "TUMBLED_14.pbf",
     "source_sha256": "445a074f61abb8e4c11bfbe1487fbca3b00246fea9c8db031b31d1aec85ff180",
-    "sha256": "e817a37fe35f15d65de5ba148eff1aef7c74229150e8f2fc50acf9c0267a5960",
-    "glyphs": 2611,
-    "bytes": 70999
+    "jamo_source": "Galmuri11.ttf",
+    "jamo_source_sha256": "043643dcc35780afc94c83f55a7b1e6456a1a480f2cbe0be6ce83b6d114ef99b",
+    "sha256": "76ad8ea4cc0edd86cde21f2e0c767d3052c3fc5a6ebd46f0b4248d47725a5164",
+    "glyphs": 2705,
+    "bytes": 73281
   },
   {
     "file": "MARIE_TUMBLED_18.pbf",
     "source": "TUMBLED_18.pbf",
     "source_sha256": "a3dd4dd228f96ea62e953d6b0f985a4be60f9d9c7f791a9a53ba170cd39c512a",
-    "sha256": "facc6375fcaa4c70a79f4b0db0f868be3d21cb56e4346f71d8090a3011dca3b4",
-    "glyphs": 2611,
-    "bytes": 92235
+    "jamo_source": "Galmuri14.ttf",
+    "jamo_source_sha256": "46ad68bd78ac0e7a82bbb75d5e9c7b2f42e0e5316f83fb9a47992f118ac9c6eb",
+    "sha256": "0e5846e37c45f24bf135fc7b5f4d712fee0ce8bd93209fd4251bfe75c0e2996e",
+    "glyphs": 2705,
+    "bytes": 94829
   },
   {
     "file": "MARIE_TUMBLED_18_BOLD.pbf",
     "source": "TUMBLED_18_BOLD.pbf",
     "source_sha256": "265861c6f494d92ca4cdb8e45657ba15a342fdcb232779e8b59e024f9547783a",
-    "sha256": "27397e4d257c93b06691cea082be624ff602b28cd486965a1bb8d3173c30b729",
-    "glyphs": 2611,
-    "bytes": 97003
+    "jamo_source": "Galmuri14.ttf",
+    "jamo_source_sha256": "46ad68bd78ac0e7a82bbb75d5e9c7b2f42e0e5316f83fb9a47992f118ac9c6eb",
+    "sha256": "de4e5c4327f2dd031422bcc1faadd00efa05da7036728904899b2e17ab18596b",
+    "glyphs": 2705,
+    "bytes": 99629
   },
   {
     "file": "MARIE_TUMBLED_24_BOLD.pbf",
     "source": "TUMBLED_24_BOLD.pbf",
     "source_sha256": "1a335585a9f0e430862e04bdb33fa7860e6a84d10c0ebd4acf5ba44e9084b630",
-    "sha256": "b5d7f812447cc4a651956efb27f6ed32669837cda3a58e9e181bf3d745391551",
-    "glyphs": 2611,
-    "bytes": 99571
+    "jamo_source": "Galmuri14.ttf",
+    "jamo_source_sha256": "46ad68bd78ac0e7a82bbb75d5e9c7b2f42e0e5316f83fb9a47992f118ac9c6eb",
+    "sha256": "8b5c6020b2c9dd3d83655b15b25dcdf4ca09e42c7b6f8928d53f0db1e23895f2",
+    "glyphs": 2705,
+    "bytes": 102197
   },
   {
     "file": "MARIE_TUMBLED_28.pbf",
     "source": "TUMBLED_28.pbf",
     "source_sha256": "c3042115f9e4699cea479fadcbef9cb610bdb52efa607cee1e175173a7ebe138",
-    "sha256": "4f9454d9fa432075ffb3db37628184424c92d55ac03bf877ab50296913074c4a",
-    "glyphs": 2611,
-    "bytes": 144671
+    "jamo_source": "Galmuri14.ttf",
+    "jamo_source_sha256": "46ad68bd78ac0e7a82bbb75d5e9c7b2f42e0e5316f83fb9a47992f118ac9c6eb",
+    "sha256": "16492afcfa8ce9dd69c1eb125d7fdd6bf215f78e7947041ed98774ddcccfd556",
+    "glyphs": 2705,
+    "bytes": 148485
   },
   {
     "file": "MARIE_TUMBLED_36.pbf",
     "source": "TUMBLED_28.pbf",
     "source_sha256": "c3042115f9e4699cea479fadcbef9cb610bdb52efa607cee1e175173a7ebe138",
-    "sha256": "50a3471f4dddaea6c1c5198f63e7d9126a0e7150c8fa71320caf4660ccef6748",
-    "glyphs": 2611,
-    "bytes": 217975
+    "jamo_source": "Galmuri14.ttf",
+    "jamo_source_sha256": "46ad68bd78ac0e7a82bbb75d5e9c7b2f42e0e5316f83fb9a47992f118ac9c6eb",
+    "sha256": "5b5dd20130a8e942d7afaa2d375b3d26107dbf5b9c1b1d3984bc0920f7130312",
+    "glyphs": 2705,
+    "bytes": 223645
   }
 ]

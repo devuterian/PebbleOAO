@@ -17,7 +17,8 @@ the catalog. [TUMBLED v1.3](https://github.com/TsFreddie/TUMBLED/releases/tag/v1
 replaces the Korean font extension using the upstream Lite size mappings to fit
 the existing resource bank. It covers 2,350 Hangul syllables and kana, including
 every Hangul character in the Korean UI catalog. It does not cover every possible
-Hangul syllable or standalone jamo. The 36px size is scaled from 28px; Latin and
+Hangul syllable. All 94 compatibility jamo (including ㅋㅋ, ㅎㅎ and ㅠㅠ) are
+added from Galmuri, one of TUMBLED's source families. The 36px size is scaled from 28px; Latin and
 emoji retain the original system fonts. See the font directory's NOTICE.md for
 coverage, attribution, and reproducible generation instructions.
 

@@ -60,6 +60,9 @@
 void prefs_sync_init(void) {
 }
 
+void battery_charge_limit_refresh(void) {
+}
+
 // Fakes
 #include "fake_accel_service.h"
 #include "fake_cron.h"

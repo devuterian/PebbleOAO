@@ -68,6 +68,31 @@ become callable from user apps.
 
 ## Git rules
 
+## Marie release conventions
+
+- Release titles use `v<upstream-base>-ver<NNN>-<dessert name>`, starting with
+  `v4.37.0-ver001-ang butter bread`. Use hyphens instead of spaces in Git tags.
+- Increment the custom version globally for every new release, including
+  prereleases. Do not reset it when the upstream base version changes.
+- Dessert names start with A, then B through Z, then cycle back to A. Choose
+  desserts familiar to Korean users and never reuse a previous dessert name.
+  Check all GitHub releases, drafts, and tags before assigning a name or number.
+- Release notes contain only short, natural Korean changelog bullets in a
+  friendly human voice. Do not include installation instructions. Keep detailed
+  validation and installation information in development documentation instead.
+- The first release under this convention reserves `ver001` and
+  `ang butter bread` for the Korean/TUMBLED/jamo feature integration.
+
+- Prepare the next name and notes with `python3 tools/marie_release.py prepare
+  --base v4.37.0 --dessert "..." --notes /path/to/notes.md`. Keep every record in
+  `docs/releases/`; the helper checks remote releases/drafts/tags, the A–Z cycle,
+  name reuse and the firmware's 31-character version limit. Choose a familiar
+  dessert with a short enough English name rather than truncating the version.
+- Release notes are prepared before tagging. The release workflow validates the
+  matching notes file and uses it verbatim; preparation does not publish.
+
+## Commit rules
+
 Main rules:
 
 - Commit using `-s` git option, so commits have `Signed-Off-By`
