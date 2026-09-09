@@ -44,6 +44,89 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 - **기본 워치페이스가 안 켜지던 문제를 고쳤습니다.** 제가 넣은 변경 사항 때문에 생긴 문제였습니다. 시계인데 시계 화면이 안 나오면 안 되니까요.
 - **다크 모드를 껐을 때 이상하게 보이던 부분을 고쳤습니다.** 메뉴 선택 표시랑 음악 화면의 글자가 잘 안 보이던 부분을 수정했습니다.
 
+## 사진으로 보면 이렇습니다
+
+왼쪽은 **순정 PebbleOS v4.37.0**, 오른쪽은 **Pebbleㅇㅅㅇ;; Flan**입니다. 둘 다 Time 2 에뮬레이터에서 찍었고, 순정에는 별도 한글팩을 설치하지 않았습니다.
+
+양쪽 모두 글자 크기를 **크게**로 맞췄습니다. 충전 설정 사진만 기존에 찍어둔 기본 글자 크기 화면입니다. 배터리·건강·알림 데이터는 테스트용이며, `--W / 계산 중`은 에뮬레이터에서 충전 측정값을 받지 못해서 나오는 표시예요.
+
+**앱 서랍**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-launcher.png" width="300" alt="순정 앱 서랍"> | <img src="docs/_static/images/comparison/flan/custom-launcher.png" width="300" alt="Pebbleㅇㅅㅇ;; 앱 서랍"> |
+| 글자를 크게 설정해도 앱 이름은 작은 편입니다. | 앱 이름도 같이 커지고, 메뉴를 한글로 볼 수 있습니다. |
+
+**설정 메뉴**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-settings.png" width="300" alt="순정 설정 메뉴"> | <img src="docs/_static/images/comparison/flan/custom-settings.png" width="300" alt="Pebbleㅇㅅㅇ;; 설정 메뉴"> |
+| 메뉴 사이가 넓어서 한 화면에 보이는 항목이 적습니다. | 글씨는 크게 두고 간격을 줄여 더 많은 항목이 보이게 했습니다. |
+
+**한글 알림과 앱 아이콘**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-notification-detail.png" width="300" alt="순정 한글 알림과 앱 아이콘"> | <img src="docs/_static/images/comparison/flan/custom-notification-detail.png" width="300" alt="Pebbleㅇㅅㅇ;; 한글 알림과 앱 아이콘"> |
+| 별도 한글팩이 없으면 한글이 네모로 나오고, ChatGPT는 기본 아이콘을 씁니다. | 한글과 낱자 자모가 나오고, 수정된 폰 앱과 함께 쓰면 ChatGPT 아이콘도 뜹니다. |
+
+**알림 목록**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-notifications.png" width="300" alt="순정 알림 목록"> | <img src="docs/_static/images/comparison/flan/custom-notifications.png" width="300" alt="Pebbleㅇㅅㅇ;; 알림 목록"> |
+| 목록의 제목과 내용은 작은 글씨로 표시됩니다. | 목록에도 큰 글씨 설정을 적용하고 항목 사이의 간격을 줄였습니다. |
+
+**건강 앱**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-health.png" width="300" alt="순정 건강 앱"> | <img src="docs/_static/images/comparison/flan/custom-health.png" width="300" alt="Pebbleㅇㅅㅇ;; 건강 앱"> |
+| 요일별 비교가 “TYPICAL WED”처럼 영어로 나옵니다. | 비교 대상에 맞춰 “수요일 평균”처럼 한국어로 표시합니다. |
+
+**충전 화면**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-charging.png" width="300" alt="순정 충전 화면"> | <img src="docs/_static/images/comparison/flan/custom-charging.png" width="300" alt="Pebbleㅇㅅㅇ;; 충전 화면"> |
+| 충전 아이콘과 “Charging” 문구를 보여줍니다. | 잔량·배터리 전력·남은 시간·시계를 표시하고, 소수점은 조금 작게 넣었습니다. |
+
+**충전 설정**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-charging.png" width="300" alt="순정 충전 설정"> | <img src="docs/_static/images/comparison/flan/custom-charging-settings.png" width="300" alt="Pebbleㅇㅅㅇ;; 충전 설정"> |
+| 충전 화면의 표시 항목을 고르는 메뉴는 없습니다. | 표시 방식·소수 자릿수·갱신 간격·80% 충전 제한을 설정할 수 있습니다. |
+
+**다크 모드**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-launcher.png" width="300" alt="순정 다크 모드"> | <img src="docs/_static/images/comparison/flan/custom-dark-launcher.png" width="300" alt="Pebbleㅇㅅㅇ;; 다크 모드"> |
+| 앱 서랍은 밝은 배경으로 표시됩니다. | 어두운 배경으로 바꿀 수 있고, 시간이나 주변 밝기에 맞춰 전환할 수도 있습니다. |
+
+**정각 알림 소리**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-date-time.png" width="300" alt="순정 정각 알림 소리"> | <img src="docs/_static/images/comparison/flan/custom-chime.png" width="300" alt="Pebbleㅇㅅㅇ;; 정각 알림 소리"> |
+| 날짜와 시간 메뉴에는 시간 표시와 시간대 설정이 있습니다. | 스피커로 정각을 알리도록 켜고, 간격과 소리가 날 시간을 정할 수 있습니다. |
+
+**진동 패턴**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-vibrations.png" width="300" alt="순정 진동 패턴"> | <img src="docs/_static/images/comparison/flan/custom-vibrations.png" width="300" alt="Pebbleㅇㅅㅇ;; 진동 패턴"> |
+| 기본으로 들어 있는 진동 패턴 중에서 고릅니다. | 중간 길이 두 번을 포함해 새 진동 패턴 6가지를 더 골라 쓸 수 있습니다. |
+
+**손바닥으로 덮기**
+
+| 순정 | Pebbleㅇㅅㅇ;; |
+| :---: | :---: |
+| <img src="docs/_static/images/comparison/flan/stock-backlight.png" width="300" alt="순정 손바닥으로 덮기"> | <img src="docs/_static/images/comparison/flan/custom-palm.png" width="300" alt="Pebbleㅇㅅㅇ;; 손바닥으로 덮기"> |
+| 움직임이나 터치로 백라이트를 켜는 설정이 있습니다. | 화면을 덮으면 백라이트를 끄고 워치페이스로 돌아가게 할 수 있습니다. |
+
 ## 조잡해보이는데
 
 네. 제가 쓰려고 만들었기 때문에 조잡합니다. 그래서 (혹시나 버그가 생긴다면) 알람이 안 울린다든지 뭐 어쩐다든지 할 수 있습니다. 이 레포지토리의 모든 파일을 Pebble, 또는 안드로이드 폰에 적용시 물적, 심적인 책임은 이용자에게 전부 있음을 인정한다고 간주합니다.

@@ -1,0 +1,76 @@
+{
+  "stock": {
+    "tag": "v4.37.0",
+    "commit": "9399f564fb5035057a9174025d2c6c625e942285"
+  },
+  "custom": {
+    "tag": "v4.37.0-ver006-flan",
+    "commit": "bd0bb8a094f918d4ae7f3841fc1f96f139dd6434"
+  },
+  "board": "qemu_emery",
+  "physical_device": false,
+  "content_size": "Larger (textStyle=3)",
+  "stock_language": "English, no language pack",
+  "custom_language": "Korean, built in TUMBLED",
+  "health": "Both emulators injected with 145 steps, not actual activity",
+  "battery": "QEMU injected 53%, no real power or ETA measurements",
+  "notification": "same two test messages; stock generic icon vs companion app ChatGPT icon 141",
+  "charging_settings_exception": "Existing Flan release screenshot, default content size",
+  "comparisons": [
+    {
+      "feature": "앱 서랍",
+      "stock": "stock-launcher.png",
+      "custom": "custom-launcher.png"
+    },
+    {
+      "feature": "설정 메뉴",
+      "stock": "stock-settings.png",
+      "custom": "custom-settings.png"
+    },
+    {
+      "feature": "한글 알림과 앱 아이콘",
+      "stock": "stock-notification-detail.png",
+      "custom": "custom-notification-detail.png"
+    },
+    {
+      "feature": "알림 목록",
+      "stock": "stock-notifications.png",
+      "custom": "custom-notifications.png"
+    },
+    {
+      "feature": "건강 앱",
+      "stock": "stock-health.png",
+      "custom": "custom-health.png"
+    },
+    {
+      "feature": "충전 화면",
+      "stock": "stock-charging.png",
+      "custom": "custom-charging.png"
+    },
+    {
+      "feature": "충전 설정",
+      "stock": "stock-charging.png",
+      "custom": "custom-charging-settings.png"
+    },
+    {
+      "feature": "다크 모드",
+      "stock": "stock-launcher.png",
+      "custom": "custom-dark-launcher.png"
+    },
+    {
+      "feature": "정각 알림 소리",
+      "stock": "stock-date-time.png",
+      "custom": "custom-chime.png"
+    },
+    {
+      "feature": "진동 패턴",
+      "stock": "stock-vibrations.png",
+      "custom": "custom-vibrations.png"
+    },
+    {
+      "feature": "손바닥으로 덮기",
+      "stock": "stock-backlight.png",
+      "custom": "custom-palm.png"
+    }
+  ]
+}
