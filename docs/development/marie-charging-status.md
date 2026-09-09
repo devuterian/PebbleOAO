@@ -47,8 +47,8 @@ not prematurely stop at 79.x% or hide the 77% threshold crossing.
 
 Local evidence is in
 `/Volumes/marie-4TB2/codex-pebble-health-preview/charge-screens/` and the
-`charge-*.log` files in its parent directory. This change has not been released
-or installed on the user's watch.
+`charge-*.log` files in its parent directory. The Flan prerelease contains these changes; physical-watch installation and
+charging measurements remain unverified.
 
 ## Display preferences
 
@@ -63,3 +63,32 @@ Decimal places (0–3), refresh interval (3/5/10/30/60 seconds), and the 80% lim
 remain configurable. Reset restores display preferences only. Preferences use the
 existing persistent shell store; arbitrary combinations from the earlier editor
 are normalized to one of the three modes.
+
+
+## Flan prerelease validation
+
+Both obelix_pvt firmware slots build with CONFIG_RELEASE=y. Each resource bank
+uses 1,977,128 of 2,097,152 bytes. The six focused charging CTest suites pass.
+
+Charging icons are cloned into owned RAM before scaling because built-in PDC
+resources can be mapped read-only. The previous in-place transform reproduced
+an MPU fault during charging startup in QEMU. The charging sequence loops while
+visible and pauses when covered; three-second value refreshes retain the reel.
+Stock mode keeps the native dialog. QEMU fixture values are rendering inputs,
+not measurements from a physical battery.
+
+Companion app ver010 adds a per-watch, default-off preview channel. The tester
+confirmation is required before saving it. Its APK builds and passes signature
+verification; 23 firmware-related host tests pass, including persistence and
+promotion from a preview to a newer stable release. The APK has not been
+installed on the owner's phone in this release run.
+
+The fixed QEMU image boots while plugged in at 53%, accepts host battery
+updates, and renders the Korean custom screen. A six-second capture at 100 ms
+intervals produced 60 distinct framebuffer images, confirming continuous icon
+animation. Release images are actual QEMU captures with synthetic battery
+percentages; unavailable power and remaining-time data are shown honestly.
+
+Korean all-details, native stock, icon-and-percentage and 100% screens were
+captured separately and assembled into the release contact sheet without
+altering the captured UI. The 100% screen omits fractional digits.
