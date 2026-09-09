@@ -99,6 +99,9 @@ static void prv_charge_icon_layout(Dialog *dialog) {
         gdraw_command_list_scale(gdraw_command_frame_get_command_list(frame), from, size);
       }
       gdraw_command_sequence_set_bounds_size(copy, size);
+      if (dialog->icon_id == RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE) {
+        gdraw_command_sequence_set_play_count(copy, PLAY_COUNT_INFINITE);
+      }
       scaled_reel = kino_reel_pdcs_create(copy, true);
       if (!scaled_reel) {
         gdraw_command_sequence_destroy(copy);
@@ -118,11 +121,19 @@ static void prv_charge_icon_layout(Dialog *dialog) {
   }
   if (scaled_reel) {
     kino_layer_set_reel(&dialog->icon_layer, scaled_reel, true);
+    if (window_is_on_screen(&dialog->window)) {
+      kino_layer_play(&dialog->icon_layer);
+    }
   }
   GRect frame = GRect(0, 0, size.w, size.h);
   frame.origin.x = prefs.flags == 31 ? 51 : 50;
   frame.origin.y = prefs.flags == 31 ? 11 : 32;
   layer_set_frame(icon, &frame);
+}
+
+static void prv_charge_disappear(Window *window) {
+  SimpleDialog *simple_dialog = window_get_user_data(window);
+  kino_layer_pause(&simple_dialog_get_dialog(simple_dialog)->icon_layer);
 }
 
 static void prv_charge_load(void *context) {
@@ -133,6 +144,9 @@ static void prv_charge_load(void *context) {
   layer_set_frame(&dialog->text_layer.layer, &dialog->window.layer.bounds);
   layer_set_update_proc(&dialog->text_layer.layer, prv_charge_draw);
   prv_charge_icon_layout(dialog);
+  WindowHandlers handlers = dialog->window.window_handlers;
+  handlers.disappear = prv_charge_disappear;
+  window_set_window_handlers(&dialog->window, &handlers);
 }
 static void prv_charge_refresh(void *unused);
 #endif
@@ -312,6 +326,7 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
 
 #if CHARGE_DETAILS
   if (s_charge_dialog) {
+    // Keep the PDC reel's animation without the stock entrance transform.
     simple_dialog_set_icon_animated(new_simple_dialog, false);
   }
 #endif
