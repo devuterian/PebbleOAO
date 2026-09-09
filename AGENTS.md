@@ -82,6 +82,10 @@ become callable from user apps.
 - Release notes contain only short, natural Korean changelog bullets in a
   friendly human voice. Do not include installation instructions. Keep detailed
   validation and installation information in development documentation instead.
+- Attach only two files to every Marie release: the merged normal obelix_pvt
+  Pebble Time 2 firmware `.pbz` (both slots) and the companion Android `.apk`.
+  Keep build/debug artifacts, checksums and separate notices out of release assets;
+  preserve attribution and license notices in the source and packaged software.
 - The first release under this convention reserves `ver001` and
   `ang butter bread` for the Korean/TUMBLED/jamo feature integration.
 

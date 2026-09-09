@@ -72,3 +72,20 @@ disabling the option stops the action. Confirm alarms remain visible.
 This installs a custom version; it does not redirect the official mobile app's
 update checks to this GitHub repository. Future custom versions can be sideloaded
 in the same way. See [Building firmware](building_fw.md) for official instructions.
+
+## Egg salad UI validation
+
+The rectangular launcher and notification list follow the selected text size.
+Settings and notification rows now use their font heights plus a small margin.
+An Obelix emulator with Korean and Extra Large text showed five complete settings
+categories and three notification rows below Clear All without overlapping text.
+The launcher showed four entries, and notification detail text wrapped normally.
+
+The focused `large_text_row_height` launcher test passed. The full launcher
+image suite has ten missing Obelix golden-image failures, also reproduced before
+these changes; it is not a passing visual regression suite. The preview used
+forced language, text size and health fixtures only for inspection. Release builds
+use the tagged production source and do not include those fixtures. Physical
+watch validation of the new layout remains separate from emulator validation.
+
+Marie release assets are limited to the merged normal Time 2 PBZ and Android APK.
