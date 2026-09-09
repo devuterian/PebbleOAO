@@ -3627,3 +3627,47 @@ msgstr "알림 시작"
 
 msgid "Chime End"
 msgstr "알림 종료"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Red"
+msgstr "빨강"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Orange"
+msgstr "주황"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Yellow"
+msgstr "노랑"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Green"
+msgstr "초록"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Cyan"
+msgstr "청록"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Light Blue"
+msgstr "하늘색"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Royal Blue"
+msgstr "파랑"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Purple"
+msgstr "보라"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Magenta"
+msgstr "자홍"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Pink"
+msgstr "분홍"
+
+#: src/fw/services/timeline/timeline_actions.c
+msgid "Success"
+msgstr "완료"

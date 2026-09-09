@@ -305,7 +305,7 @@ static void prv_handle_success_fail_response(ActionResultData *data,
                                              AttributeList *attr_list,
                                              bool success) {
   const char *msg = attribute_get_string(attr_list, AttributeIdSubtitle,
-                                         success ? "Success" : "Failed");
+                                         success ? i18n_noop("Success") : i18n_noop("Failed"));
   const uint32_t icon = attribute_get_uint32(attr_list, AttributeIdIconLarge,
                                              success ? TIMELINE_RESOURCE_RESULT_SENT
                                                      : TIMELINE_RESOURCE_GENERIC_WARNING);

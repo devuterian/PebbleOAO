@@ -30,17 +30,17 @@ typedef struct ColorDefinition {
 } ColorDefinition;
 
 static const ColorDefinition s_color_definitions[11] = {
-  {"Default", GColorClear},
-  {"Red", GColorSunsetOrange},
-  {"Orange", GColorChromeYellow},
-  {"Yellow", GColorYellow},
-  {"Green", GColorGreen},
-  {"Cyan", GColorCyan},
-  {"Light Blue", GColorVividCerulean},
-  {"Royal Blue", GColorVeryLightBlue},
-  {"Purple", GColorLavenderIndigo},
-  {"Magenta", GColorMagenta},
-  {"Pink", GColorBrilliantRose},
+  {i18n_noop("Default"), GColorClear},
+  {i18n_noop("Red"), GColorSunsetOrange},
+  {i18n_noop("Orange"), GColorChromeYellow},
+  {i18n_noop("Yellow"), GColorYellow},
+  {i18n_noop("Green"), GColorGreen},
+  {i18n_noop("Cyan"), GColorCyan},
+  {i18n_noop("Light Blue"), GColorVividCerulean},
+  {i18n_noop("Royal Blue"), GColorVeryLightBlue},
+  {i18n_noop("Purple"), GColorLavenderIndigo},
+  {i18n_noop("Magenta"), GColorMagenta},
+  {i18n_noop("Pink"), GColorBrilliantRose},
 };
 static const char* color_names[ARRAY_LENGTH(s_color_definitions)];
 static bool color_names_initialized = false;
