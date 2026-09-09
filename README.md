@@ -4,7 +4,9 @@
 
 <p align="center">
   Pebbleㅇㅅㅇ;;
-  for **Pebble Time 2**
+</p>
+<p align="center">
+  for Pebble Time 2
 </p>
 
 ## 이게 뭔데
