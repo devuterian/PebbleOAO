@@ -92,3 +92,7 @@ percentages; unavailable power and remaining-time data are shown honestly.
 Korean all-details, native stock, icon-and-percentage and 100% screens were
 captured separately and assembled into the release contact sheet without
 altering the captured UI. The 100% screen omits fractional digits.
+
+The final settings build was checked in QEMU: changing screen mode, decimal
+count, refresh interval and the charge limit updates each label immediately,
+without leaving the settings page.
