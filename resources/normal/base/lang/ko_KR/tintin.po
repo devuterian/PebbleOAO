@@ -1929,7 +1929,7 @@ msgstr "깊은 수면"
 #: src/fw/apps/system/health/ui.c:65
 #, c-format
 msgid "TYPICAL %s"
-msgstr "평소 %s"
+msgstr "%s요일 평균"
 
 #: src/fw/apps/system/health/hr_summary_card.c:114
 msgid "BPM"

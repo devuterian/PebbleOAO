@@ -28,12 +28,19 @@ int health_util_format_hours_and_minutes(char *buffer, size_t buffer_size, int d
   int pos = 0;
   if (hours != INT_MIN) {
     pos += snprintf(buffer + pos, buffer_size - pos, i18n_get("%dH", i18n_owner), hours);
-    if (minutes != INT_MIN && pos < (int)buffer_size - 1) {
-      buffer[pos++] = ' ';
+    if (minutes != INT_MIN) {
+      if ((size_t)pos + 1 < buffer_size) {
+        buffer[pos] = ' ';
+        buffer[pos + 1] = '\0';
+      }
+      ++pos;
     }
   }
   if (minutes != INT_MIN) {
-    pos += snprintf(buffer + pos, buffer_size - pos, i18n_get("%dM", i18n_owner), minutes);
+    // Modified for Marie: snprintf returns the required length even when truncated.
+    const size_t remaining = (size_t)pos < buffer_size ? buffer_size - pos : 0;
+    pos += snprintf(remaining ? buffer + pos : NULL, remaining,
+                    i18n_get("%dM", i18n_owner), minutes);
   }
   return pos;
 }

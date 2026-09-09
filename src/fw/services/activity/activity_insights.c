@@ -1621,7 +1621,8 @@ static const char *prv_get_distance_unit(void *i18n_owner) {
 static void prv_add_metric_duration_info(StringList *headings, int headings_buf_size,
                                          StringList *values, int values_buf_size,
                                          ActivitySession *session) {
-  const size_t duration_buffer_size = sizeof("00:00:00");
+  // Modified for Marie: allow translated duration units, including Korean.
+  const size_t duration_buffer_size = 32;
   char duration_str[duration_buffer_size];
 
   const int duration_s = session->length_min * SECONDS_PER_MINUTE;

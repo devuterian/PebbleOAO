@@ -12,8 +12,11 @@
 #include "applib/ui/kino/kino_layer.h"
 #include "board/display.h"
 #include "resource/resource_ids.auto.h"
+#include "syscall/syscall.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/util/size.h"
+
+#include <string.h>
 
 // Compile-time display offset calculations
 #define HEALTH_X_OFFSET ((DISP_COLS - LEGACY_2X_DISP_COLS) / 2)
@@ -169,13 +172,24 @@ static void prv_render_current_sleep_text(GContext *ctx, Layer *base_layer) {
 
   const int current_sleep = health_data_current_sleep_get(data->health_data);
   if (current_sleep) {
+    char locale[ISO_LOCALE_LENGTH];
+    sys_i18n_get_locale(locale);
+    GFont unit_font = data->unit_font;
+    // Modified for Marie: LECO's numeric fonts cannot render Korean units.
+    if (strncmp(locale, "ko", 2) == 0) {
+#if DISP_ROWS > LEGACY_2X_DISP_ROWS
+      unit_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+#else
+      unit_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+#endif
+    }
     // Draw the hours slept
     GTextNodeHorizontal *horiz_container = graphics_text_node_create_horizontal(MAX_TEXT_NODES);
     GTextNodeContainer *container = &horiz_container->container;
     horiz_container->horizontal_alignment = GTextAlignmentCenter;
     health_util_duration_to_hours_and_minutes_text_node(current_sleep, base_layer,
                                                         data->number_font,
-                                                        data->unit_font,
+                                                        unit_font,
                                                         CURRENT_TEXT_COLOR, container);
     graphics_text_node_draw(&container->node, ctx, &rect, NULL, NULL);
     graphics_text_node_destroy(&container->node);
