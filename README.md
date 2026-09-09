@@ -1,14 +1,18 @@
-<p align="center">
-  <img src="docs/_static/images/logo.svg" alt="Pebble 로고">
-</p>
+<div align="center">
+<img src="docs/_static/images/logo.svg" width="180" alt="PebbleOAO Time">
 
-<p align="center">
-  Pebbleㅇㅅㅇ;;
+# Pebbleㅇㅅㅇ;;
+for Pebble Time 2
 </p>
+</div>
+
+
+
+
 
 ## 이게 뭔데
 
-Pebbleㅇㅅㅇ;;은 제가 쓰려고 만든 PebbleOS의 커스텀 펌웨어입니다~~~~
+Pebbleㅇㅅㅇ;;은 제가 쓰려고 만든 PebbleOS의 **Pebble Time 2 전용** 커스텀 펌웨어입니다~~~~
 PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같은 기능을 제가 직접 골라왔습니다요.
 
 ## 뭐가 다른데
@@ -39,10 +43,6 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 - **앱 알림 아이콘 14개를 추가했습니다.** ChatGPT, 네이버, 네이버 카페, 당근, 토스, 중고나라, 네이버페이, 카카오페이, 쿠팡이츠, 디시인사이드, 폴센트, 하나페이, 뱅크샐러드, 셋로그가 들어 있습니다.
 - **아이콘은 수정된 안드로이드 앱도 필요합니다.** 함께 제공하는 앱을 사용해주세요. 펌웨어만 바꾸면 새 아이콘이 나오지 않습니다.
 
-### 고친 것들
-
-- **기본 워치페이스가 안 켜지던 문제를 고쳤습니다.** 제가 넣은 변경 사항 때문에 생긴 문제였습니다. 시계인데 시계 화면이 안 나오면 안 되니까요.
-- **다크 모드를 껐을 때 이상하게 보이던 부분을 고쳤습니다.** 메뉴 선택 표시랑 음악 화면의 글자가 잘 안 보이던 부분을 수정했습니다.
 
 ## 사진으로 보면 이렇습니다
 
