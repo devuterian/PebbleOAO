@@ -11,3 +11,5 @@ pbl_clar_test(test_system_dark_mode
     src/fw/shell/system_theme.c
   PLATFORMS obelix
 )
+
+pbl_clar_test(test_charging_preferences)

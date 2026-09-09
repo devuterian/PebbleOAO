@@ -16,6 +16,7 @@
 #endif
 #include "health.h"
 #include "vibe_patterns.h"
+#include "charging.h"
 
 #include "applib/ui/app_window_stack.h"
 #include "system/passert.h"
@@ -35,6 +36,9 @@ static const SettingsModuleGetMetadata s_submodule_registry[] = {
   [SettingsMenuItemThemes]        = settings_themes_get_info,
 #endif
   [SettingsMenuItemSystem]        = settings_system_get_info,
+#if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
+  [SettingsMenuItemCharging]      = settings_charging_get_info,
+#endif
 };
 
 const SettingsModuleMetadata *settings_menu_get_submodule_info(SettingsMenuItem category) {

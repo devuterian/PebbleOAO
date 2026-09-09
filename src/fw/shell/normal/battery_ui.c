@@ -18,7 +18,10 @@
 #include "util/time/time.h"
 #include "pbl/services/battery/battery_charge_limit.h"
 #include "shell/prefs.h"
+#include "shell/charging_preferences.h"
+#include <string.h>
 #include "applib/fonts/fonts.h"
+#include "applib/graphics/gdraw_command_transforms.h"
 
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
 #define CHARGE_DETAILS 1
@@ -29,16 +32,76 @@ static char s_charge_detail[140];
 static void prv_update_ui_charging(Dialog *dialog, void *ignored);
 
 static void prv_charge_draw(Layer *layer, GContext *ctx) {
+  ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
   GRect bounds = layer->bounds;
   graphics_context_set_fill_color(ctx, layer_get_window(layer)->background_color);
   graphics_fill_rect(ctx, &bounds);
   graphics_context_set_text_color(ctx, ((TextLayer *)layer)->text_color);
-  graphics_draw_text(ctx, s_charge_percent, fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS),
-                     GRect(4, bounds.size.h / 2 - 45, bounds.size.w - 8, 55),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, s_charge_detail, fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                     GRect(4, bounds.size.h / 2 + 12, bounds.size.w - 8, 28),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  if (prefs.flags & ChargingDisplayStock) {
+    return;
+  }
+  // Visible glyph tops from the user's 200x228 layout; BITHAM starts 13px below its box.
+  int y = prefs.flags == 31 ? 111 : 134;
+  if (prefs.flags & ChargingDisplayPercent) {
+    char integer[16], fraction[16] = "";
+    snprintf(integer, sizeof(integer), "%s", s_charge_percent);
+    char *dot = strchr(integer, '.');
+    if (dot) {
+      snprintf(fraction, sizeof(fraction), "%s", dot);
+      *dot = '\0';
+    }
+    GFont large = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+    GFont small = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+    GRect measure = GRect(0, 0, 1000, 60);
+    int width = graphics_text_layout_get_max_used_size(ctx, integer, large, measure,
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL).w;
+    int fraction_width = fraction[0] ? graphics_text_layout_get_max_used_size(ctx, fraction,
+        small, measure, GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL).w : 0;
+    int x = (bounds.size.w - width - fraction_width) / 2;
+    graphics_draw_text(ctx, integer, large, GRect(x, y, width + 1, 60),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    if (fraction[0]) {
+      graphics_draw_text(ctx, fraction, small, GRect(x + width, y + 12, fraction_width + 1, 45),
+                         GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    }
+  }
+  if (prefs.flags == 31) {
+    graphics_draw_text(ctx, s_charge_detail, fonts_get_system_font(FONT_KEY_GOTHIC_18),
+                       GRect(4, 158, bounds.size.w - 8, 28),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
+  if (prefs.flags & ChargingDisplayClock) {
+    char time[64];
+    clock_copy_time_string(time, sizeof(time));
+    graphics_draw_text(ctx, time, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                       GRect(4, 188, bounds.size.w - 8, 32),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
+}
+
+static void prv_charge_icon_layout(Dialog *dialog) {
+  ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
+  Layer *icon = &dialog->icon_layer.layer;
+  // Match the 100px icon in the 200x228 charging layout. Scale each reel only once.
+  KinoReel *reel = kino_layer_get_reel(&dialog->icon_layer);
+  GSize size = GSize(100, 100);
+  GDrawCommandSequence *sequence = kino_reel_get_gdraw_command_sequence(reel);
+  if (sequence && gdraw_command_sequence_get_bounds_size(sequence).w != size.w) {
+    GSize from = gdraw_command_sequence_get_bounds_size(sequence);
+    for (uint32_t i = 0; i < gdraw_command_sequence_get_num_frames(sequence); ++i) {
+      GDrawCommandFrame *frame = gdraw_command_sequence_get_frame_by_index(sequence, i);
+      gdraw_command_list_scale(gdraw_command_frame_get_command_list(frame), from, size);
+    }
+    gdraw_command_sequence_set_bounds_size(sequence, size);
+  }
+  GDrawCommandImage *image = kino_reel_get_gdraw_command_image(reel);
+  if (image && gdraw_command_image_get_bounds_size(image).w != size.w) {
+    gdraw_command_image_scale(image, size);
+  }
+  GRect frame = GRect(0, 0, size.w, size.h);
+  frame.origin.x = prefs.flags == 31 ? 51 : 50;
+  frame.origin.y = prefs.flags == 31 ? 11 : 32;
+  layer_set_frame(icon, &frame);
 }
 
 static void prv_charge_load(void *context) {
@@ -48,6 +111,7 @@ static void prv_charge_load(void *context) {
   }
   layer_set_frame(&dialog->text_layer.layer, &dialog->window.layer.bounds);
   layer_set_update_proc(&dialog->text_layer.layer, prv_charge_draw);
+  prv_charge_icon_layout(dialog);
 }
 static void prv_charge_refresh(void *unused);
 #endif
@@ -77,23 +141,31 @@ static const ResourceId s_warning_icon[] = {
 
 static void prv_update_ui_fully_charged(Dialog *dialog, void *ignored) {
 #if CHARGE_DETAILS
-  prv_update_ui_charging(dialog, NULL);
-  return;
-#else
-  dialog_set_text(dialog, i18n_get("Fully Charged", dialog));
+  if (shell_prefs_get_charging_display().flags != ChargingDisplayStock) {
+    prv_update_ui_charging(dialog, NULL);
+    return;
+  }
 #endif
+  dialog_set_text(dialog, i18n_get("Fully Charged", dialog));
   dialog_set_background_color(dialog, GColorKellyGreen);
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_FULL_LARGE);
 }
 
 static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
 #if CHARGE_DETAILS
+  if (shell_prefs_get_charging_display().flags == ChargingDisplayStock) {
+    dialog_set_text(dialog, i18n_get("Charging", dialog));
+    dialog_set_background_color(dialog, GColorLightGray);
+    dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE);
+    return;
+  }
   BatteryChargeState state = battery_get_charge_state();
   bool limited = shell_prefs_get_charge_limit_enabled();
   uint8_t target = limited ? 80 : 100;
+  ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
   uint32_t mpct = battery_state_get_millipercent();
-  snprintf(s_charge_percent, sizeof(s_charge_percent), "%lu.%03lu%%",
-           (unsigned long)(mpct / 1000), (unsigned long)(mpct % 1000));
+  charging_display_format_percent(s_charge_percent, sizeof(s_charge_percent), mpct,
+                                  prefs.decimals);
   const char *status = NULL;
   bool complete = state.is_plugged && mpct >= target * 1000U;
   if (complete) {
@@ -124,10 +196,25 @@ static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
     } else {
       snprintf(duration, sizeof(duration), "%s", i18n_get("Calculating", dialog));
     }
-    snprintf(s_charge_detail, sizeof(s_charge_detail), "%s / %s", power, duration);
+    bool show_power = prefs.flags & ChargingDisplayPower;
+    bool show_time = prefs.flags & ChargingDisplayRemaining;
+    if (show_power && show_time) {
+      snprintf(s_charge_detail, sizeof(s_charge_detail), "%s / %s", power, duration);
+    } else {
+      snprintf(s_charge_detail, sizeof(s_charge_detail), "%s",
+               show_power ? power : (show_time ? duration : ""));
+    }
   }
   dialog_set_background_color(dialog, status ? GColorKellyGreen : system_theme_get_bg_color());
   dialog_set_text_color(dialog, status ? GColorBlack : system_theme_get_fg_color());
+  uint32_t icon = status ? RESOURCE_ID_BATTERY_ICON_FULL_LARGE :
+                           RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE;
+  if (dialog->icon_id != icon) {
+    dialog_set_icon(dialog, icon);
+  }
+  if (window_is_loaded(&dialog->window)) {
+    prv_charge_icon_layout(dialog);
+  }
   if (!dialog->buffer) {
     dialog_set_text_buffer(dialog, "", false);
   }
@@ -167,10 +254,15 @@ static void prv_charge_refresh(void *unused) {
     return;
   }
   if (window_is_on_screen(&s_dialog->window)) {
-    battery_state_request_sample();
+    ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
+    if (!(prefs.flags & ChargingDisplayStock) &&
+        (prefs.flags & (ChargingDisplayPercent | ChargingDisplayPower | ChargingDisplayRemaining))) {
+      battery_state_request_sample();
+    }
     prv_update_ui_charging(s_dialog, NULL);
   }
-  new_timer_start(s_charge_timer, 3000, prv_charge_refresh, NULL, 0);
+  new_timer_start(s_charge_timer, shell_prefs_get_charging_display().seconds * 1000U,
+                  prv_charge_refresh, NULL, 0);
 }
 #endif
 
@@ -197,6 +289,11 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
   SimpleDialog *new_simple_dialog = simple_dialog_create(
       WINDOW_NAME("Battery Status"));
 
+#if CHARGE_DETAILS
+  if (s_charge_dialog) {
+    simple_dialog_set_icon_animated(new_simple_dialog, false);
+  }
+#endif
   Dialog *new_dialog = simple_dialog_get_dialog(new_simple_dialog);
   dialog_set_callbacks(new_dialog, &(DialogCallbacks) {
     .unload = prv_dialog_on_unload,
@@ -245,10 +342,11 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
 
 void battery_ui_display_plugged(void) {
 #if CHARGE_DETAILS
-  if (s_dialog && !s_charge_dialog) {
+  bool custom = shell_prefs_get_charging_display().flags != ChargingDisplayStock;
+  if (s_dialog && s_charge_dialog != custom) {
     battery_ui_dismiss_modal();
   }
-  s_charge_dialog = true;
+  s_charge_dialog = custom;
 #endif
   // If we're plugged in for charging, we want to alert the user of this,
   // but we don't want to overlay ourselves over anything they may have
@@ -256,20 +354,26 @@ void battery_ui_display_plugged(void) {
   WindowStack *stack = modal_manager_get_window_stack(ModalPriorityGeneric);
   prv_display_modal(stack, prv_update_ui_charging, NULL);
 #if CHARGE_DETAILS
+  if (!custom) {
+    return;
+  }
   s_charge_dialog = true;
   if (s_charge_timer == TIMER_INVALID_ID) {
     s_charge_timer = new_timer_create();
   }
   if (s_charge_timer != TIMER_INVALID_ID) {
-    new_timer_start(s_charge_timer, 3000, prv_charge_refresh, NULL, 0);
+    new_timer_start(s_charge_timer, shell_prefs_get_charging_display().seconds * 1000U,
+                  prv_charge_refresh, NULL, 0);
   }
 #endif
 }
 
 void battery_ui_display_fully_charged(void) {
 #if CHARGE_DETAILS
-  battery_ui_display_plugged();
-  return;
+  if (shell_prefs_get_charging_display().flags != ChargingDisplayStock) {
+    battery_ui_display_plugged();
+    return;
+  }
 #endif
   // If we're plugged in (charged), we want to alert the user of this,
   // but we don't want to overlay ourselves over anything they may have

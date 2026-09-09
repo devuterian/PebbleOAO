@@ -38,6 +38,7 @@
 
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/battery/battery_charge_limit.h"
+#include "shell/charging_preferences.h"
 #include "pbl/services/activity/activity_insights.h"
 
 #include "pbl/services/analytics/analytics.h"
@@ -176,6 +177,8 @@ static bool s_stationary_mode_enabled = true;
 
 #define PREF_KEY_CHARGE_LIMIT_ENABLED "chargeLimitEnabled"
 static bool s_charge_limit_enabled = false;
+#define PREF_KEY_CHARGING_DISPLAY "chargingDisplay"
+static ChargingDisplayPrefs s_charging_display = CHARGING_DISPLAY_DEFAULTS;
 
 #define PREF_KEY_DEFAULT_WORKER "workerId"
 static Uuid s_default_worker = UUID_INVALID_INIT;
@@ -576,6 +579,11 @@ static bool prv_set_s_display_orientation_left(bool *left) {
 
 static bool prv_set_s_stationary_mode_enabled(bool *enabled) {
   s_stationary_mode_enabled = *enabled;
+  return true;
+}
+
+static bool prv_set_s_charging_display(ChargingDisplayPrefs *value) {
+  s_charging_display = charging_display_normalize(*value);
   return true;
 }
 
@@ -1579,6 +1587,15 @@ bool shell_prefs_get_stationary_enabled(void) {
 
 void shell_prefs_set_stationary_enabled(bool enabled) {
   prv_pref_set(PREF_KEY_STATIONARY, &enabled, sizeof(enabled));
+}
+
+ChargingDisplayPrefs shell_prefs_get_charging_display(void) {
+  return s_charging_display;
+}
+
+void shell_prefs_set_charging_display(ChargingDisplayPrefs value) {
+  value = charging_display_normalize(value);
+  prv_pref_set(PREF_KEY_CHARGING_DISPLAY, &value, sizeof(value));
 }
 
 bool shell_prefs_get_charge_limit_enabled(void) {

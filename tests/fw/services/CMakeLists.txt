@@ -515,3 +515,7 @@ pbl_clar_test(test_hourly_chime
 )
 
 pbl_clar_test(test_battery_charge_estimate)
+
+pbl_clar_test(test_qemu_charge_connection
+  SOURCES src/fw/drivers/qemu/qemu_battery.c
+)

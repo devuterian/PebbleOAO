@@ -1,0 +1,105 @@
+{
+  "schema": "marie-charging-layout-v2",
+  "screen": {
+    "width": 200,
+    "height": 228
+  },
+  "coordinateSystem": "visible-ink-top-left",
+  "mask": 1,
+  "layouts": {
+    "1": {
+      "icon": {
+        "x": 50,
+        "y": 83,
+        "w": 98
+      },
+      "integer": {
+        "x": 31,
+        "y": 136
+      },
+      "fraction": {
+        "x": 80,
+        "y": 144
+      },
+      "detail": {
+        "x": 31,
+        "y": 175
+      },
+      "status": {
+        "x": 76,
+        "y": 170
+      },
+      "clock": {
+        "x": 70,
+        "y": 201
+      }
+    },
+    "3": {
+      "icon": {
+        "x": 50,
+        "y": 74,
+        "w": 98
+      },
+      "integer": {
+        "x": 31,
+        "y": 147
+      },
+      "fraction": {
+        "x": 80,
+        "y": 155
+      },
+      "detail": {
+        "x": 31,
+        "y": 175
+      },
+      "status": {
+        "x": 76,
+        "y": 150
+      },
+      "clock": {
+        "x": 70,
+        "y": 201
+      }
+    },
+    "31": {
+      "icon": {
+        "x": 51,
+        "y": 53,
+        "w": 98
+      },
+      "integer": {
+        "x": 31,
+        "y": 124
+      },
+      "fraction": {
+        "x": 80,
+        "y": 132
+      },
+      "detail": {
+        "x": 31,
+        "y": 163
+      },
+      "status": {
+        "x": 76,
+        "y": 150
+      },
+      "clock": {
+        "x": 70,
+        "y": 198
+      }
+    }
+  },
+  "samples": {
+    "soc": "53.253",
+    "digits": "3",
+    "eta": "1시간 3분 남음",
+    "clock": "7:03 AM"
+  },
+  "fontKeys": {
+    "integer": "BITHAM_42_BOLD",
+    "fraction": "BITHAM_30_BLACK",
+    "detail": "GOTHIC_18 + MARIE_TUMBLED_18",
+    "status": "GOTHIC_18 + MARIE_TUMBLED_18",
+    "clock": "GOTHIC_24_BOLD"
+  }
+}

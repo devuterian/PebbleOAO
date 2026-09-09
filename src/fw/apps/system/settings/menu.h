@@ -26,6 +26,9 @@ typedef enum {
 #endif
   SettingsMenuItemActivity,
   SettingsMenuItemSystem,
+#if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
+  SettingsMenuItemCharging,
+#endif
   SettingsMenuItem_Count,
   SettingsMenuItem_Invalid
 } SettingsMenuItem;
