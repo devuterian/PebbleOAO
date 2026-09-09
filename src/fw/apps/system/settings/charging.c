@@ -38,10 +38,12 @@ static void prv_select(SettingsCallbacks *context, uint16_t row) {
       break;
     case RowLimit:
       shell_prefs_set_charge_limit_enabled(!shell_prefs_get_charge_limit_enabled());
+      settings_menu_mark_dirty(SettingsMenuItemCharging);
       return;
     case RowReset: prefs = (ChargingDisplayPrefs)CHARGING_DISPLAY_DEFAULTS; break;
   }
   shell_prefs_set_charging_display(prefs);
+  settings_menu_mark_dirty(SettingsMenuItemCharging);
 }
 
 static void prv_draw(SettingsCallbacks *context, GContext *ctx, const Layer *layer,
