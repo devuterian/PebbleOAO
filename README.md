@@ -8,7 +8,7 @@
 
 ## 이게 뭔데
 
-Pebbleㅇㅅㅇ;;은 제가 쓰려고 만든 PebbleOS의 커스텀 펌웨어입니다~~~~
+Pebbleㅇㅅㅇ;;은 제가 쓰려고 만든 PebbleOS의 **Pebble Time 2 전용** 커스텀 펌웨어입니다~~~~
 PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같은 기능을 제가 직접 골라왔습니다요.
 
 ## 뭐가 다른데
