@@ -1,13 +1,14 @@
-<p align="center">
-  <img src="docs/_static/images/logo.svg" alt="Pebble 로고">
-</p>
+<div align="center">
+<img src="docs/_static/images/logo.svg" width="180" alt="PebbleOAO Time">
 
-<p align="center">
-  Pebbleㅇㅅㅇ;;
+# Pebbleㅇㅅㅇ;;
+for Pebble Time 2
 </p>
-<p align="center">
-  for Pebble Time 2
-</p>
+</div>
+
+
+
+
 
 ## 이게 뭔데
 
