@@ -106,3 +106,11 @@ void test_status_bar_layer__large_bold_height(void) {
   cl_assert_status_bar_height(status_bar);  // back to default
 }
 
+
+void test_status_bar_layer__sdk_default_colors(void) {
+  StatusBarLayer status_bar;
+  status_bar_layer_init(&status_bar);
+  cl_assert_equal_i(status_bar.config.foreground_color.argb, GColorWhite.argb);
+  cl_assert_equal_i(status_bar.config.background_color.argb, GColorBlack.argb);
+  status_bar_layer_deinit(&status_bar);
+}
