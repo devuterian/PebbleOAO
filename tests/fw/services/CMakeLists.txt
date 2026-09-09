@@ -504,6 +504,7 @@ pbl_clar_test(test_app_glance_service
 )
 
 pbl_clar_test(test_battery_charge_limit
+  DEFINES CONFIG_BOARD_OBELIX=1
   SOURCES
     src/fw/services/battery/battery_charge_limit.c
 )
@@ -512,3 +513,5 @@ pbl_clar_test(test_hourly_chime
   SOURCES src/fw/services/clock/hourly_chime.c
   DEFINES RESOURCE_ID_HOURLY_CHIME=1234
 )
+
+pbl_clar_test(test_battery_charge_estimate)

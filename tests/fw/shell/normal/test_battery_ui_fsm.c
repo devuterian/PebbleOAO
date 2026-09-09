@@ -40,6 +40,10 @@ static uint8_t s_modal_percent;
 static bool s_modal_charging;
 static bool s_low_power;
 static bool s_critical;
+static bool s_charge_limit;
+
+bool shell_prefs_get_charge_limit_enabled(void) { return s_charge_limit; }
+bool battery_charge_limit_is_active(void) { return s_charge_limit; }
 
 void prv_set_state(PowerState state) {
   s_state = state;
@@ -133,6 +137,7 @@ BatteryChargeState battery_get_charge_state(void) {
 // Setup
 ////////////////////////////////////
 void test_battery_ui_fsm__initialize(void) {
+  s_charge_limit = false;
   prv_set_state(PowerGood);
 
   s_entered_standby = false;
@@ -365,3 +370,18 @@ void test_battery_ui_fsm__no_vibe_complete(void) {
   cl_assert(s_modal_onscreen && !s_modal_charging);
   cl_assert_equal_i(s_vibe_count, 1);
 }
+
+#if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
+void test_battery_ui_fsm__charge_limit_keeps_modal_without_extra_vibration(void) {
+  prv_change_state(prv_make_state(79, true, true));
+  uint8_t initial_vibes = s_vibe_count;
+  s_charge_limit = true;
+  prv_change_state(prv_make_state(80, false, true));
+  prv_change_state(prv_make_state(78, false, true));
+  cl_assert(s_modal_onscreen);
+  cl_assert_equal_i(s_vibe_count, initial_vibes);
+  s_charge_limit = false;
+  prv_change_state(prv_make_state(78, false, false));
+  cl_assert(!s_modal_onscreen);
+}
+#endif

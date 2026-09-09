@@ -60,11 +60,16 @@ void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
     return;
   }
 
-  if (state.pct >= CHARGE_LIMIT_PCT && !s_limit_active) {
+#if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
+  uint32_t millipercent = battery_state_get_millipercent();
+#else
+  uint32_t millipercent = state.pct * 1000U;
+#endif
+  if (millipercent >= CHARGE_LIMIT_PCT * 1000U && !s_limit_active) {
     battery_set_charge_enable(false);
     s_limit_active = true;
     PBL_LOG_DBG("Charge limit: disabling charging at %d pct", state.pct);
-  } else if (state.pct <= CHARGE_RESUME_PCT && s_limit_active) {
+  } else if (millipercent <= CHARGE_RESUME_PCT * 1000U && s_limit_active) {
     battery_set_charge_enable(true);
     s_limit_active = false;
     PBL_LOG_DBG("Charge limit: resuming charging at %d pct", state.pct);

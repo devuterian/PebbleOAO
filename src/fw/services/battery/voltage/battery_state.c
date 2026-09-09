@@ -306,6 +306,17 @@ TimerID battery_state_get_periodic_timer_id(void) {
   return s_periodic_timer_id;
 }
 
+uint32_t battery_state_get_millipercent(void) {
+  return battery_get_charge_state().charge_percent * 1000U;
+}
+
+void battery_state_request_sample(void) {}
+
+bool battery_state_get_charge_estimate(uint8_t target, uint32_t *milliwatts,
+                                       uint32_t *seconds) {
+  return false;
+}
+
 uint16_t battery_state_get_voltage(void) {
   return s_last_battery_state.voltage;
 }

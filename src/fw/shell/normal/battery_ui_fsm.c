@@ -2,6 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "battery_ui.h"
+#include "pbl/services/battery/battery_charge_limit.h"
+#include "shell/prefs.h"
 
 #include <stdint.h>
 
@@ -231,6 +233,12 @@ static bool prv_is_valid_transition(BatteryUIStateID next_state) {
 }
 
 static BatteryUIStateID prv_get_state(PreciseBatteryChargeState *state) {
+#if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
+  if (state->is_plugged && shell_prefs_get_charge_limit_enabled() &&
+      battery_charge_limit_is_active()) {
+    return BatteryCharging;
+  }
+#endif
   // Don't use the PreciseBatteryChargeState definition of is_charging, as it maps to the
   // result of @see battery_charge_controller_thinks_we_are_charging instead of the actual
   // user-facing definition of charging.

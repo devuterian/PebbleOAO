@@ -3671,3 +3671,18 @@ msgstr "분홍"
 #: src/fw/services/timeline/timeline_actions.c
 msgid "Success"
 msgstr "완료"
+
+msgid "Charge complete!"
+msgstr "충전 완료!"
+
+msgid "Cruising after a full charge"
+msgstr "완충 후 항해 중"
+
+msgid "%luh %lum left"
+msgstr "%lu시간 %lu분 남음"
+
+msgid "%lum left"
+msgstr "%lu분 남음"
+
+msgid "Calculating"
+msgstr "계산 중"

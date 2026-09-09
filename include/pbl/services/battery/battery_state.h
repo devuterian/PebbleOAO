@@ -59,6 +59,14 @@ void battery_state_handle_connection_event(bool is_connected);
 
 void battery_state_reset_filter(void);
 
+//! Model-estimated percent multiplied by 1000; not measurement precision.
+uint32_t battery_state_get_millipercent(void);
+void battery_state_request_sample(void);
+
+//! Cached fuel-gauge estimate; false when unavailable or stale. Power is battery-side mW.
+bool battery_state_get_charge_estimate(uint8_t target, uint32_t *milliwatts,
+                                       uint32_t *seconds);
+
 // Get the last recorded voltage
 uint16_t battery_state_get_voltage(void);
 
