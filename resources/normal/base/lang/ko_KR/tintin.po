@@ -3574,7 +3574,7 @@ msgstr "%B "
 #: src/fw/services/clock/service.c:978
 #, c-format
 msgid "%e"
-msgstr "%e"
+msgstr "%e일"
 
 #: src/fw/services/clock/service.c:1029
 msgid "this morning"
