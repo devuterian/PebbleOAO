@@ -7,8 +7,12 @@
 
 #include "process_management/app_menu_data_source.h"
 
-// Use display height to determine launcher fonts: larger displays use larger fonts
-#if PBL_DISPLAY_HEIGHT >= 200
+#include "shell/system_theme.h"
+
+#if PBL_RECT
+#define LAUNCHER_MENU_LAYER_TITLE_FONT system_theme_get_font_key(TextStyleFont_MenuCellTitle)
+#define LAUNCHER_MENU_LAYER_SUBTITLE_FONT system_theme_get_font_key(TextStyleFont_Caption)
+#elif PBL_DISPLAY_HEIGHT >= 200
 #define LAUNCHER_MENU_LAYER_TITLE_FONT (FONT_KEY_GOTHIC_24_BOLD)
 #define LAUNCHER_MENU_LAYER_SUBTITLE_FONT (FONT_KEY_GOTHIC_18)
 #else

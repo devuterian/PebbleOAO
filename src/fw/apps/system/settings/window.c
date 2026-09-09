@@ -167,7 +167,9 @@ static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer,
   const bool is_selected = menu_layer_is_index_selected(menu_layer, cell_index);
   return (callbacks->row_height) ?
       callbacks->row_height(callbacks, row, is_selected) :
-      PBL_IF_RECT_ELSE(menu_cell_basic_cell_height(),
+      PBL_IF_RECT_ELSE(
+          fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellTitle)) +
+              fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellSubtitle)) + 10,
                        (is_selected ? MENU_CELL_ROUND_FOCUSED_SHORT_CELL_HEIGHT :
                                       MENU_CELL_ROUND_UNFOCUSED_TALL_CELL_HEIGHT));
 }
