@@ -21,6 +21,8 @@
 #include "shell/charging_preferences.h"
 #include <string.h>
 #include "applib/fonts/fonts.h"
+#include "applib/ui/kino/kino_reel_pdci.h"
+#include "applib/ui/kino/kino_reel_pdcs.h"
 #include "applib/graphics/gdraw_command_transforms.h"
 
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
@@ -85,18 +87,37 @@ static void prv_charge_icon_layout(Dialog *dialog) {
   // Match the 100px icon in the 200x228 charging layout. Scale each reel only once.
   KinoReel *reel = kino_layer_get_reel(&dialog->icon_layer);
   GSize size = GSize(100, 100);
+  KinoReel *scaled_reel = NULL;
   GDrawCommandSequence *sequence = kino_reel_get_gdraw_command_sequence(reel);
   if (sequence && gdraw_command_sequence_get_bounds_size(sequence).w != size.w) {
-    GSize from = gdraw_command_sequence_get_bounds_size(sequence);
-    for (uint32_t i = 0; i < gdraw_command_sequence_get_num_frames(sequence); ++i) {
-      GDrawCommandFrame *frame = gdraw_command_sequence_get_frame_by_index(sequence, i);
-      gdraw_command_list_scale(gdraw_command_frame_get_command_list(frame), from, size);
+    // Built-in draw commands may live in read-only flash.
+    GDrawCommandSequence *copy = gdraw_command_sequence_clone(sequence);
+    if (copy) {
+      GSize from = gdraw_command_sequence_get_bounds_size(copy);
+      for (uint32_t i = 0; i < gdraw_command_sequence_get_num_frames(copy); ++i) {
+        GDrawCommandFrame *frame = gdraw_command_sequence_get_frame_by_index(copy, i);
+        gdraw_command_list_scale(gdraw_command_frame_get_command_list(frame), from, size);
+      }
+      gdraw_command_sequence_set_bounds_size(copy, size);
+      scaled_reel = kino_reel_pdcs_create(copy, true);
+      if (!scaled_reel) {
+        gdraw_command_sequence_destroy(copy);
+      }
     }
-    gdraw_command_sequence_set_bounds_size(sequence, size);
   }
   GDrawCommandImage *image = kino_reel_get_gdraw_command_image(reel);
   if (image && gdraw_command_image_get_bounds_size(image).w != size.w) {
-    gdraw_command_image_scale(image, size);
+    GDrawCommandImage *copy = gdraw_command_image_clone(image);
+    if (copy) {
+      gdraw_command_image_scale(copy, size);
+      scaled_reel = kino_reel_pdci_create(copy, true);
+      if (!scaled_reel) {
+        gdraw_command_image_destroy(copy);
+      }
+    }
+  }
+  if (scaled_reel) {
+    kino_layer_set_reel(&dialog->icon_layer, scaled_reel, true);
   }
   GRect frame = GRect(0, 0, size.w, size.h);
   frame.origin.x = prefs.flags == 31 ? 51 : 50;
