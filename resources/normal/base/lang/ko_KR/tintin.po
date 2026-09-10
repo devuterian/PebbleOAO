@@ -3734,3 +3734,19 @@ msgstr "전체 표시"
 
 msgid "Icon and percentage"
 msgstr "잔량만 표시"
+
+msgid "Invert"
+msgstr "반전"
+
+msgid "Background"
+msgstr "배경"
+
+msgid "Light background"
+msgstr "밝은 배경"
+
+msgid "Dark background"
+msgstr "어두운 배경"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Default"
+msgstr "기본"

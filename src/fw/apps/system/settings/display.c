@@ -766,7 +766,9 @@ static void prv_display_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
   SettingsDisplayData *data = (SettingsDisplayData*) context;
   const char *title = NULL;
   const char *subtitle = NULL;
+#if !defined(CONFIG_THEMING)
   char time_buf[32];
+#endif
   switch (prv_display_item_from_row(row)) {
     case SettingsDisplayBacklight:
       title = i18n_noop("Backlight");

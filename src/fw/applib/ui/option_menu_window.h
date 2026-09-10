@@ -29,7 +29,6 @@ typedef void (*OptionMenuSelectionWillChangeCallback)(OptionMenu *option_menu,
                                                      uint16_t old_row,
                                                      void *context);
 
-                                                    
 typedef struct OptionMenuCallbacks {
   OptionMenuSelectCallback select;
   OptionMenuSelectionWillChangeCallback selection_will_change;

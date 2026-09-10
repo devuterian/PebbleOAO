@@ -4,6 +4,9 @@
 #include "themes.h"
 #include "menu.h"
 #include "option_menu.h"
+#include "window.h"
+
+#include "kernel/pbl_malloc.h"
 
 #include "applib/ui/dialogs/expandable_dialog.h"
 #include "applib/graphics/gtypes.h"
@@ -18,6 +21,7 @@
 #ifdef CONFIG_THEMING
 
 #define DEFAULT_THEME_HIGHLIGHT_COLOR GColorVividCerulean
+#define INVERT_ENTRY_INDEX 1
 
 typedef struct SettingsThemesData {
   SettingsCallbacks callbacks;
@@ -29,8 +33,9 @@ typedef struct ColorDefinition {
   const GColor color;
 } ColorDefinition;
 
-static const ColorDefinition s_color_definitions[11] = {
+static const ColorDefinition s_color_definitions[12] = {
   {i18n_noop("Default"), GColorClear},
+  {i18n_noop("Invert"), GColorClear},
   {i18n_noop("Red"), GColorSunsetOrange},
   {i18n_noop("Orange"), GColorChromeYellow},
   {i18n_noop("Yellow"), GColorYellow},
@@ -77,6 +82,12 @@ static int prv_color_to_index(GColor color, GColor default_color) {
 /////////////////////////////
 
 static void prv_color_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  if (selection == INVERT_ENTRY_INDEX) {
+    shell_prefs_set_theme_highlight_inverted(true);
+    app_window_stack_remove(&option_menu->window, true /* animated */);
+    return;
+  }
+
   GColor color;
   if (selection == 0) {
     /* Default option selected -> restore default color. */
@@ -86,6 +97,7 @@ static void prv_color_menu_select(OptionMenu *option_menu, int selection, void *
   }
 
   /* Set the theme highlight color */
+  shell_prefs_set_theme_highlight_inverted(false);
   shell_prefs_set_theme_highlight_color(color);
 
   app_window_stack_remove(&option_menu->window, true /* animated */);
@@ -98,6 +110,13 @@ static void prv_option_menu_selection_will_change(OptionMenu *option_menu,
   if (new_row == old_row) {
     return;
   }
+  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
+  option_menu_set_status_colors(option_menu, normal_bg, gcolor_legible_over(normal_bg));
+  if (new_row == INVERT_ENTRY_INDEX) {
+    GColor color = shell_prefs_get_theme_dark_background() ? GColorWhite : GColorBlack;
+    option_menu_set_highlight_colors(option_menu, color, gcolor_legible_over(color));
+    return;
+  }
   GColor color = s_color_definitions[new_row].color;
   if (color.argb != GColorClear.argb) {
     option_menu_set_highlight_colors(option_menu, color, gcolor_legible_over(color));
@@ -108,7 +127,8 @@ static void prv_option_menu_selection_will_change(OptionMenu *option_menu,
 
 static OptionMenu *prv_push_color_menu(void) {
   const char *title = i18n_noop("Accent Color");
-  int selected = prv_color_to_index(shell_prefs_get_theme_highlight_color(), DEFAULT_THEME_HIGHLIGHT_COLOR);
+  int selected = shell_prefs_get_theme_highlight_inverted() ? INVERT_ENTRY_INDEX :
+      prv_color_to_index(shell_prefs_get_theme_highlight_color(), DEFAULT_THEME_HIGHLIGHT_COLOR);
   const char** color_names = prv_get_color_names(false);
   const OptionMenuCallbacks callbacks = {
     .select = prv_color_menu_select,
@@ -125,7 +145,10 @@ static OptionMenu *prv_push_color_menu(void) {
       ARRAY_LENGTH(s_color_definitions), true /* icons_enabled */, color_names, NULL);
 
   if (option_menu) {
-    if (selected == 0) {
+    if (selected == INVERT_ENTRY_INDEX) {
+      GColor color = shell_prefs_get_theme_dark_background() ? GColorWhite : GColorBlack;
+      option_menu_set_highlight_colors(option_menu, color, gcolor_legible_over(color));
+    } else if (selected == 0) {
       option_menu_set_highlight_colors(option_menu, DEFAULT_THEME_HIGHLIGHT_COLOR,
                                        gcolor_legible_over(DEFAULT_THEME_HIGHLIGHT_COLOR));
     } else {
@@ -204,12 +227,27 @@ static void prv_dark_mode_schedule_window_push(SettingsThemesData *data) {
   app_window_stack_push(&schedule_window->window, true);
 }
 
+static void prv_background_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  shell_prefs_set_theme_dark_background(selection == 1);
+  app_window_stack_remove(&option_menu->window, true);
+}
+
+static void prv_push_background_menu(void) {
+  static const char *names[] = { i18n_noop("Light background"), i18n_noop("Dark background") };
+  const OptionMenuCallbacks callbacks = { .select = prv_background_menu_select };
+  settings_option_menu_push(i18n_noop("Background"), OptionMenuContentType_SingleLine,
+      shell_prefs_get_theme_dark_background() ? 1 : 0, &callbacks,
+      ARRAY_LENGTH(names), true, names, NULL);
+}
+
 static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
   SettingsThemesData *data = (SettingsThemesData *)context;
   const bool has_schedule = (shell_prefs_get_dark_mode() == DarkModeScheduled);
   if (row == 0) {
     prv_push_dark_mode_menu(data);
-  } else if (has_schedule && row == 1) {
+  } else if (row == 1) {
+    prv_push_background_menu();
+  } else if (has_schedule && row == 2) {
     prv_dark_mode_schedule_window_push(data);
   } else {
     prv_push_color_menu();
@@ -225,7 +263,10 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
   if (row == 0) {
     title = i18n_noop("Dark Mode");
     subtitle = s_dark_mode_labels[shell_prefs_get_dark_mode()];
-  } else if (has_schedule && row == 1) {
+  } else if (row == 1) {
+    title = i18n_noop("Background");
+    subtitle = shell_prefs_get_theme_dark_background() ? i18n_noop("Dark background") : i18n_noop("Light background");
+  } else if (has_schedule && row == 2) {
     title = i18n_noop("Schedule Time");
     DarkModeSchedule schedule;
     shell_prefs_get_dark_mode_schedule(&schedule);
@@ -235,7 +276,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
     clock_format_time(time_buf + len, sizeof(time_buf) - len, schedule.to_hour, schedule.to_minute, true);
     subtitle = time_buf;
   } else {
-    int idx = prv_color_to_index(shell_prefs_get_theme_highlight_color(),
+    int idx = shell_prefs_get_theme_highlight_inverted() ? INVERT_ENTRY_INDEX : prv_color_to_index(shell_prefs_get_theme_highlight_color(),
                                   DEFAULT_THEME_HIGHLIGHT_COLOR);
     title = i18n_noop("Accent Color");
     subtitle = s_color_definitions[idx < 0 ? 0 : idx].name;
@@ -245,7 +286,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
 }
 
 static uint16_t prv_num_rows_cb(SettingsCallbacks *context) {
-  return (shell_prefs_get_dark_mode() == DarkModeScheduled) ? 3 : 2;
+  return (shell_prefs_get_dark_mode() == DarkModeScheduled) ? 4 : 3;
 }
 
 static void prv_deinit_cb(SettingsCallbacks *context) {
@@ -257,7 +298,7 @@ static void prv_deinit_cb(SettingsCallbacks *context) {
 
 #endif // CONFIG_THEMING
 
-static Window *prv_create_color_menu(void) {
+static Window *prv_create_top_menu(void) {
 #ifdef CONFIG_THEMING
   SettingsThemesData *data = app_malloc_check(sizeof(*data));
   *data = (SettingsThemesData){
@@ -276,7 +317,7 @@ static Window *prv_create_color_menu(void) {
 }
 
 static Window *prv_init(void) {
-  return prv_create_color_menu();
+  return prv_create_top_menu();
 }
 
 

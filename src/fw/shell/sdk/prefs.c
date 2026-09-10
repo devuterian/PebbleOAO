@@ -363,3 +363,8 @@ bool shell_prefs_get_settings_dbs_compacted_v1(void) {
 void shell_prefs_set_settings_dbs_compacted_v1(bool done) {
   // Not used in SDK shell
 }
+
+bool shell_prefs_get_theme_dark_background(void) { return false; }
+void shell_prefs_set_theme_dark_background(bool dark) { }
+bool shell_prefs_get_theme_highlight_inverted(void) { return false; }
+void shell_prefs_set_theme_highlight_inverted(bool inverted) { }

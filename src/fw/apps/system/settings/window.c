@@ -63,6 +63,9 @@ static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   // Reload the menu when any pref changes: cell heights are cached by the menu
   // layer and can change with the preferred content size. Re-anchor the
   // selection afterwards so the scroll offset stays within the new geometry.
+  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
+  window_set_background_color(&data->window, normal_bg);
+  status_bar_layer_set_colors(&data->status_layer, normal_bg, gcolor_legible_over(normal_bg));
   menu_layer_reload_data(&data->menu_layer);
   menu_layer_set_selected_index(&data->menu_layer,
                                 menu_layer_get_selected_index(&data->menu_layer),
@@ -86,8 +89,9 @@ static void prv_set_sub_menu_colors(GContext *ctx, const Layer *cell_layer, bool
     graphics_context_set_fill_color(ctx, highlight_bg);
     graphics_context_set_text_color(ctx, gcolor_legible_over(highlight_bg));
   } else {
-    graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
+    GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
+    graphics_context_set_fill_color(ctx, normal_bg);
+    graphics_context_set_text_color(ctx, gcolor_legible_over(normal_bg));
   }
   graphics_fill_rect(ctx, &cell_layer->bounds);
 }
@@ -186,7 +190,8 @@ static void prv_settings_window_load(Window *window) {
       ? data->title_override
       : settings_menu_get_status_name(data->current_category);
   status_bar_layer_set_title(status_layer, i18n_get(title, data), false, false);
-  status_bar_layer_set_colors(status_layer, system_theme_get_bg_color(), system_theme_get_fg_color());
+  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
+  status_bar_layer_set_colors(status_layer, normal_bg, gcolor_legible_over(normal_bg));
   status_bar_layer_set_separator_mode(status_layer, OPTION_MENU_STATUS_SEPARATOR_MODE);
   layer_add_child(&data->window.layer, status_bar_layer_get_layer(status_layer));
 
@@ -206,6 +211,9 @@ static void prv_settings_window_load(Window *window) {
     .selection_changed = prv_selection_changed_callback,
     .selection_will_change = prv_selection_will_change_callback,
   });
+  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
+  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
+  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
@@ -283,6 +291,8 @@ static Window *prv_create(SettingsMenuItem category, const char *title_override,
     .appear = prv_settings_window_appear,
     .unload = prv_settings_window_unload,
   });
+  window_set_background_color(&data->window,
+                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
 
   return &data->window;
 }

@@ -321,8 +321,10 @@ static uint8_t s_legacy_app_render_mode = 1; // Default to scaled mode
 
 #ifdef CONFIG_THEMING
 #define PREF_KEY_THEME_HIGHLIGHT_COLOR "themeHighlightColor"
+#define PREF_KEY_THEME_HIGHLIGHT_INVERTED "themeHighlightInverted"
 
 static GColor s_theme_highlight_color = GColorVividCerulean;
+static bool s_theme_highlight_inverted = false;
 #endif
 
 #define PREF_KEY_MENU_SCROLL_WRAP_AROUND "menuScrollWrapAround"
@@ -902,6 +904,11 @@ static bool prv_set_s_theme_highlight_color(GColor *color) {
     return false;  // Reject invalid value
   }
   s_theme_highlight_color = *color;
+  return true;
+}
+
+static bool prv_set_s_theme_highlight_inverted(bool *inverted) {
+  s_theme_highlight_inverted = *inverted;
   return true;
 }
 #endif
@@ -2233,15 +2240,61 @@ void shell_prefs_set_legacy_app_render_mode(LegacyAppRenderMode mode) {
 
 GColor shell_prefs_get_theme_highlight_color(void) {
 #ifdef CONFIG_THEMING
+  if (s_theme_highlight_inverted) {
+    return system_theme_get_fg_color();
+  }
   return s_theme_highlight_color;
 #else
   return PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
 #endif
 }
 
+#ifdef CONFIG_THEMING
+static void prv_notify_theme_pref_changed(void) {
+  PebbleEvent pref_event = {
+    .type = PEBBLE_PREF_CHANGE_EVENT,
+    .pref_change = {
+      .key = PREF_KEY_THEME_HIGHLIGHT_COLOR,
+      .key_len = sizeof(PREF_KEY_THEME_HIGHLIGHT_COLOR),
+    },
+  };
+  event_put(&pref_event);
+}
+#endif
+
 void shell_prefs_set_theme_highlight_color(GColor color) {
 #ifdef CONFIG_THEMING
   prv_pref_set(PREF_KEY_THEME_HIGHLIGHT_COLOR, &color, sizeof(GColor));
+  prv_notify_theme_pref_changed();
+#endif
+}
+
+bool shell_prefs_get_theme_dark_background(void) {
+#ifdef CONFIG_THEMING
+  return system_theme_is_dark_mode();
+#else
+  return false;
+#endif
+}
+
+void shell_prefs_set_theme_dark_background(bool dark) {
+#ifdef CONFIG_THEMING
+  shell_prefs_set_dark_mode(dark ? DarkModeOn : DarkModeOff);
+#endif
+}
+
+bool shell_prefs_get_theme_highlight_inverted(void) {
+#ifdef CONFIG_THEMING
+  return s_theme_highlight_inverted;
+#else
+  return false;
+#endif
+}
+
+void shell_prefs_set_theme_highlight_inverted(bool inverted) {
+#ifdef CONFIG_THEMING
+  prv_pref_set(PREF_KEY_THEME_HIGHLIGHT_INVERTED, &inverted, sizeof(inverted));
+  prv_notify_theme_pref_changed();
 #endif
 }
 
@@ -2309,6 +2362,9 @@ DarkMode shell_prefs_get_dark_mode(void) {
 void shell_prefs_set_dark_mode(DarkMode mode) {
   uint8_t val = (uint8_t)mode;
   prv_pref_set(PREF_KEY_DARK_MODE, &val, sizeof(val));
+#ifdef CONFIG_THEMING
+  prv_notify_theme_pref_changed();
+#endif
 }
 
 void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
@@ -2320,5 +2376,8 @@ void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
 void shell_prefs_set_dark_mode_schedule(const DarkModeSchedule *schedule) {
   if (schedule) {
     prv_pref_set(PREF_KEY_DARK_MODE_SCHEDULE, schedule, sizeof(*schedule));
+#ifdef CONFIG_THEMING
+    prv_notify_theme_pref_changed();
+#endif
   }
 }

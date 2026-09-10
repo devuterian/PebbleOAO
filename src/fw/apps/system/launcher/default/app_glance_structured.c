@@ -93,9 +93,11 @@ GColor launcher_app_glance_structured_get_highlight_color(
 }
 
 static GColor prv_get_icon_tint_color(LauncherAppGlanceStructured *structured_glance) {
-  // Icons should always be tinted black on color displays, white on B&W when highlighted
-  return PBL_IF_COLOR_ELSE(GColorBlack,
-                           structured_glance->glance.is_highlighted ? GColorWhite : GColorBlack);
+#if PBL_COLOR
+  return launcher_app_glance_structured_get_highlight_color(structured_glance);
+#else
+  return structured_glance->glance.is_highlighted ? GColorWhite : GColorBlack;
+#endif
 }
 
 void launcher_app_glance_structured_draw_icon(LauncherAppGlanceStructured *structured_glance,
