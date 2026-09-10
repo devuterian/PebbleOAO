@@ -65,6 +65,9 @@ static int s_start_count;
 static int s_stop_count;
 static uint32_t s_samples_written;
 static uint32_t s_nonzero_samples;
+static int16_t s_block_first;
+static int32_t s_block_peak;
+static unsigned s_volume_writes;
 
 void audio_init(AudioDevice *device) {}
 
@@ -76,7 +79,13 @@ void audio_start(AudioDevice *device, AudioTransCB cb) {
 uint32_t audio_write(AudioDevice *device, void *buf, uint32_t size) {
   const int16_t *samples = buf;
   const uint32_t num_samples = size / sizeof(int16_t);
+  s_block_first = samples[0];
+  s_block_peak = 0;
   for (uint32_t i = 0; i < num_samples; i++) {
+    int32_t magnitude = samples[i] < 0 ? -(int32_t)samples[i] : samples[i];
+    if (magnitude > s_block_peak) {
+      s_block_peak = magnitude;
+    }
     if (samples[i] != 0) {
       s_nonzero_samples++;
     }
@@ -88,6 +97,7 @@ uint32_t audio_write(AudioDevice *device, void *buf, uint32_t size) {
 static int s_volume;
 void audio_set_volume(AudioDevice *device, int volume) {
   s_volume = volume;
+  ++s_volume_writes;
 }
 
 void audio_stop(AudioDevice *device) {
@@ -113,6 +123,7 @@ static void prv_pump_until_idle(void) {
 void test_speaker_service__initialize(void) {
   fake_system_task_callbacks_cleanup();
   s_dnd = false;
+  s_volume_writes = 0;
   s_muted = false;
   s_cap = 100;
   s_resource_size = 135598;
@@ -280,10 +291,30 @@ void test_speaker_service__ui_mute_dnd_and_volume(void) {
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
   cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 60, true));
   s_dnd = false;
+  s_volume_writes = 0;
   s_muted = true;
   cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 60, true));
   s_muted = false;
   cl_assert(!speaker_service_play_ui_pcm(NULL, 2048, 60, false));
   cl_assert(!speaker_service_play_ui_pcm(pcm, 0, 60, false));
   cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 101, false));
+}
+
+void test_speaker_service__ui_pending_replacement_keeps_audible_predecessor(void) {
+  static int16_t old[2048], next[2048];
+  for (unsigned i = 0; i < 2048; ++i) {
+    old[i] = 1000;
+    next[i] = -1000;
+  }
+  cl_assert(speaker_service_play_ui_pcm(old, 2048, 35, false));
+  unsigned volume_writes = s_volume_writes;
+  cl_assert(speaker_service_play_ui_pcm(next, 2048, 35, false));
+  cl_assert(speaker_service_play_ui_pcm(next, 2048, 35, false));
+  uint32_t free_size = 4096;
+  s_trans_cb(&free_size);
+  fake_system_task_callbacks_invoke_pending();
+  cl_assert_equal_i(s_block_first, 1000);
+  cl_assert(s_block_peak <= 1000);
+  cl_assert_equal_i(s_volume_writes, volume_writes);
+  cl_assert_equal_i(s_start_count, 1);
 }

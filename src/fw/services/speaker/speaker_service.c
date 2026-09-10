@@ -458,7 +458,8 @@ static void prv_refill_locked(void) {
         int32_t old = s_state.ui_previous_pos < s_state.ui_previous_count
                           ? s_state.ui_previous[s_state.ui_previous_pos++]
                           : 0;
-        value = (old * s_state.ui_crossfade + value * (80 - s_state.ui_crossfade)) / 80;
+        const int32_t remaining = (int32_t)s_state.ui_crossfade;
+        value = (old * remaining + value * (80 - remaining)) / 80;
         --s_state.ui_crossfade;
       }
       s_state.refill_buf[samples_generated++] = (int16_t)value;
@@ -785,10 +786,15 @@ bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t
     return false;
   }
   const bool replacing = s_state.state != SpeakerStateIdle;
-  s_state.ui_previous = replacing ? s_state.ui_samples : NULL;
-  s_state.ui_previous_pos = replacing ? s_state.ui_pos : 0;
-  s_state.ui_previous_count = replacing ? s_state.ui_count : 0;
-  s_state.ui_crossfade = replacing ? 80 : 0;
+  const uint8_t previous_effective = prv_effective_volume(s_state.volume);
+  // A pending replacement has not reached DMA yet. Keep its audible predecessor
+  // when another click arrives before the next refill.
+  if (!replacing || !s_state.ui_crossfade) {
+    s_state.ui_previous = replacing ? s_state.ui_samples : NULL;
+    s_state.ui_previous_pos = replacing ? s_state.ui_pos : 0;
+    s_state.ui_previous_count = replacing ? s_state.ui_count : 0;
+    s_state.ui_crossfade = replacing ? 80 : 0;
+  }
   s_state.ui_samples = samples;
   s_state.ui_count = count;
   s_state.ui_pos = 0;
@@ -805,8 +811,10 @@ bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t
     prv_refill_locked();
   } else {
     const uint8_t effective = prv_effective_volume(volume);
-    audio_set_volume((AudioDevice *)AUDIO, effective);
-    prv_update_volume_analytics(effective);
+    if (effective != previous_effective) {
+      audio_set_volume((AudioDevice *)AUDIO, effective);
+      prv_update_volume_analytics(effective);
+    }
   }
   pbl_mutex_unlock(&s_lock);
   return true;

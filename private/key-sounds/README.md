@@ -33,3 +33,12 @@ Korean settings, audible PCM output and separately retained key/chime levels
 following reset. All nine original hashes and processed fade endpoints checked.
 Physical speaker timbre, maximum comfortable volume and power use still require
 checking on the user's watch.
+
+## Test 2: transition clicks
+
+Use signed weights when crossfading signed PCM. Unsigned arithmetic wrapped
+negative mixtures into large impulses. Preserve the audible predecessor when
+multiple requests arrive before DMA refill, and avoid rewriting unchanged DAC
+volume. Regression tests fail with the original transition/unsigned arithmetic
+and pass with the fix. Amplifier power sequencing is unchanged; analog pops
+still require physical listening to distinguish from PCM transition clicks.
