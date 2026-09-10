@@ -42,3 +42,11 @@ multiple requests arrive before DMA refill, and avoid rewriting unchanged DAC
 volume. Regression tests fail with the original transition/unsigned arithmetic
 and pass with the fix. Amplifier power sequencing is unchanged; analog pops
 still require physical listening to distinguish from PCM transition clicks.
+
+## Test 3: shared start/stop transients
+
+Hourly chimes do not use UI crossfades. Keep the PA disabled while starting
+the DAC, allow 2 ms of settling with the existing silent DMA buffer, then
+send the original amplifier mode pulses. Disable PA before stopping the DAC.
+The real driver passes a host call-order harness and both hardware slots
+compile. Actual analog click reduction must be checked on the watch.
