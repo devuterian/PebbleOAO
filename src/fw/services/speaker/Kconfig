@@ -15,6 +15,6 @@ source "subsys/logging/Kconfig.template.log_level"
 endif
 
 config KEY_SOUNDS
-    bool "Private Time 2 key sounds"
+    bool "Time 2 key sounds"
     depends on SPEAKER && (BOARD_OBELIX || BOARD_QEMU_EMERY)
-    default n
+    default y

@@ -1,8 +1,8 @@
-# Private Time 2 key-sound preview
+# Time 2 key sounds
 
-Local preview only; do not publish the supplied audio or this branch as a release.
+The user approved publishing the test 3 implementation in the Ice Cream prerelease.
 Build with `CONFIG_KEY_SOUNDS=y` on `obelix@pvt` (both slots) or `qemu_emery`.
-The option defaults off at build time, and key sounds default off in settings.
+The build option defaults on for Time 2; key sounds still default off in settings.
 
 The user supplied the nine WAVs from their BlackUI/pebble folder. `prepare.py`
 converts copies to mono PCM16 at 16 kHz, removes leading silence while retaining
@@ -50,3 +50,11 @@ the DAC, allow 2 ms of settling with the existing silent DMA buffer, then
 send the original amplifier mode pulses. Disable PA before stopping the DAC.
 The real driver passes a host call-order harness and both hardware slots
 compile. Actual analog click reduction must be checked on the watch.
+
+## Ice Cream prerelease
+
+The public ver009 build includes test 3 unchanged, with key-sound support
+built in by default on Time 2 and disabled in user settings until enabled.
+The complete host suite passed (340 targets), the real-driver sequence
+harness passed, and the release includes four QEMU settings screenshots.
+The companion APK is byte-identical to Honey Toast's ver017.
