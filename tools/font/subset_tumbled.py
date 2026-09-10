@@ -35,8 +35,6 @@ def read_font(path):
             cp, offset_glyph = struct.unpack_from(
                 entry_fmt, data, offsets_start + offset + index * entry_size
             )
-            if not (cp < 0x3400 or 0xAC00 <= cp <= 0xD7A3):
-                continue
             start = glyph_start + offset_glyph
             width, rows, left, top, advance = struct.unpack_from("<BBbbb", data, start)
             bitmap = data[start + 5:]
@@ -55,6 +53,7 @@ def read_font(path):
 def write_font(path, source_height, height, wildcard, glyphs):
     tables = [[] for _ in range(255)]
     glyph_data = bytearray()
+    shared = {}
     for cp, (width, rows, left, top, advance, bits) in sorted(glyphs.items()):
         if height != source_height:
             scale = height / source_height
@@ -65,13 +64,54 @@ def write_font(path, source_height, height, wildcard, glyphs):
                 img = img.resize((width, rows), Image.Resampling.NEAREST)
                 bits = list(img.getdata())
             left, top, advance = [round(value * scale) for value in (left, top, advance)]
-        tables[cp % 255].append((cp, len(glyph_data)))
-        glyph_data.extend(struct.pack("<BBbbb", width, rows, left, top, advance))
-        bitmap = bytearray(((len(bits) + 31) // 32) * 4)
+        # Remove transparent margins while preserving ink position and advance.
+        if width and rows:
+            img = Image.new("L", (width, rows))
+            img.putdata(bits)
+            bounds = img.getbbox()
+            if bounds:
+                img = img.crop(bounds)
+                left += bounds[0]
+                top += bounds[1]
+                width, rows = img.size
+                bits = list(img.getdata())
+            else:
+                width = rows = 0
+                bits = []
+        bitmap = bytearray((len(bits) + 7) // 8)
         for i, bit in enumerate(bits):
             bitmap[i // 8] |= bit << (i % 8)
-        glyph_data.extend(bitmap)
-    data = bytearray(struct.pack("<BBHHBBBB", 3, height, len(glyphs), wildcard, 255, 2, 10, 0))
+        packed = struct.pack("<BBbbb", width, rows, left, top, advance) + bitmap
+        if packed not in shared:
+            shared[packed] = len(glyph_data)
+            glyph_data.extend(packed)
+        tables[cp % 255].append((cp, shared[packed]))
+    # Use the firmware's existing RLE encoding only when every glyph fits and it saves space.
+    compressed_data = bytearray()
+    compressed_offsets = {}
+    for packed, offset in shared.items():
+        width, rows = packed[:2]
+        runs = []
+        for i in range(width * rows):
+            bit = (packed[5 + i // 8] >> (i % 8)) & 1
+            if runs and runs[-1][0] == bit and runs[-1][1] < 8:
+                runs[-1][1] += 1
+            else:
+                runs.append([bit, 1])
+        if len(runs) > 255:
+            break
+        compressed_offsets[offset] = len(compressed_data)
+        compressed_data.extend(bytes([width, len(runs)]) + packed[2:5])
+        encoded = bytearray((len(runs) + 1) // 2)
+        for i, (bit, count) in enumerate(runs):
+            encoded[i // 2] |= ((bit << 3) | (count - 1)) << ((i % 2) * 4)
+        compressed_data.extend(encoded)
+    compressed = len(compressed_offsets) == len(shared) and len(compressed_data) < len(glyph_data)
+    if compressed:
+        glyph_data = compressed_data
+        tables = [[(cp, compressed_offsets[offset]) for cp, offset in entries] for entries in tables]
+    data = bytearray(struct.pack("<BBHHBBBB", 3, height, len(glyphs), wildcard, 255, 2, 10,
+                                2 if compressed else 0))
     offset = 0
     for bucket, entries in enumerate(tables):
         assert len(entries) <= 127
@@ -124,6 +164,8 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--jamo-source", type=Path, required=True,
                         help="Directory containing Galmuri11.ttf and Galmuri14.ttf")
+    parser.add_argument("--large-symbol-source", type=Path, required=True,
+                        help="SourceHanSansK-Regular.otf for 28/36px symbols")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     records = []
@@ -131,12 +173,29 @@ def main():
     for height, suffix in variants:
         source = args.source / f"TUMBLED_{min(height, 28)}{suffix}.pbf"
         original_height, wildcard, glyphs = read_font(source)
+        glyphs = {cp: glyph for cp, glyph in glyphs.items()
+                  if cp < 0x3400 or 0xAC00 <= cp <= 0xD7A3}
         jamo_source = args.jamo_source / f"Galmuri{11 if height == 14 else 14}.ttf"
-        add_jamo(glyphs, min(height, 28), suffix, jamo_source)
+        if height >= 28:
+            jamo_source = args.large_symbol_source
+            # Rebuild all compatibility jamo in the same family as the large Hangul.
+            for cp in range(0x3131, 0x318F):
+                glyphs.pop(cp, None)
+            glyphs[0x3164] = (0, 0, 0, 0, glyphs[ord("한")][4], [])
+        else:
+            add_jamo(glyphs, min(height, 28), suffix, jamo_source)
+        from add_korean_symbols import add_symbols
+        symbol_source = args.large_symbol_source if height >= 28 else args.jamo_source / "Galmuri11.ttf"
+        symbol_fallback = args.jamo_source / "Galmuri11.ttf" if height >= 28 else None
+        added_symbols = add_symbols(glyphs, symbol_source, symbol_fallback)
         output = args.output / f"MARIE_TUMBLED_{height}{suffix}.pbf"
         write_font(output, original_height, height, wildcard, glyphs)
         records.append({
             "file": output.name,
+            "added_symbols": [f"U+{cp:04X}" for cp in added_symbols
+                              if not 0x3131 <= cp <= 0x318E],
+            "symbol_source": symbol_source.name,
+            "symbol_source_sha256": hashlib.sha256(symbol_source.read_bytes()).hexdigest(),
             "source": source.name,
             "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
             "jamo_source": jamo_source.name,

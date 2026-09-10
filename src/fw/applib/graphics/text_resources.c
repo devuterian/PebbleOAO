@@ -612,6 +612,13 @@ static const GlyphData *prv_get_glyph_in_font(FontCache *font_cache, Codepoint c
   prv_check_font_cache(font_cache, font_res);
   const GlyphData *data = prv_get_glyph_metadata_from_spi(codepoint, font_cache, font_res,
                                                           need_bitmap);
+  // Symbols classified as emoji may only exist in the text font extension.
+  if (!data && owner != font_info) {
+    owner = font_info;
+    font_res = &font_info->base;
+    prv_check_font_cache(font_cache, font_res);
+    data = prv_get_glyph_metadata_from_spi(codepoint, font_cache, font_res, need_bitmap);
+  }
   // Routed resource missed: try the font's other own resource. Classification is a lookup-order
   // hint, not a hard partition. Skipped when the emoji font took over.
   if (!data && owner == font_info) {
