@@ -8,3 +8,7 @@ pbl_library_sources(
   speaker_service.c
   track_player.c
 )
+
+if(CONFIG_KEY_SOUNDS)
+  pbl_library_sources(key_sounds.c)
+endif()

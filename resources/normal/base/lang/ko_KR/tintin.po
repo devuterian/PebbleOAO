@@ -3750,3 +3750,15 @@ msgstr "어두운 배경"
 #: src/fw/apps/system/settings/themes.c
 msgid "Default"
 msgstr "기본"
+
+msgid "Key Sounds"
+msgstr "키음"
+
+msgid "Key Volume"
+msgstr "키음 음량"
+
+msgid "Chime Volume"
+msgstr "정각 알림 음량"
+
+msgid "Status Sounds"
+msgstr "상태 알림음"

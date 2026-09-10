@@ -45,8 +45,14 @@ size_t resource_load_byte_range_system(ResAppNum app, uint32_t id, uint32_t offs
 }
 
 // Alerts preferences: speaker unmuted, no volume cap
-bool alerts_preferences_get_speaker_muted(void) { return false; }
-uint8_t alerts_preferences_get_speaker_volume(void) { return 100; }
+static bool s_muted;
+static uint8_t s_cap;
+bool alerts_preferences_get_speaker_muted(void) {
+  return s_muted;
+}
+uint8_t alerts_preferences_get_speaker_volume(void) {
+  return s_cap;
+}
 bool alerts_preferences_dnd_get_mute_speaker(void) { return false; }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +85,10 @@ uint32_t audio_write(AudioDevice *device, void *buf, uint32_t size) {
   return 0;
 }
 
-void audio_set_volume(AudioDevice *device, int volume) {}
+static int s_volume;
+void audio_set_volume(AudioDevice *device, int volume) {
+  s_volume = volume;
+}
 
 void audio_stop(AudioDevice *device) {
   s_stop_count++;
@@ -104,6 +113,8 @@ static void prv_pump_until_idle(void) {
 void test_speaker_service__initialize(void) {
   fake_system_task_callbacks_cleanup();
   s_dnd = false;
+  s_muted = false;
+  s_cap = 100;
   s_resource_size = 135598;
   s_resource_read = 0;
   s_resource_read_fails = false;
@@ -219,4 +230,60 @@ void test_speaker_service__chime_preserves_app_finish_subscription(void) {
   prv_pump_until_idle();
   cl_assert_equal_i(fake_event_get_count(), 1);
   cl_assert_equal_i(fake_event_get_last().type, PEBBLE_SPEAKER_EVENT);
+}
+
+void test_speaker_service__ui_preserves_samples_and_tail(void) {
+  static const int16_t pcm[] = {100, 200, 300, 400, 500};
+  cl_assert(speaker_service_play_ui_pcm(pcm, 5, 35, false));
+  prv_pump_until_idle();
+  cl_assert_equal_i(s_nonzero_samples, 5);
+  cl_assert_equal_i(s_samples_written, 5 + DRAIN_SAMPLES);
+  cl_assert_equal_i(s_stop_count, 1);
+}
+
+void test_speaker_service__ui_replaces_without_restarting_audio(void) {
+  static int16_t pcm[2048];
+  for (unsigned i = 0; i < 2048; i++) {
+    pcm[i] = 1000;
+  }
+  for (unsigned i = 0; i < 30; i++) {
+    cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 35, false));
+  }
+  cl_assert_equal_i(s_start_count, 1);
+  cl_assert_equal_i(s_stop_count, 0);
+  prv_pump_until_idle();
+  cl_assert_equal_i(s_stop_count, 1);
+  cl_assert(s_samples_written < 3 * 2048 + DRAIN_SAMPLES);
+}
+
+void test_speaker_service__ui_yields_to_apps_and_never_interrupts_chime(void) {
+  static int16_t pcm[2048];
+  cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 35, false));
+  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
+  cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 35, false));
+  speaker_service_stop_ui();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
+  speaker_service_stop();
+  cl_assert(speaker_service_play_chime_resource(123));
+  cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 35, false));
+}
+
+void test_speaker_service__ui_mute_dnd_and_volume(void) {
+  static int16_t pcm[2048];
+  s_cap = 50;
+  cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 60, false));
+  cl_assert_equal_i(s_volume, 30);
+  cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 60, true));
+  cl_assert_equal_i(s_volume, 60);
+  s_dnd = true;
+  prv_pump_until_idle();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
+  cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 60, true));
+  s_dnd = false;
+  s_muted = true;
+  cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 60, true));
+  s_muted = false;
+  cl_assert(!speaker_service_play_ui_pcm(NULL, 2048, 60, false));
+  cl_assert(!speaker_service_play_ui_pcm(pcm, 0, 60, false));
+  cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 101, false));
 }

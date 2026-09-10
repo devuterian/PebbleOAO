@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
+
 #include "option_menu_window.h"
 
 #include "applib/applib_malloc.auto.h"
@@ -143,6 +145,7 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   option_menu->choice = cell_index->row;
   layer_mark_dirty((Layer *)&option_menu->menu_layer);
   if (option_menu->callbacks.select) {
+    key_sounds_play(KeySoundApply);
     option_menu->callbacks.select(option_menu, option_menu->choice, option_menu->context);
   }
 }

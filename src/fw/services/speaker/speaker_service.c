@@ -7,6 +7,7 @@
 
 #include "pbl/services/speaker/note_sequence.h"
 #include "pcm_stream.h"
+#include "pbl/services/speaker/key_sounds.h"
 #include "track_player.h"
 
 #include <pbl/drivers/audio.h>
@@ -61,6 +62,11 @@ typedef struct {
   // PCM stream source
   PcmStreamState pcm_stream;
   SpeakerPcmFormat pcm_format;
+
+  const int16_t *ui_samples;
+  uint32_t ui_count, ui_pos;
+  const int16_t *ui_previous;
+  uint32_t ui_previous_count, ui_previous_pos, ui_crossfade;
 
   uint32_t chime_resource_id;
   uint32_t chime_offset;
@@ -286,13 +292,16 @@ static void prv_stop_internal(SpeakerFinishReason reason) {
 
   PBL_LOG_DBG("Speaker stopped (reason=%d)", reason);
 
-  if (source_type != SpeakerSourceChime) {
+  if (source_type != SpeakerSourceChime && source_type != SpeakerSourceUI) {
     prv_post_finish_event(reason);
   }
 }
 
 static bool prv_can_preempt(SpeakerPriority new_pri) {
   if (s_state.state == SpeakerStateIdle) {
+    return true;
+  }
+  if (s_state.source_type == SpeakerSourceUI) {
     return true;
   }
   if (s_state.pipeline_draining) {
@@ -438,6 +447,23 @@ static void prv_refill_locked(void) {
       memset(s_state.refill_buf, 0, SPEAKER_REFILL_SAMPLES * sizeof(int16_t));
       samples_generated = SPEAKER_REFILL_SAMPLES;
     }
+  } else if (s_state.source_type == SpeakerSourceUI) {
+    if (do_not_disturb_is_active() || prv_effective_volume(s_state.volume) == 0) {
+      prv_stop_internal(SpeakerFinishReasonStopped);
+      return;
+    }
+    while (samples_generated < SPEAKER_REFILL_SAMPLES && s_state.ui_pos < s_state.ui_count) {
+      int32_t value = s_state.ui_samples[s_state.ui_pos++];
+      if (s_state.ui_crossfade) {
+        int32_t old = s_state.ui_previous_pos < s_state.ui_previous_count
+                          ? s_state.ui_previous[s_state.ui_previous_pos++]
+                          : 0;
+        value = (old * s_state.ui_crossfade + value * (80 - s_state.ui_crossfade)) / 80;
+        --s_state.ui_crossfade;
+      }
+      s_state.refill_buf[samples_generated++] = (int16_t)value;
+    }
+    source_exhausted = samples_generated == 0;
   } else if (s_state.source_type == SpeakerSourceChime) {
     if (do_not_disturb_is_active() || prv_effective_volume(s_state.volume) == 0) {
       prv_stop_internal(SpeakerFinishReasonStopped);
@@ -738,6 +764,54 @@ alloc_fail:
   return false;
 }
 
+void speaker_service_stop_ui(void) {
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (s_state.state != SpeakerStateIdle && s_state.source_type == SpeakerSourceUI) {
+    prv_stop_internal(SpeakerFinishReasonStopped);
+  }
+  pbl_mutex_unlock(&s_lock);
+}
+
+bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t volume,
+                                 bool absolute) {
+  if (!samples || !count || count > 160000 || volume > 100) {
+    return false;
+  }
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (!s_state.initialized || do_not_disturb_is_active() || prv_is_speaker_muted() || !volume ||
+      (!absolute && !alerts_preferences_get_speaker_volume()) ||
+      (s_state.state != SpeakerStateIdle && s_state.source_type != SpeakerSourceUI)) {
+    pbl_mutex_unlock(&s_lock);
+    return false;
+  }
+  const bool replacing = s_state.state != SpeakerStateIdle;
+  s_state.ui_previous = replacing ? s_state.ui_samples : NULL;
+  s_state.ui_previous_pos = replacing ? s_state.ui_pos : 0;
+  s_state.ui_previous_count = replacing ? s_state.ui_count : 0;
+  s_state.ui_crossfade = replacing ? 80 : 0;
+  s_state.ui_samples = samples;
+  s_state.ui_count = count;
+  s_state.ui_pos = 0;
+  s_state.pipeline_draining = false;
+  s_state.drain_samples_remaining = 0;
+  s_state.source_type = SpeakerSourceUI;
+  s_state.state = SpeakerStatePlaying;
+  s_state.priority = SpeakerPriorityApp;
+  s_state.owner_task = PebbleTask_Unknown;
+  s_state.volume = volume;
+  s_state.volume_absolute = absolute;
+  if (!replacing) {
+    prv_start_audio(volume);
+    prv_refill_locked();
+  } else {
+    const uint8_t effective = prv_effective_volume(volume);
+    audio_set_volume((AudioDevice *)AUDIO, effective);
+    prv_update_volume_analytics(effective);
+  }
+  pbl_mutex_unlock(&s_lock);
+  return true;
+}
+
 bool speaker_service_play_chime_resource(uint32_t resource_id) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   if (!s_state.initialized || s_state.state != SpeakerStateIdle || do_not_disturb_is_active() ||
@@ -757,8 +831,12 @@ bool speaker_service_play_chime_resource(uint32_t resource_id) {
   s_state.state = SpeakerStatePlaying;
   s_state.priority = SpeakerPriorityApp;
   s_state.owner_task = PebbleTask_Unknown;
-  s_state.volume = 100;
-  prv_start_audio(100);
+  uint8_t volume = 100;
+#ifdef CONFIG_KEY_SOUNDS
+  volume = key_sounds_volume(key_sounds_get_settings().chime_level);
+#endif
+  s_state.volume = volume;
+  prv_start_audio(volume);
   prv_refill_locked();
   pbl_mutex_unlock(&s_lock);
   return true;
@@ -938,6 +1016,12 @@ bool speaker_service_play_volume_preview(uint8_t vol) {
 
 bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks,
                                  SpeakerPriority pri, uint8_t vol) {
+  return false;
+}
+
+void speaker_service_stop_ui(void) {}
+bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t volume,
+                                 bool absolute) {
   return false;
 }
 

@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
+
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/notifications/do_not_disturb_toggle.h"
 
@@ -19,6 +21,9 @@ static bool prv_get_state(void *context) {
 static void prv_set_state(bool enabled, void *context) {
   PBL_LOG_DBG("Manual DND toggle: %s", enabled ? "enabled" : "disabled");
   do_not_disturb_set_manually_enabled(enabled);
+  if (!enabled && !do_not_disturb_is_active()) {
+    key_sounds_play(KeySoundDndOff);
+  }
 }
 
 static const ActionToggleImpl s_dnd_action_toggle_impl = {

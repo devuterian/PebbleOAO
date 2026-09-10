@@ -4,6 +4,8 @@
 #include "vibe_patterns.h"
 #include "speaker_volume_window.h"
 #include "window.h"
+#include "option_menu.h"
+#include "pbl/services/speaker/key_sounds.h"
 
 #include "applib/ui/ui.h"
 #include "kernel/pbl_malloc.h"
@@ -26,6 +28,10 @@ typedef enum VibeSettingsRow {
 #ifdef CONFIG_SPEAKER
   VibeSettingsRow_MuteSpeaker = 0,
   VibeSettingsRow_SpeakerVolume,
+#ifdef CONFIG_KEY_SOUNDS
+  VibeSettingsRow_KeySounds,
+  VibeSettingsRow_ChimeVolume,
+#endif
   VibeSettingsRow_Notifications,
 #else
   VibeSettingsRow_Notifications = 0,
@@ -45,6 +51,85 @@ typedef struct SettingsVibePatternsData {
   char volume_subtitle[8];  // "100%" + NUL
 #endif
 } SettingsVibePatternsData;
+
+#ifdef CONFIG_KEY_SOUNDS
+static const char *s_levels[] = {"1", "2", "3", "4", "5"};
+
+static void prv_level_select(OptionMenu *menu, int selection, void *context) {
+  const bool chime = (uintptr_t)settings_option_menu_get_context(context) != 0;
+  KeySoundSettings settings = key_sounds_get_settings();
+  if (chime) {
+    settings.chime_level = selection + 1;
+  } else {
+    settings.level = selection + 1;
+  }
+  if (key_sounds_set_settings(settings)) {
+    key_sounds_preview(selection + 1);
+    settings_menu_mark_dirty(SettingsMenuItemVibrations);
+  }
+}
+
+static void prv_level_push(bool chime) {
+  KeySoundSettings settings = key_sounds_get_settings();
+  const OptionMenuCallbacks callbacks = {.select = prv_level_select};
+  settings_option_menu_push(chime ? i18n_noop("Chime Volume") : i18n_noop("Key Volume"),
+                            OptionMenuContentType_SingleLine,
+                            (chime ? settings.chime_level : settings.level) - 1, &callbacks, 5,
+                            true, s_levels, (void *)(uintptr_t)chime);
+}
+
+static void prv_keys_deinit(SettingsCallbacks *context) {
+  i18n_free_all(context);
+  app_free(context);
+}
+
+static uint16_t prv_keys_rows(SettingsCallbacks *context) {
+  return 3;
+}
+
+static void prv_keys_draw(SettingsCallbacks *context, GContext *ctx, const Layer *cell,
+                          uint16_t row, bool selected) {
+  KeySoundSettings settings = key_sounds_get_settings();
+  const char *titles[] = {i18n_noop("Key Sounds"), i18n_noop("Key Volume"),
+                          i18n_noop("Status Sounds")};
+  const char *subtitle = row == 1 ? s_levels[settings.level - 1]
+                                  : i18n_get((row == 0 ? settings.enabled : settings.status_enabled)
+                                                 ? i18n_noop("On")
+                                                 : i18n_noop("Off"),
+                                             context);
+  menu_cell_basic_draw(ctx, cell, i18n_get(titles[row], context), subtitle, NULL);
+}
+
+static void prv_keys_select(SettingsCallbacks *context, uint16_t row) {
+  if (row == 1) {
+    prv_level_push(false);
+    return;
+  }
+  KeySoundSettings settings = key_sounds_get_settings();
+  if (row == 0) {
+    settings.enabled = !settings.enabled;
+  } else {
+    settings.status_enabled = !settings.status_enabled;
+  }
+  if (key_sounds_set_settings(settings)) {
+    key_sounds_play(KeySoundApply);
+    settings_menu_mark_dirty(SettingsMenuItemVibrations);
+  }
+}
+
+static void prv_keys_push(void) {
+  SettingsCallbacks *callbacks = app_zalloc_check(sizeof(*callbacks));
+  *callbacks = (SettingsCallbacks){
+      .deinit = prv_keys_deinit,
+      .draw_row = prv_keys_draw,
+      .select_click = prv_keys_select,
+      .num_rows = prv_keys_rows,
+  };
+  Window *window = settings_window_create_with_title(SettingsMenuItemVibrations,
+                                                     i18n_noop("Key Sounds"), callbacks);
+  app_window_stack_push(window, true);
+}
+#endif
 
 static void prv_deinit_cb(SettingsCallbacks *context) {
   SettingsVibePatternsData *data = (SettingsVibePatternsData *)context;
@@ -75,6 +160,18 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
                alerts_preferences_get_speaker_volume());
       menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data),
                            data->volume_subtitle, NULL);
+      return;
+    }
+#endif
+#ifdef CONFIG_KEY_SOUNDS
+    case VibeSettingsRow_KeySounds:
+    case VibeSettingsRow_ChimeVolume: {
+      KeySoundSettings settings = key_sounds_get_settings();
+      const bool chime = row == VibeSettingsRow_ChimeVolume;
+      title = chime ? i18n_noop("Chime Volume") : i18n_noop("Key Sounds");
+      subtitle = chime ? s_levels[settings.chime_level - 1]
+                       : i18n_get(settings.enabled ? i18n_noop("On") : i18n_noop("Off"), data);
+      menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), subtitle, NULL);
       return;
     }
 #endif
@@ -133,6 +230,10 @@ static void prv_selection_changed_cb(SettingsCallbacks *context, uint16_t new_ro
   switch (new_row) {
 #ifdef CONFIG_SPEAKER
     case VibeSettingsRow_MuteSpeaker:
+#ifdef CONFIG_KEY_SOUNDS
+    case VibeSettingsRow_KeySounds:
+    case VibeSettingsRow_ChimeVolume:
+#endif
     case VibeSettingsRow_SpeakerVolume: {
       // No vibe preview — this row controls a non-vibe setting.
       return;
@@ -192,6 +293,14 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       speaker_volume_window_push();
       return;
     }
+#endif
+#ifdef CONFIG_KEY_SOUNDS
+    case VibeSettingsRow_KeySounds:
+      prv_keys_push();
+      return;
+    case VibeSettingsRow_ChimeVolume:
+      prv_level_push(true);
+      return;
 #endif
     case VibeSettingsRow_Notifications: {
       client = VibeClient_Notifications;

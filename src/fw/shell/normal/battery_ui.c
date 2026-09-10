@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
+
 #include "battery_ui.h"
 
 #include <stdint.h>
@@ -435,6 +437,7 @@ void battery_ui_display_warning(uint32_t percent, BatteryUIWarningLevel warning_
     .warning_icon = s_warning_icon[warning_level],
   };
   prv_display_modal(stack, prv_update_ui_warning, &display_data);
+  key_sounds_play(KeySoundBatteryLow);
 }
 
 void battery_ui_dismiss_modal(void) {

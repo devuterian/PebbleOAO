@@ -85,8 +85,13 @@ static void prv_play(void *context) {
   // Recheck after queueing: never play late, after a clock change, or in Quiet Time.
   if (now < scheduled || now - scheduled >= 5 || !prv_due(now) || do_not_disturb_is_active() ||
       low_power_is_active() || firmware_update_is_in_progress() || speaker_service_is_muted() ||
-      alerts_preferences_get_speaker_volume() == 0 ||
-      speaker_service_get_state() != SpeakerStateIdle) {
+      alerts_preferences_get_speaker_volume() == 0) {
+    return;
+  }
+#ifdef CONFIG_KEY_SOUNDS
+  speaker_service_stop_ui();
+#endif
+  if (speaker_service_get_state() != SpeakerStateIdle) {
     return;
   }
   speaker_service_play_chime_resource(RESOURCE_ID_HOURLY_CHIME);

@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
+
 #include "menu_layer.h"
 #include "menu_layer_private.h"
 
@@ -251,6 +253,7 @@ static void prv_menu_select_click_handler(ClickRecognizerRef recognizer, MenuLay
 
   // Actually handle the click
   if (menu_layer->callbacks.select_click) {
+    key_sounds_play(KeySoundSelect);
     menu_layer->callbacks.select_click(menu_layer, &menu_layer->selection.index,
                                        menu_layer->callback_context);
   }
@@ -385,6 +388,7 @@ static void prv_menu_reconcile_selection_before_step(MenuLayer *menu_layer) {
 void menu_up_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_layer) {
   const bool up = true;
   if (menu_layer->scroll_wrap_around && prv_menu_scroll_handle_wrap_around(menu_layer, recognizer, up)) {
+    key_sounds_play(KeySoundNavigate);
     return;
   }
 #ifdef CONFIG_TOUCH
@@ -395,6 +399,9 @@ void menu_up_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_layer)
   const bool animated = true;
   menu_layer_set_selected_next(menu_layer, up, MenuRowAlignCenter, animated);
   MenuIndex current_index = menu_layer->selection.index;
+  if (menu_index_compare(&current_index, &prev_index) != 0) {
+    key_sounds_play(KeySoundNavigate);
+  }
   if ((menu_layer->scroll_vibe_on_blocked) &&
     (menu_index_compare(&current_index, &prev_index) == 0) &&
     (prv_menu_index_is_first_index(menu_layer, &current_index))) {
@@ -405,6 +412,7 @@ void menu_up_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_layer)
 void menu_down_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_layer) {
   const bool up = false;
   if (menu_layer->scroll_wrap_around && prv_menu_scroll_handle_wrap_around(menu_layer, recognizer, up)) {
+    key_sounds_play(KeySoundNavigate);
     return;
   }
 #ifdef CONFIG_TOUCH
@@ -415,6 +423,9 @@ void menu_down_click_handler(ClickRecognizerRef recognizer, MenuLayer *menu_laye
   const bool animated = true;
   menu_layer_set_selected_next(menu_layer, up, MenuRowAlignCenter, animated);
   MenuIndex current_index = menu_layer->selection.index;
+  if (menu_index_compare(&current_index, &prev_index) != 0) {
+    key_sounds_play(KeySoundNavigate);
+  }
   if ((menu_layer->scroll_vibe_on_blocked) &&
     (menu_index_compare(&current_index, &prev_index) == 0) &&
     (prv_menu_index_is_last_index(menu_layer, &current_index))) {
@@ -1913,6 +1924,7 @@ bool menu_layer_touch_find_row_at_content_y(MenuLayer *menu_layer, int16_t conte
 
 static void prv_menu_activate_index(MenuLayer *menu_layer, MenuIndex *index) {
   if (menu_layer->callbacks.select_click) {
+    key_sounds_play(KeySoundSelect);
     menu_layer->callbacks.select_click(menu_layer, index, menu_layer->callback_context);
   }
 }
@@ -1980,6 +1992,7 @@ static void prv_menu_touch_reselect_row(MenuLayer *menu_layer, MenuIndex index) 
   // scroll animation is scheduled, so the flag is inert either way.
   prv_menu_layer_update_selection_highlight(menu_layer, up, false /* animated */,
                                             !menu_layer->touch_fling_active);
+  key_sounds_play(KeySoundNavigate);
   prv_announce_selection_changed(menu_layer, prev_selection.index);
 }
 

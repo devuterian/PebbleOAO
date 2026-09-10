@@ -1,6 +1,8 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
+
 #include "watchface.h"
 
 #include "apps/system_app_ids.h"
@@ -237,6 +239,7 @@ static void prv_configure_click_handler(ButtonId button_id, ClickHandler single_
 }
 
 static void prv_launch_launcher_app(ClickRecognizerRef recognizer, void *data) {
+  key_sounds_play(KeySoundMenu);
   static const LauncherMenuArgs s_launcher_args = { .reset_scroll = true };
   prv_launch_app_via_button(&(AppLaunchEventConfig) {
     .id = APP_ID_LAUNCHER_MENU,

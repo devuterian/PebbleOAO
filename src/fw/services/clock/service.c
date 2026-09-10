@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
 #include "pbl/services/clock.h"
 #if defined(CONFIG_SPEAKER) && !defined(CONFIG_RECOVERY_FW)
 #include "pbl/services/hourly_chime.h"
@@ -458,6 +459,7 @@ void clock_init(void) {
 void clock_hourly_chime_arm(void) {
 #ifdef CONFIG_SPEAKER
   hourly_chime_init();
+  key_sounds_init();
 #endif
   s_hourly_chime_armed = true;
 }

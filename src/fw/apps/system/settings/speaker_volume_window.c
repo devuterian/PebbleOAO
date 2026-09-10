@@ -1,6 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "pbl/services/speaker/key_sounds.h"
 #include "speaker_volume_window.h"
 
 #ifdef CONFIG_SPEAKER
@@ -29,6 +30,12 @@ typedef struct SpeakerVolumeWindowData {
 } SpeakerVolumeWindowData;
 
 static void prv_play_preview(SpeakerVolumeWindowData *data) {
+#ifdef CONFIG_KEY_SOUNDS
+  if (key_sounds_get_settings().enabled) {
+    key_sounds_preview_volume((uint8_t)data->value);
+    return;
+  }
+#endif
   // Restart the preview on every step so rapid clicks aren't rejected as
   // same-priority playback.
   speaker_service_stop_for_task(PebbleTask_App);

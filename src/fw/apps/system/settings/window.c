@@ -6,6 +6,8 @@
 #include "bluetooth.h"
 #include "menu.h"
 #include "window.h"
+#include "applib/ui/app_window_stack.h"
+#include "pbl/services/speaker/key_sounds.h"
 
 #include "applib/event_service_client.h"
 #include "applib/ui/menu_layer.h"
@@ -105,7 +107,11 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   const uint16_t row = cell_index->row;
   SettingsCallbacks *callbacks = prv_get_current_callbacks(data);
   if (callbacks->select_click) {
+    Window *selected_window = app_window_stack_get_top_window();
     callbacks->select_click(callbacks, row);
+    if (app_window_stack_get_top_window() == selected_window) {
+      key_sounds_play(KeySoundApply);
+    }
   }
 }
 
