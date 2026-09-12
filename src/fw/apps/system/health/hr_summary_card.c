@@ -61,7 +61,7 @@ static void prv_pulsing_heart_timer_cb(void *context) {
     data->pulsing_heart_timer = NULL;
     return;
   }
-  const uint32_t timer_duration = duration / num_frames;
+  const uint32_t timer_duration = MAX(1, duration / num_frames);
   const uint32_t max_heart_beats = PULSING_HEART_TIMEOUT / duration;
 
   data->pulsing_heart_frame_index++;
