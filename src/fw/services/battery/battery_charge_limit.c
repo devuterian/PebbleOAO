@@ -19,6 +19,15 @@
 T_STATIC bool s_limit_active;
 static RegularTimerInfo s_periodic_timer;
 
+static void prv_set_periodic_check_enabled(bool enabled) {
+  const bool is_scheduled = regular_timer_is_scheduled(&s_periodic_timer);
+  if (enabled && !is_scheduled) {
+    regular_timer_add_multisecond_callback(&s_periodic_timer, PERIODIC_CHECK_INTERVAL_S);
+  } else if (!enabled && is_scheduled) {
+    regular_timer_remove_callback(&s_periodic_timer);
+  }
+}
+
 static void prv_evaluate_current(void *data) {
   BatteryChargeState charge = battery_get_charge_state();
   PreciseBatteryChargeState state = {
@@ -39,11 +48,12 @@ static void prv_periodic_timer_cb(void *data) {
 
 void battery_charge_limit_init(void) {
   s_periodic_timer.cb = prv_periodic_timer_cb;
-  regular_timer_add_multisecond_callback(&s_periodic_timer, PERIODIC_CHECK_INTERVAL_S);
+  battery_charge_limit_refresh();
 }
 
 void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
   if (!shell_prefs_get_charge_limit_enabled()) {
+    prv_set_periodic_check_enabled(false);
     if (s_limit_active) {
       battery_set_charge_enable(true);
       s_limit_active = false;
@@ -53,12 +63,15 @@ void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
   }
 
   if (!state.is_plugged) {
+    prv_set_periodic_check_enabled(false);
     if (s_limit_active) {
       battery_set_charge_enable(true);
     }
     s_limit_active = false;
     return;
   }
+
+  prv_set_periodic_check_enabled(true);
 
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
   uint32_t millipercent = battery_state_get_millipercent();

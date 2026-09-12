@@ -22,6 +22,14 @@ void regular_timer_add_multisecond_callback(RegularTimerInfo *cb, uint16_t secon
   cl_assert_equal_i(seconds, 60);
   s_timer = cb;
 }
+bool regular_timer_is_scheduled(RegularTimerInfo *cb) { return s_timer == cb; }
+bool regular_timer_remove_callback(RegularTimerInfo *cb) {
+  if (s_timer != cb) {
+    return false;
+  }
+  s_timer = NULL;
+  return true;
+}
 void launcher_task_add_callback(CallbackEventCallback callback, void *data) {
   s_callbacks++;
   s_callback = callback;
@@ -37,7 +45,12 @@ void test_battery_charge_limit__initialize(void) {
   prv_evaluate(0, false);
   s_enabled = s_charging = true;
   s_writes = s_callbacks = 0;
+  s_timer = NULL;
+  s_charge = (BatteryChargeState){ .charge_percent = 50, .is_plugged = true };
   battery_charge_limit_init();
+  cl_assert_equal_i(s_callbacks, 1);
+  s_callback(NULL);
+  s_callbacks = 0;
 }
 
 void test_battery_charge_limit__stops_at_80_and_resumes_at_77(void) {
@@ -61,6 +74,17 @@ void test_battery_charge_limit__unplug_restores_charger_for_next_connection(void
   cl_assert(!battery_charge_limit_is_active());
   prv_evaluate(70, true);
   cl_assert(s_charging);
+}
+
+void test_battery_charge_limit__timer_only_runs_while_enabled_and_plugged(void) {
+  cl_assert(s_timer);
+  prv_evaluate(50, false);
+  cl_assert(!s_timer);
+  prv_evaluate(50, true);
+  cl_assert(s_timer);
+  s_enabled = false;
+  prv_evaluate(50, true);
+  cl_assert(!s_timer);
 }
 
 void test_battery_charge_limit__disabling_restores_charging(void) {
