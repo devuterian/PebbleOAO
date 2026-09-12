@@ -12,7 +12,7 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 
 ## 뭐가 다른데
 
-아래는 **A부터 H까지 쌓인 공개 펌웨어 기능**입니다. 최신 프리릴리즈는 [H · Honey Toast](https://github.com/devuterian/PebbleOAO/releases/tag/v4.37.0-ver008-honey-toast), 최신 정식 릴리즈는 [E · Egg Salad](https://github.com/devuterian/PebbleOAO/releases/tag/v4.37.0-ver005-egg-salad)입니다. F부터 H까지의 변경 사항까지 쓰시려면 프리릴리즈를 받아야 합니다요.
+아래는 **A부터 J까지 쌓인 공개 펌웨어 기능**입니다. 최신 프리릴리즈는 [J · Jelly](https://github.com/devuterian/PebbleOAO/releases/tag/v4.37.0-ver010-jelly), 최신 정식 릴리즈는 [E · Egg Salad](https://github.com/devuterian/PebbleOAO/releases/tag/v4.37.0-ver005-egg-salad)입니다. F부터 J까지의 변경 사항까지 쓰시려면 프리릴리즈를 받아야 합니다요.
 
 **한글과 폰트**
 
@@ -72,7 +72,7 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 
 ## 같이 쓰는 페블 앱은 뭐가 다른데
 
-펌웨어 버전과 앱 버전은 따로 올라갑니다. **I 릴리즈에도 ver017 APK를 같이 올렸습니다.** F·G에 남아 있는 ver011보다 뒤의 버전이고, 아래 한국어 표시와 앱 업데이트 기능도 포함됩니다요.
+펌웨어 버전과 앱 버전은 따로 올라갑니다. **J 릴리즈에도 ver017 APK를 같이 올렸습니다.** F·G에 남아 있는 ver011보다 뒤의 버전이고, 아래 한국어 표시와 앱 업데이트 기능도 포함됩니다요.
 
 **공개 APK에 들어간 기능**
 
@@ -140,6 +140,12 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 
 - 키음과 상태 알림음을 넣고, 키음·정각 알림 음량을 각각 1~5단계로 고를 수 있게 했습니다.
 - 연타할 때 소리가 튀던 계산과 스피커 시작·종료 순서를 손봤습니다. APK는 H와 같은 ver017입니다.
+
+**[J · ver010 · Jelly](https://github.com/devuterian/PebbleOAO/releases/tag/v4.37.0-ver010-jelly) · 프리릴리즈**
+
+- 건강 앱의 심장 애니메이션이 다크 모드 색을 입힐 때 시계가 재부팅되던 문제를 고쳤습니다.
+- 80% 충전 제한을 쓰지 않을 때도 1분마다 돌아가던 확인 작업을 멈췄습니다. 충전 제한을 켜고 실제로 충전 중일 때만 확인합니다.
+- Time 2 실기기에 설치해 부팅, 한국어, BLE 재연결과 앱 동기화까지 확인했습니다. APK는 I와 같은 ver017입니다.
 
 ## 스크린샷
 
