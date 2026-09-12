@@ -339,7 +339,6 @@ static void prv_update_state(void *force_update) {
 
   ret = battery_get_constants(&constants);
   if (ret < 0) {
-    s_charge_sample_valid = false;
     PBL_LOG_ERR("Could not obtain constants, skipping update (%d)", ret);
     return;
   }
@@ -362,7 +361,6 @@ static void prv_update_state(void *force_update) {
 
   ret = battery_charge_status_get(&chg_status);
   if (ret < 0) {
-    s_charge_sample_valid = false;
     PBL_LOG_ERR("Could not obtain charge status, skipping update (%d)", ret);
     return;
   }
@@ -433,16 +431,20 @@ static void prv_update_state(void *force_update) {
   }
 
   uint32_t sample_time = now / RTC_TICKS_HZ;
-  if (is_charging && constants.v_mv > 0 && constants.i_ua > 0) {
+  // The nPM1300 reports current into the battery as negative. Keep the last
+  // good sample through brief zero-current charger pauses; the getter expires
+  // it after 90 seconds if no new charging sample arrives.
+  if (is_charging && constants.v_mv > 0 && constants.i_ua < 0) {
     if (!s_charge_sample_valid || sample_time - s_charge_sample_time > 90 ||
         s_last_soc_cpct < s_charge_start_cpct) {
       s_charge_start_time = sample_time;
       s_charge_start_cpct = s_last_soc_cpct;
     }
-    s_charge_mw = (uint64_t)constants.v_mv * constants.i_ua / 1000000;
+    uint32_t charge_current_ua = (uint32_t)(-(int64_t)constants.i_ua);
+    s_charge_mw = (uint64_t)constants.v_mv * charge_current_ua / 1000000U;
     s_charge_sample_time = sample_time;
     s_charge_sample_valid = true;
-  } else {
+  } else if (!is_charging) {
     s_charge_sample_valid = false;
   }
 
