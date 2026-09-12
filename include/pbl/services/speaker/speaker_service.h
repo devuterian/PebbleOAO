@@ -82,6 +82,9 @@ bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks
 //! Reads in DMA-sized chunks; only starts when idle, unmuted and outside Quiet Time.
 bool speaker_service_play_chime_resource(uint32_t resource_id);
 
+//! Preview a chime resource at a chosen level, replacing an earlier UI or chime preview.
+bool speaker_service_preview_chime_resource(uint32_t resource_id, uint8_t volume);
+
 //! Play trusted static mono 16 kHz PCM; replaces only another UI sound.
 bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t volume,
                                  bool absolute);

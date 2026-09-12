@@ -850,6 +850,41 @@ bool speaker_service_play_chime_resource(uint32_t resource_id) {
   return true;
 }
 
+bool speaker_service_preview_chime_resource(uint32_t resource_id, uint8_t volume) {
+  if (!volume || volume > 100) {
+    return false;
+  }
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (!s_state.initialized || do_not_disturb_is_active() || prv_is_speaker_muted() ||
+      !alerts_preferences_get_speaker_volume() ||
+      (s_state.state != SpeakerStateIdle && s_state.source_type != SpeakerSourceUI &&
+       s_state.source_type != SpeakerSourceChime)) {
+    pbl_mutex_unlock(&s_lock);
+    return false;
+  }
+  const size_t size = resource_size(SYSTEM_APP, resource_id);
+  if (size == 0 || size % sizeof(int16_t) != 0) {
+    pbl_mutex_unlock(&s_lock);
+    return false;
+  }
+  if (s_state.state != SpeakerStateIdle) {
+    prv_stop_internal(SpeakerFinishReasonStopped);
+  }
+  s_state.chime_resource_id = resource_id;
+  s_state.chime_size = size;
+  s_state.chime_offset = 0;
+  s_state.source_type = SpeakerSourceChime;
+  s_state.state = SpeakerStatePlaying;
+  s_state.priority = SpeakerPriorityApp;
+  s_state.owner_task = PebbleTask_Unknown;
+  s_state.volume = volume;
+  s_state.volume_absolute = false;
+  prv_start_audio(volume);
+  prv_refill_locked();
+  pbl_mutex_unlock(&s_lock);
+  return true;
+}
+
 bool speaker_service_stream_open(SpeakerPriority pri, uint8_t vol, SpeakerPcmFormat fmt) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
@@ -1034,6 +1069,10 @@ bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t
 }
 
 bool speaker_service_play_chime_resource(uint32_t resource_id) {
+  return false;
+}
+
+bool speaker_service_preview_chime_resource(uint32_t resource_id, uint8_t volume) {
   return false;
 }
 

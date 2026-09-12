@@ -8,6 +8,7 @@
 #include "apps/system_app_ids.h"
 #include "apps/system/launcher/launcher.h"
 #include "apps/system/settings/quick_launch_setup_menu.h"
+#include "apps/system/toggle/quiet_time.h"
 #include "apps/system/timeline/timeline.h"
 #include "kernel/event_loop.h"
 #include "kernel/low_power.h"
@@ -210,6 +211,11 @@ static void prv_quick_launch_handler(ClickRecognizerRef recognizer, void *data) 
                                                         : INSTALL_ID_INVALID;
   if (app_id == INSTALL_ID_INVALID) {
     app_id = app_install_get_id_for_uuid(&quick_launch_setup_get_app_info()->uuid);
+  }
+  const AppInstallId quiet_time_id =
+      app_install_get_id_for_uuid(&quiet_time_toggle_get_app_info()->uuid);
+  if (app_id != quiet_time_id) {
+    key_sounds_play(KeySoundLongPressShortcut);
   }
   s_buttons_pressed = BIT_CLEAR;  // Reset our own tracking
 

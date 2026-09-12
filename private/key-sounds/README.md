@@ -4,9 +4,9 @@ The user approved publishing the test 3 implementation in the Ice Cream prerelea
 Build with `CONFIG_KEY_SOUNDS=y` on `obelix@pvt` (both slots) or `qemu_emery`.
 The build option defaults on for Time 2; key sounds still default off in settings.
 
-The user supplied the nine WAVs from their BlackUI/pebble folder. `prepare.py`
-converts copies to mono PCM16 at 16 kHz, removes leading silence while retaining
-2 ms before the first audible sample, and adds a 2 ms fade-in / 8 ms fade-out.
+The user supplied the WAVs from their BlackUI/pebble folder. `prepare.py`
+converts copies to mono PCM16 at 16 kHz, removes inaudible head and tail while
+retaining short padding, and adds a 2 ms fade-in / 8 ms fade-out.
 Original hashes and trim amounts are in `processing.json`. No original is edited.
 Generated static PCM occupies code flash, not the nearly full resource bank.
 
@@ -14,11 +14,16 @@ Generated static PCM occupies code flash, not the nearly full resource bank.
 - menu_navigate: move a menu selection
 - menu_select: enter an app or submenu
 - backkey: go back one screen
-- close: return to the watchface
+- close: leave the launcher for the watchface
 - setting_applyed: select an option / apply an inline setting
 - volume_adjust: preview a volume setting
 - battery_low: show a low-battery warning (status sounds enabled)
 - dnd_off: manually turn off DND (status sounds enabled)
+- dialog_failed: show a user-facing progress failure (status sounds enabled)
+- long press shortcut: launch a hold shortcut, except the DND shortcut
+
+The unused `1.wav` through `9.wav` rise in pitch and suit a numeric keypad. They
+are not linked because PebbleOS currently has no shared numeric-keypad event.
 
 Key level defaults to 3, chime level to 5; both persist separately. Amplitude
 levels are 10, 20, 35, 60 and 100 percent of the global speaker setting. The
