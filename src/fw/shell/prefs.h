@@ -273,8 +273,16 @@ bool display_orientation_is_left(void);
 void display_orientation_set_left(bool left);
 #endif
 
+typedef enum ChargeLimitMode {
+  ChargeLimitMode_Full = 0,
+  ChargeLimitMode_Protect80 = 1,
+  ChargeLimitMode_Balanced90 = 2,
+} ChargeLimitMode;
+
 bool shell_prefs_get_charge_limit_enabled(void);
 void shell_prefs_set_charge_limit_enabled(bool enabled);
+uint8_t shell_prefs_get_charge_limit_percent(void);
+void shell_prefs_set_charge_limit_percent(uint8_t percent);
 
 GColor shell_prefs_get_theme_highlight_color(void);
 void shell_prefs_set_theme_highlight_color(GColor color);
