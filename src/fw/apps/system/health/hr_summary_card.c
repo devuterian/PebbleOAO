@@ -204,6 +204,15 @@ static bool prv_recolor_pulsing_heart_cb(GDrawCommand *command, uint32_t index, 
 }
 
 Layer *health_hr_summary_card_create(HealthData *health_data) {
+  const bool dark_mode = system_theme_is_dark_mode();
+  GDrawCommandSequence *pulsing_heart =
+      gdraw_command_sequence_create_with_resource(RESOURCE_ID_HEALTH_APP_PULSING_HEART);
+  if (dark_mode && pulsing_heart) {
+    GDrawCommandSequence *writable_heart = gdraw_command_sequence_clone(pulsing_heart);
+    gdraw_command_sequence_destroy(pulsing_heart);
+    pulsing_heart = writable_heart;
+  }
+
   // create base layer
   Layer *base_layer = layer_create_with_data(GRectZero, sizeof(HealthHrSummaryCardData));
   HealthHrSummaryCardData *data = layer_get_data(base_layer);
@@ -211,8 +220,7 @@ Layer *health_hr_summary_card_create(HealthData *health_data) {
   // set health data
   *data = (HealthHrSummaryCardData) {
     .health_data = health_data,
-    .pulsing_heart =
-        gdraw_command_sequence_create_with_resource(RESOURCE_ID_HEALTH_APP_PULSING_HEART),
+    .pulsing_heart = pulsing_heart,
     .progress_bar = {
       .num_segments = ARRAY_LENGTH(s_hr_summary_progress_segments),
       .segments = s_hr_summary_progress_segments,
@@ -230,7 +238,7 @@ Layer *health_hr_summary_card_create(HealthData *health_data) {
     .timestamp_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
   };
 
-  if (system_theme_is_dark_mode() && data->pulsing_heart) {
+  if (dark_mode && data->pulsing_heart) {
     const uint32_t num_frames = gdraw_command_sequence_get_num_frames(data->pulsing_heart);
     for (uint32_t i = 0; i < num_frames; i++) {
       GDrawCommandFrame *f = gdraw_command_sequence_get_frame_by_index(data->pulsing_heart, i);
