@@ -131,6 +131,10 @@ static void prv_window_load(Window *window) {
   action_bar_layer_add_to_window(action_bar, window);
 }
 
+static void prv_window_appear(Window *window) {
+  prv_play_preview((SpeakerVolumeWindowData *)window);
+}
+
 static void prv_window_unload(Window *window) {
   SpeakerVolumeWindowData *data = (SpeakerVolumeWindowData *)window;
   // Stop any in-flight preview tone.
@@ -147,6 +151,7 @@ void speaker_volume_window_push(void) {
   window_init(&data->window, WINDOW_NAME("Speaker Volume"));
   window_set_window_handlers(&data->window, &(WindowHandlers) {
     .load = prv_window_load,
+    .appear = prv_window_appear,
     .unload = prv_window_unload,
   });
   layer_set_update_proc(&data->window.layer, prv_update_proc);
