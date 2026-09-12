@@ -4,8 +4,24 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from fontTools.ttLib import TTFont
+
+
+# Common misspellings and playful Korean internet spellings that fall outside
+# the 2,350 KS X 1001 Hangul syllables kept in the compact system font.
+INTERNET_WORDS = (
+    "봣 쫒 샒 뷁 됫 됏 댓 됬 햏자 늅 띵작 댕댕이 커엽 킹받네 "
+    "엌 앜 읔 읭 뀨 뀽 꺄 꺅 꺆 꺜 쀍 쀽 솩 쌉쩔어 흠좀무 "
+    "존맛탱 꿀잼 노잼 핵잼 갬성 오졌 지렸 킹정 뇌절 어쩔티비 "
+    "갑분싸 개이득 띠용 뿜뿜 헿 훔냐 냠냠 녜 뉑 뫄 뭥 므엥 "
+    "웅앵웅 끵 뀰 뽀짝 뽀쟉 긔엽긔 않됌 하쉴 아뉘 웬열 왤케 "
+    "쟈 쟝 쥰내 쒸익 쓱싹 뿌앵 끼얏호우 먄 냬"
+)
+
+
+def internet_syllable_codepoints():
+    return sorted({ord(char) for char in INTERNET_WORDS if 0xAC00 <= ord(char) <= 0xD7A3})
 
 
 def codepoints():
@@ -50,6 +66,48 @@ def add_symbols(glyphs, source, fallback=None):
             top = target_y + round((box[1] - ref[1]) * scale)
             glyphs[cp] = (w, h, left, top, max(advance, left + w),
                           [int(bool(x)) for x in im.getdata()])
+        added.append(cp)
+    return added
+
+
+def add_internet_syllables(glyphs, source, font_size, bold=False):
+    font = ImageFont.truetype(str(source), font_size)
+    cmap = TTFont(source).getBestCmap()
+    _, target_h, _, target_y, _, _ = glyphs[ord("한")]
+    ref = font.getbbox("한", anchor="ls")
+    scale = target_h / (ref[3] - ref[1])
+    added = []
+    for cp in internet_syllable_codepoints():
+        if cp in glyphs:
+            continue
+        if cp not in cmap:
+            raise ValueError(f"Missing source glyph U+{cp:04X}")
+        box = font.getbbox(chr(cp), anchor="ls")
+        w, h = box[2] - box[0], box[3] - box[1]
+        advance = max(1, round(font.getlength(chr(cp)) * scale))
+        im = Image.new("L", (w, h))
+        ImageDraw.Draw(im).text((-box[0], -box[1]), chr(cp), font=font, fill=255, anchor="ls")
+        im = im.resize(
+            (max(1, round(w * scale)), max(1, round(h * scale))),
+            Image.Resampling.NEAREST if "Galmuri" in source.name else Image.Resampling.BOX,
+        ).point(lambda pixel: 255 if pixel else 0)
+        if bold:
+            original = Image.new("L", (im.width + 1, im.height))
+            shifted = Image.new("L", (im.width + 1, im.height))
+            original.paste(im, (0, 0))
+            shifted.paste(im, (1, 0))
+            im = ImageChops.lighter(original, shifted)
+        w, h = im.size
+        left = round(box[0] * scale)
+        top = target_y + round((box[1] - ref[1]) * scale)
+        glyphs[cp] = (
+            w,
+            h,
+            left,
+            top,
+            max(advance, left + w),
+            [int(bool(pixel)) for pixel in im.getdata()],
+        )
         added.append(cp)
     return added
 

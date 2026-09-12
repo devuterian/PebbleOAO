@@ -5,7 +5,9 @@ licensed under SIL OFL 1.1 (see LICENSE_OFL).
 The original authors credit Fusion Pixel, Galmuri, Unifont and Source Han Sans.
 
 The checked-in MARIE_TUMBLED fonts retain 2,350 Hangul syllables, kana and
-punctuation, plus 94 compatibility jamo U+3131–U+318E (3,412 glyphs per font after the symbol additions).
+punctuation, plus 94 compatibility jamo U+3131–U+318E. They also contain a
+small set of common misspellings and Korean internet spellings that fall
+outside that base repertoire.
 They do not contain all 11,172 Hangul syllables or the full original Chinese set.
 All Hangul characters in the Korean system catalog are covered.
 Latin text and emoji continue using the firmware's original fonts.
@@ -32,6 +34,11 @@ Regular, including repeated letters (ㅋㅋ, ㅎㅎ, ㅠㅠ) and double consonan
 Other existing glyph ink positions and advances are unchanged. Transparent
 margins and duplicate glyph data are removed; the existing PBF RLE format is used
 only where smaller. This does not add a new runtime compression scheme.
+The extra internet-spelling syllables use Galmuri11/Galmuri14 below 28px and
+Source Han Sans K Regular at 28/36px, matching the source family already used
+for added Korean glyphs at each size. The reproducible list lives in
+`tools/font/add_korean_symbols.py`; it includes forms such as 봣, 쫒, 샒, 뷁,
+됏, 됬, 햏, 앜, 읭, 됌 and 왤.
 Source Han Sans is Copyright 2014–2025 Adobe, licensed under SIL OFL 1.1;
 see LICENSE_SOURCE_HAN_SANS. Galmuri v2.40.4 uses the same license.
 

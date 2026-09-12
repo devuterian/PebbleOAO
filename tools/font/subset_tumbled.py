@@ -184,16 +184,23 @@ def main():
             glyphs[0x3164] = (0, 0, 0, 0, glyphs[ord("한")][4], [])
         else:
             add_jamo(glyphs, min(height, 28), suffix, jamo_source)
-        from add_korean_symbols import add_symbols
+        from add_korean_symbols import add_internet_syllables, add_symbols
         symbol_source = args.large_symbol_source if height >= 28 else args.jamo_source / "Galmuri11.ttf"
         symbol_fallback = args.jamo_source / "Galmuri11.ttf" if height >= 28 else None
         added_symbols = add_symbols(glyphs, symbol_source, symbol_fallback)
+        internet_source = args.large_symbol_source if height >= 28 else jamo_source
+        internet_source_size = 32 if height >= 28 else (12 if height == 14 else 15)
+        added_internet_syllables = add_internet_syllables(
+            glyphs, internet_source, internet_source_size, suffix == "_BOLD" and height < 28
+        )
         output = args.output / f"MARIE_TUMBLED_{height}{suffix}.pbf"
         write_font(output, original_height, height, wildcard, glyphs)
         records.append({
             "file": output.name,
             "added_symbols": [f"U+{cp:04X}" for cp in added_symbols
                               if not 0x3131 <= cp <= 0x318E],
+            "added_internet_syllables": [f"U+{cp:04X}" for cp in added_internet_syllables],
+            "internet_syllable_source": internet_source.name,
             "symbol_source": symbol_source.name,
             "symbol_source_sha256": hashlib.sha256(symbol_source.read_bytes()).hexdigest(),
             "source": source.name,
