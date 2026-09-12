@@ -10,6 +10,7 @@
 #include "applib/fonts/fonts.h"
 #include "applib/ui/dialogs/dialog.h"
 #include "applib/ui/dialogs/simple_dialog.h"
+#include "apps/system_app_ids.h"
 #include "console/prompt.h"
 #include "kernel/event_loop.h"
 #include "kernel/pbl_malloc.h"
@@ -34,6 +35,7 @@
 #include "pbl/services/app_outbox_service.h"
 #include "pbl/services/vibe_pattern.h"
 #ifndef CONFIG_RECOVERY_FW
+#include "pbl/services/speaker/key_sounds.h"
 #include "pbl/services/speaker/speaker_service.h"
 #endif
 #include "shell/normal/app_idle_timeout.h"
@@ -747,6 +749,14 @@ void app_manager_close_current_app(bool gracefully) {
       return;
     }
   }
+
+#if !defined(CONFIG_RECOVERY_FW)
+  if (app_install_is_watchface(destination_app_id) &&
+      ((current_app_id == APP_ID_LAUNCHER_MENU) ||
+       (s_app_task_context.launch_reason == APP_LAUNCH_QUICK_LAUNCH))) {
+    key_sounds_play(KeySoundClose);
+  }
+#endif
 
   app_manager_set_minimum_run_level(ProcessAppRunLevelNormal);
   process_manager_launch_process(&(ProcessLaunchConfig) {

@@ -2,7 +2,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "pbl/services/speaker/key_sounds.h"
-#include "apps/system_app_ids.h"
 
 #include "app.h"
 
@@ -111,11 +110,8 @@ static void prv_app_button_down_handler(PebbleEvent *e, void *context) {
 
   if (e->button.button_id == BUTTON_ID_BACK &&
       !app_window_stack_get_top_window()->overrides_back_button) {
-    const unsigned int window_count = window_stack_count(app_window_stack);
-    if (window_count > 1) {
+    if (window_stack_count(app_window_stack) > 1) {
       key_sounds_play(KeySoundBack);
-    } else if (sys_process_manager_get_current_process_id() == APP_ID_LAUNCHER_MENU) {
-      key_sounds_play(KeySoundClose);
     }
     // a transition of NULL means we will use the stored pop transition for this stack item
     window_stack_pop_with_transition(app_window_stack, NULL /* transition */);
