@@ -10,6 +10,7 @@
 #include "applib/ui/window_stack.h"
 #include "pbl/services/compositor/compositor_transitions.h"
 #include "pbl/services/timeline/timeline_resources.h"
+#include "pbl/services/speaker/key_sounds.h"
 #include "system/passert.h"
 #include "pbl/util/math.h"
 
@@ -221,6 +222,7 @@ void progress_window_set_result_failure(ProgressWindow *window, uint32_t timelin
   }
 
   window->state = ProgressWindowState_Result;
+  key_sounds_play(KeySoundDialogFailed);
   prv_cancel_fake_progress_timer(window);
   prv_schedule_progress_failure_animation(window, timeline_res, message, delay);
 }

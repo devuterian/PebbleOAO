@@ -10,8 +10,10 @@ typedef enum {
   KeySoundClose,
   KeySoundApply,
   KeySoundVolume,
+  KeySoundLongPressShortcut,
   KeySoundBatteryLow,
   KeySoundDndOff,
+  KeySoundDialogFailed,
   KeySoundCount
 } KeySound;
 typedef struct {
@@ -21,6 +23,7 @@ typedef struct {
 void key_sounds_init(void);
 void key_sounds_play(KeySound sound);
 void key_sounds_preview(uint8_t level);
+void key_sounds_preview_chime(uint8_t level);
 void key_sounds_preview_volume(uint8_t volume);
 KeySoundSettings key_sounds_get_settings(void);
 bool key_sounds_set_settings(KeySoundSettings settings);
@@ -29,6 +32,8 @@ uint8_t key_sounds_volume(uint8_t level);
 static inline void key_sounds_init(void) {}
 static inline void key_sounds_play(KeySound sound) {}
 static inline void key_sounds_preview(uint8_t level) {}
+static inline void key_sounds_preview_chime(uint8_t level) {}
+static inline void key_sounds_preview_volume(uint8_t volume) {}
 static inline uint8_t key_sounds_volume(uint8_t level) {
   return 100;
 }

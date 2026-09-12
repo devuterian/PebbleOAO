@@ -11,6 +11,7 @@
 #include "process_management/pebble_process_md.h"
 #include "syscall/syscall.h"
 #include "syscall/syscall_internal.h"
+#include "resource/resource_ids.auto.h"
 
 typedef struct {
   const int16_t *samples;
@@ -121,6 +122,17 @@ DEFINE_SYSCALL(void, key_sounds_play, KeySound sound) {
 void key_sounds_preview(uint8_t level) {
   if (level >= 1 && level <= 5) {
     prv_queue(KeySoundVolume, key_sounds_volume(level), false);
+  }
+}
+
+static void prv_preview_chime(void *context) {
+  const uint8_t level = (uintptr_t)context;
+  speaker_service_preview_chime_resource(RESOURCE_ID_HOURLY_CHIME, key_sounds_volume(level));
+}
+
+void key_sounds_preview_chime(uint8_t level) {
+  if (level >= 1 && level <= 5) {
+    system_task_add_callback(prv_preview_chime, (void *)(uintptr_t)level);
   }
 }
 

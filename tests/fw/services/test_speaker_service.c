@@ -231,6 +231,20 @@ void test_speaker_service__chime_invalid_resource_and_read_failure(void) {
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
 }
 
+void test_speaker_service__chime_preview_replaces_ui_and_uses_selected_level(void) {
+  static const int16_t pcm[2048];
+  s_cap = 50;
+  cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 35, false));
+  cl_assert(speaker_service_preview_chime_resource(123, 60));
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
+  cl_assert_equal_i(s_volume, 30);
+  cl_assert_equal_i(s_stop_count, 1);
+
+  speaker_service_stop();
+  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
+  cl_assert(!speaker_service_preview_chime_resource(123, 60));
+}
+
 void test_speaker_service__chime_preserves_app_finish_subscription(void) {
   speaker_service_register_finish(PebbleTask_App);
   fake_event_reset_count();

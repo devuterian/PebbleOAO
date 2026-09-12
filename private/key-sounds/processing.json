@@ -1,56 +1,79 @@
 [
   {
     "file": "menu.wav",
-    "trim_ms": 47.875,
-    "samples": 14436,
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 104.125,
+    "samples": 12800,
     "sha256": "0ac3aa8c54d30e65007eb6e624bdca4bf105c337648ba78eb38482cbbe312961"
   },
   {
     "file": "menu_navigate.wav",
-    "trim_ms": 47.75,
-    "samples": 14438,
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 108.125,
+    "samples": 12736,
     "sha256": "a92e5c72b5abdf073343a733d8b0eed3ee69be7252033828c13b397421d25858"
   },
   {
     "file": "menu_select.wav",
-    "trim_ms": 48.0,
-    "samples": 14434,
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 84.125,
+    "samples": 13120,
     "sha256": "c00569beaab35c195104f0bcd4fa8041850c67ba8a7af03ad2c9437665931a20"
   },
   {
     "file": "backkey.wav",
-    "trim_ms": 48.0,
-    "samples": 14432,
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 100.0,
+    "samples": 12864,
     "sha256": "3c4c92dca3f90895ec91df259debd168e4d5cc6f64f6ad6526549be85ba4682a"
   },
   {
     "file": "close.wav",
-    "trim_ms": 48.0,
-    "samples": 14434,
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 104.125,
+    "samples": 12800,
     "sha256": "656172e8348ceeb516578e746b505ba8c7b6ed4f0e0d7b65f68b1b6088a7586f"
   },
   {
     "file": "setting_applyed.wav",
-    "trim_ms": 28.125,
-    "samples": 15540,
+    "leading_trim_ms": 26.0,
+    "trailing_trim_ms": 21.375,
+    "samples": 15232,
     "sha256": "4ceef21b19ec5952a56437c02430d4a541a95f1daf6797580c95d56149c99844"
   },
   {
     "file": "volume_adjust.wav",
-    "trim_ms": 47.9375,
-    "samples": 8055,
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 89.375,
+    "samples": 6656,
     "sha256": "760ac6a036544ebaacd5a89d675d6e2c446aee99d6c5c40695278bfa5a693044"
   },
   {
+    "file": "long press shortcut.wav",
+    "leading_trim_ms": 46.0,
+    "trailing_trim_ms": 41.375,
+    "samples": 20736,
+    "sha256": "cfb9676cf36c8d6cbdb1fa177355da3d7dfa284c75c72cb2d556c616063929e9"
+  },
+  {
     "file": "battery_low.wav",
-    "trim_ms": 28.0,
-    "samples": 15516,
+    "leading_trim_ms": 26.0,
+    "trailing_trim_ms": 35.75,
+    "samples": 14976,
     "sha256": "c27bc529647bfa2e60ca9c470e7b8218ed43c0205fd99515015569ff2bc3b467"
   },
   {
     "file": "dnd_off.wav",
-    "trim_ms": 0.0,
-    "samples": 52033,
+    "leading_trim_ms": 0.0,
+    "trailing_trim_ms": 918.0625,
+    "samples": 37344,
     "sha256": "b1a2192c1e85f54125b7858fe202dee26c302dab8b2464c9404b305c802e974a"
+  },
+  {
+    "file": "dialog_failed.wav",
+    "leading_trim_ms": 26.0,
+    "trailing_trim_ms": 43.375,
+    "samples": 13504,
+    "sha256": "5c899ab18885b9b1255bf63c35e3dc3898d31b55185a81d8d9b55f82e91cb135"
   }
 ]

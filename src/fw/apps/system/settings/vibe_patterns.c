@@ -55,6 +55,15 @@ typedef struct SettingsVibePatternsData {
 #ifdef CONFIG_KEY_SOUNDS
 static const char *s_levels[] = {"1", "2", "3", "4", "5"};
 
+static void prv_level_focus(OptionMenu *menu, uint16_t new_row, uint16_t old_row, void *context) {
+  const bool chime = (uintptr_t)settings_option_menu_get_context(context) != 0;
+  if (chime) {
+    key_sounds_preview_chime(new_row + 1);
+  } else {
+    key_sounds_preview(new_row + 1);
+  }
+}
+
 static void prv_level_select(OptionMenu *menu, int selection, void *context) {
   const bool chime = (uintptr_t)settings_option_menu_get_context(context) != 0;
   KeySoundSettings settings = key_sounds_get_settings();
@@ -64,14 +73,14 @@ static void prv_level_select(OptionMenu *menu, int selection, void *context) {
     settings.level = selection + 1;
   }
   if (key_sounds_set_settings(settings)) {
-    key_sounds_preview(selection + 1);
     settings_menu_mark_dirty(SettingsMenuItemVibrations);
   }
 }
 
 static void prv_level_push(bool chime) {
   KeySoundSettings settings = key_sounds_get_settings();
-  const OptionMenuCallbacks callbacks = {.select = prv_level_select};
+  const OptionMenuCallbacks callbacks = {
+      .select = prv_level_select, .selection_will_change = prv_level_focus};
   settings_option_menu_push(chime ? i18n_noop("Chime Volume") : i18n_noop("Key Volume"),
                             OptionMenuContentType_SingleLine,
                             (chime ? settings.chime_level : settings.level) - 1, &callbacks, 5,
