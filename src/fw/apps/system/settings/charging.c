@@ -6,15 +6,17 @@
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/ui.h"
 #include "pbl/services/i18n/i18n.h"
+#include "pbl/services/battery/battery_charge_limit.h"
 #include "shell/charging_preferences.h"
 
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
 enum {
-  RowMode, RowDecimals, RowInterval, RowLimit, RowReset, RowCount,
+  RowMode, RowDecimals, RowInterval, RowLimit, RowChargeOnce, RowReset, RowCount,
 };
 static const char *s_titles[RowCount] = {
   i18n_noop("Charging screen"), i18n_noop("Decimal places"),
-  i18n_noop("Refresh interval"), i18n_noop("Charge Limit (80%)"),
+  i18n_noop("Refresh interval"), i18n_noop("Charge limit"),
+  i18n_noop("Charge to 100% once"),
   i18n_noop("Reset charging display"),
 };
 static const uint8_t s_intervals[] = {3, 5, 10, 30, 60};
@@ -37,7 +39,17 @@ static void prv_select(SettingsCallbacks *context, uint16_t row) {
       }
       break;
     case RowLimit:
-      shell_prefs_set_charge_limit_enabled(!shell_prefs_get_charge_limit_enabled());
+      switch (shell_prefs_get_charge_limit_percent()) {
+        case 100: shell_prefs_set_charge_limit_percent(80); break;
+        case 80: shell_prefs_set_charge_limit_percent(90); break;
+        default: shell_prefs_set_charge_limit_percent(100); break;
+      }
+      settings_menu_mark_dirty(SettingsMenuItemCharging);
+      return;
+    case RowChargeOnce:
+      if (shell_prefs_get_charge_limit_enabled()) {
+        battery_charge_limit_charge_once_to_full();
+      }
       settings_menu_mark_dirty(SettingsMenuItemCharging);
       return;
     case RowReset: prefs = (ChargingDisplayPrefs)CHARGING_DISPLAY_DEFAULTS; break;
@@ -62,7 +74,12 @@ static void prv_draw(SettingsCallbacks *context, GContext *ctx, const Layer *lay
     snprintf(buffer, sizeof(buffer), i18n_get("%u seconds", context), prefs.seconds);
     subtitle = buffer;
   } else if (row == RowLimit) {
-    subtitle = i18n_get(shell_prefs_get_charge_limit_enabled() ? "On" : "Off", context);
+    snprintf(buffer, sizeof(buffer), "%u%%", shell_prefs_get_charge_limit_percent());
+    subtitle = buffer;
+  } else if (row == RowChargeOnce) {
+    subtitle = i18n_get(!shell_prefs_get_charge_limit_enabled() ? "Not needed" :
+                        battery_charge_limit_is_once_to_full() ? "Active until unplugged" :
+                        "Select to enable", context);
   }
   menu_cell_basic_draw(ctx, layer, i18n_get(s_titles[row], context), subtitle, NULL);
 }

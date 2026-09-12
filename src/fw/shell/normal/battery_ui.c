@@ -197,8 +197,9 @@ static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
     return;
   }
   BatteryChargeState state = battery_get_charge_state();
-  bool limited = shell_prefs_get_charge_limit_enabled();
-  uint8_t target = limited ? 80 : 100;
+  bool limited = shell_prefs_get_charge_limit_enabled() &&
+                 !battery_charge_limit_is_once_to_full();
+  uint8_t target = limited ? shell_prefs_get_charge_limit_percent() : 100;
   ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
   uint32_t mpct = battery_state_get_millipercent();
   charging_display_format_percent(s_charge_percent, sizeof(s_charge_percent), mpct,

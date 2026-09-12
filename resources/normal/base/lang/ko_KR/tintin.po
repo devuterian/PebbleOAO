@@ -1199,6 +1199,21 @@ msgstr "대기 모드"
 msgid "Charge Limit (80%)"
 msgstr "80% 충전 제한"
 
+msgid "Charge limit"
+msgstr "충전 한도"
+
+msgid "Charge to 100% once"
+msgstr "이번만 100% 충전"
+
+msgid "Not needed"
+msgstr "이미 100% 사용 중"
+
+msgid "Active until unplugged"
+msgstr "충전기를 뽑을 때까지"
+
+msgid "Select to enable"
+msgstr "누르면 시작"
+
 #: src/fw/apps/system/settings/system.c:161
 #: src/fw/apps/system/settings/system.c:599
 msgid "Debugging"

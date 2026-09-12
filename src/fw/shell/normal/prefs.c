@@ -176,7 +176,8 @@ static uint32_t s_backlight_ambient_threshold = 0; // default set from board con
 static bool s_stationary_mode_enabled = true;
 
 #define PREF_KEY_CHARGE_LIMIT_ENABLED "chargeLimitEnabled"
-static bool s_charge_limit_enabled = false;
+// Keep the legacy key and byte-sized values: 0/1 remain 100%/80%; 2 adds 90%.
+static uint8_t s_charge_limit_enabled = ChargeLimitMode_Full;
 #define PREF_KEY_CHARGING_DISPLAY "chargingDisplay"
 static ChargingDisplayPrefs s_charging_display = CHARGING_DISPLAY_DEFAULTS;
 
@@ -589,8 +590,12 @@ static bool prv_set_s_charging_display(ChargingDisplayPrefs *value) {
   return true;
 }
 
-static bool prv_set_s_charge_limit_enabled(bool *enabled) {
-  s_charge_limit_enabled = *enabled;
+static bool prv_set_s_charge_limit_enabled(uint8_t *mode) {
+  if (*mode > ChargeLimitMode_Balanced90) {
+    s_charge_limit_enabled = ChargeLimitMode_Full;
+    return false;
+  }
+  s_charge_limit_enabled = *mode;
   battery_charge_limit_refresh();
   return true;
 }
@@ -1606,11 +1611,23 @@ void shell_prefs_set_charging_display(ChargingDisplayPrefs value) {
 }
 
 bool shell_prefs_get_charge_limit_enabled(void) {
-  return s_charge_limit_enabled;
+  return s_charge_limit_enabled != ChargeLimitMode_Full;
 }
 
 void shell_prefs_set_charge_limit_enabled(bool enabled) {
-  prv_pref_set(PREF_KEY_CHARGE_LIMIT_ENABLED, &enabled, sizeof(enabled));
+  const uint8_t mode = enabled ? ChargeLimitMode_Protect80 : ChargeLimitMode_Full;
+  prv_pref_set(PREF_KEY_CHARGE_LIMIT_ENABLED, &mode, sizeof(mode));
+}
+
+uint8_t shell_prefs_get_charge_limit_percent(void) {
+  return s_charge_limit_enabled == ChargeLimitMode_Protect80 ? 80 :
+         s_charge_limit_enabled == ChargeLimitMode_Balanced90 ? 90 : 100;
+}
+
+void shell_prefs_set_charge_limit_percent(uint8_t percent) {
+  const uint8_t mode = percent == 80 ? ChargeLimitMode_Protect80 :
+                       percent == 90 ? ChargeLimitMode_Balanced90 : ChargeLimitMode_Full;
+  prv_pref_set(PREF_KEY_CHARGE_LIMIT_ENABLED, &mode, sizeof(mode));
 }
 
 AppInstallId worker_preferences_get_default_worker(void) {

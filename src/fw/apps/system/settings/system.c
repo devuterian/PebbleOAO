@@ -139,6 +139,7 @@ typedef struct SettingsSystemData {
   // ALS threshold data
   char als_threshold_buffer[16];  // Buffer for formatted ALS threshold
   char als_status_buffer[64];     // Buffer for NumberWindow label with status
+  char charge_limit_buffer[8];
   bool als_adjustment_active;     // Track if ALS adjustment is active
 } SettingsSystemData;
 
@@ -157,7 +158,7 @@ static const char *s_item_titles[SystemMenuItem_Count] = {
   [SystemMenuItemInformation]   = i18n_noop("Information"),
   [SystemMenuItemCertification] = i18n_noop("Certification"),
   [SystemMenuItemStationaryToggle] = i18n_noop("Stand-By Mode"),
-  [SystemMenuItemChargeLimit] = i18n_noop("Charge Limit (80%)"),
+  [SystemMenuItemChargeLimit] = i18n_noop("Charge limit"),
   [SystemMenuItemDebugging]     = i18n_noop("Debugging"),
   [SystemMenuItemShutDown]      = i18n_noop("Shut Down"),
   [SystemMenuItemFactoryReset]  = i18n_noop("Factory Reset"),
@@ -1312,7 +1313,9 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
   PBL_ASSERTN(row < SystemMenuItem_Count);
   switch (row) {
     case SystemMenuItemChargeLimit:
-      subtitle = shell_prefs_get_charge_limit_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
+      snprintf(data->charge_limit_buffer, sizeof(data->charge_limit_buffer), "%u%%",
+               shell_prefs_get_charge_limit_percent());
+      subtitle = data->charge_limit_buffer;
       break;
     case SystemMenuItemStationaryToggle:
       subtitle = stationary_get_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
@@ -1345,7 +1348,11 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       prv_certification_window_push(data);
       break;
     case SystemMenuItemChargeLimit:
-      shell_prefs_set_charge_limit_enabled(!shell_prefs_get_charge_limit_enabled());
+      switch (shell_prefs_get_charge_limit_percent()) {
+        case 100: shell_prefs_set_charge_limit_percent(80); break;
+        case 80: shell_prefs_set_charge_limit_percent(90); break;
+        default: shell_prefs_set_charge_limit_percent(100); break;
+      }
       break;
     case SystemMenuItemStationaryToggle:
       stationary_set_enabled(!stationary_get_enabled());

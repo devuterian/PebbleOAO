@@ -10,13 +10,14 @@
 #include "pbl/util/attributes.h"
 #include "kernel/event_loop.h"
 
-#define CHARGE_LIMIT_PCT 80
-#define CHARGE_RESUME_PCT 77
+#define CHARGE_RESUME_HYSTERESIS_PCT 3
 #define PERIODIC_CHECK_INTERVAL_S 60
 
 ////////////////////////
 // State
 T_STATIC bool s_limit_active;
+T_STATIC bool s_once_to_full;
+T_STATIC bool s_once_to_full_was_plugged;
 static RegularTimerInfo s_periodic_timer;
 
 static void prv_set_periodic_check_enabled(bool enabled) {
@@ -52,7 +53,17 @@ void battery_charge_limit_init(void) {
 }
 
 void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
-  if (!shell_prefs_get_charge_limit_enabled()) {
+  const uint8_t limit = shell_prefs_get_charge_limit_percent();
+  if (s_once_to_full) {
+    if (state.is_plugged) {
+      s_once_to_full_was_plugged = true;
+    } else if (s_once_to_full_was_plugged) {
+      s_once_to_full = false;
+      s_once_to_full_was_plugged = false;
+    }
+  }
+
+  if (limit >= 100 || s_once_to_full) {
     prv_set_periodic_check_enabled(false);
     if (s_limit_active) {
       battery_set_charge_enable(true);
@@ -78,11 +89,11 @@ void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
 #else
   uint32_t millipercent = state.pct * 1000U;
 #endif
-  if (millipercent >= CHARGE_LIMIT_PCT * 1000U && !s_limit_active) {
+  if (millipercent >= limit * 1000U && !s_limit_active) {
     battery_set_charge_enable(false);
     s_limit_active = true;
     PBL_LOG_DBG("Charge limit: disabling charging at %d pct", state.pct);
-  } else if (millipercent <= CHARGE_RESUME_PCT * 1000U && s_limit_active) {
+  } else if (millipercent <= (limit - CHARGE_RESUME_HYSTERESIS_PCT) * 1000U && s_limit_active) {
     battery_set_charge_enable(true);
     s_limit_active = false;
     PBL_LOG_DBG("Charge limit: resuming charging at %d pct", state.pct);
@@ -91,4 +102,14 @@ void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
 
 bool battery_charge_limit_is_active(void) {
   return s_limit_active;
+}
+
+void battery_charge_limit_charge_once_to_full(void) {
+  s_once_to_full = true;
+  s_once_to_full_was_plugged = battery_get_charge_state().is_plugged;
+  battery_charge_limit_refresh();
+}
+
+bool battery_charge_limit_is_once_to_full(void) {
+  return s_once_to_full;
 }
