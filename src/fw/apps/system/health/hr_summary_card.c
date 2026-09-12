@@ -50,8 +50,17 @@ static void prv_pulsing_heart_timer_cb(void *context) {
   Layer *base_layer = context;
   HealthHrSummaryCardData *data = layer_get_data(base_layer);
 
+  if (!data->pulsing_heart) {
+    data->pulsing_heart_timer = NULL;
+    return;
+  }
+
   const uint32_t duration = gdraw_command_sequence_get_total_duration(data->pulsing_heart);
   const uint32_t num_frames = gdraw_command_sequence_get_num_frames(data->pulsing_heart);
+  if (duration == 0 || num_frames == 0) {
+    data->pulsing_heart_timer = NULL;
+    return;
+  }
   const uint32_t timer_duration = duration / num_frames;
   const uint32_t max_heart_beats = PULSING_HEART_TIMEOUT / duration;
 
@@ -80,6 +89,10 @@ static void prv_render_progress_bar(GContext *ctx, Layer *base_layer) {
 
 static void prv_render_icon(GContext *ctx, Layer *base_layer) {
   HealthHrSummaryCardData *data = layer_get_data(base_layer);
+
+  if (!data->pulsing_heart) {
+    return;
+  }
 
   GDrawCommandFrame *frame = gdraw_command_sequence_get_frame_by_index(
       data->pulsing_heart, data->pulsing_heart_frame_index);
@@ -207,10 +220,14 @@ Layer *health_hr_summary_card_create(HealthData *health_data) {
   const bool dark_mode = system_theme_is_dark_mode();
   GDrawCommandSequence *pulsing_heart =
       gdraw_command_sequence_create_with_resource(RESOURCE_ID_HEALTH_APP_PULSING_HEART);
+  bool pulsing_heart_is_writable = false;
   if (dark_mode && pulsing_heart) {
     GDrawCommandSequence *writable_heart = gdraw_command_sequence_clone(pulsing_heart);
-    gdraw_command_sequence_destroy(pulsing_heart);
-    pulsing_heart = writable_heart;
+    if (writable_heart) {
+      gdraw_command_sequence_destroy(pulsing_heart);
+      pulsing_heart = writable_heart;
+      pulsing_heart_is_writable = true;
+    }
   }
 
   // create base layer
@@ -238,7 +255,7 @@ Layer *health_hr_summary_card_create(HealthData *health_data) {
     .timestamp_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
   };
 
-  if (dark_mode && data->pulsing_heart) {
+  if (pulsing_heart_is_writable) {
     const uint32_t num_frames = gdraw_command_sequence_get_num_frames(data->pulsing_heart);
     for (uint32_t i = 0; i < num_frames; i++) {
       GDrawCommandFrame *f = gdraw_command_sequence_get_frame_by_index(data->pulsing_heart, i);
@@ -249,7 +266,9 @@ Layer *health_hr_summary_card_create(HealthData *health_data) {
     }
   }
 
-  data->pulsing_heart_timer = app_timer_register(0, prv_pulsing_heart_timer_cb, base_layer);
+  if (data->pulsing_heart) {
+    data->pulsing_heart_timer = app_timer_register(0, prv_pulsing_heart_timer_cb, base_layer);
+  }
 
   return base_layer;
 }
@@ -266,8 +285,12 @@ void health_hr_summary_card_select_click_handler(Layer *layer) {
 
 void health_hr_summary_card_destroy(Layer *base_layer) {
   HealthHrSummaryCardData *data = layer_get_data(base_layer);
-  app_timer_cancel(data->pulsing_heart_timer);
-  gdraw_command_sequence_destroy(data->pulsing_heart);
+  if (data->pulsing_heart_timer) {
+    app_timer_cancel(data->pulsing_heart_timer);
+  }
+  if (data->pulsing_heart) {
+    gdraw_command_sequence_destroy(data->pulsing_heart);
+  }
   i18n_free_all(base_layer);
   layer_destroy(base_layer);
 }

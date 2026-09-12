@@ -1253,6 +1253,9 @@ static void prv_draw_weather_pdc_frame(const WeatherAppLayout *layout,
                                        GContext *ctx,
                                        WeatherType weather_type,
                                        GRect frame_rect) {
+  if (!layout || !ctx || !layout->weather_icon_pdc_sequence) {
+    return;
+  }
   int frame_index = ((int)weather_type <= WeatherType_RainAndSnow)
       ? (int)weather_type : WeatherType_Generic;
   // No set_bounds_size: the PDC's native viewbox is already the displayed size
@@ -1262,6 +1265,9 @@ static void prv_draw_weather_pdc_frame(const WeatherAppLayout *layout,
   GDrawCommandFrame *frame =
       gdraw_command_sequence_get_frame_by_index(layout->weather_icon_pdc_sequence,
                                                 frame_index);
+  if (!frame) {
+    return;
+  }
   gdraw_command_frame_draw(ctx, layout->weather_icon_pdc_sequence, frame,
                            GPoint(frame_rect.origin.x + WEATHER_APP_LAYOUT_ROUND_PDC_INSET,
                                   frame_rect.origin.y + WEATHER_APP_LAYOUT_ROUND_PDC_INSET));

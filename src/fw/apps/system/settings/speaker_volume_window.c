@@ -138,6 +138,9 @@ static void prv_window_appear(Window *window) {
 static void prv_window_unload(Window *window) {
   SpeakerVolumeWindowData *data = (SpeakerVolumeWindowData *)window;
   // Stop any in-flight preview tone.
+#ifdef CONFIG_KEY_SOUNDS
+  speaker_service_stop_ui();
+#endif
   speaker_service_stop_for_task(PebbleTask_App);
   action_bar_layer_deinit(&data->action_bar);
   i18n_free_all(data);
