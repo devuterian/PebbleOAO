@@ -48,6 +48,7 @@ static const char *prv_kind_strings[DayPickerKindNumItems] = {
   [DayPickerKindWeekends] = "Weekends",
   [DayPickerKindCustom] = "Custom",
   [DayPickerKindJustOnce] = "Just Once",
+  [DayPickerKindJustOnceThenDelete] = "Just once then delete",
 };
 
 const char *day_picker_kind_get_string(DayPickerKind kind) {
@@ -62,13 +63,16 @@ static DayPickerKind prv_row_to_kind(bool allow_once, int row) {
     if (row == 0) {
       return DayPickerKindJustOnce;
     }
-    int kind_row = row - 1;
-    if (kind_row >= 0 && kind_row < (DayPickerKindNumItems - 1)) {
+    if (row == 1) {
+      return DayPickerKindJustOnceThenDelete;
+    }
+    int kind_row = row - 2;
+    if (kind_row >= 0 && kind_row < (DayPickerKindNumItems - 2)) {
       return (DayPickerKind)kind_row;
     }
     return DayPickerKindEveryday;
   }
-  if (row >= 0 && row < (DayPickerKindNumItems - 1)) {
+  if (row >= 0 && row < (DayPickerKindNumItems - 2)) {
     return (DayPickerKind)row;
   }
   return DayPickerKindEveryday;
@@ -79,9 +83,12 @@ static int prv_kind_to_row(bool allow_once, DayPickerKind kind) {
     if (kind == DayPickerKindJustOnce) {
       return 0;
     }
-    return (int)kind + 1;
+    if (kind == DayPickerKindJustOnceThenDelete) {
+      return 1;
+    }
+    return (int)kind + 2;
   }
-  if (kind == DayPickerKindJustOnce) {
+  if (kind == DayPickerKindJustOnce || kind == DayPickerKindJustOnceThenDelete) {
     return 0;
   }
   return (int)kind;
@@ -99,7 +106,7 @@ static uint16_t prv_day_picker_get_num_rows(struct MenuLayer *menu_layer,
                                              uint16_t section_index,
                                              void *callback_context) {
   DayPickerData *data = (DayPickerData *)callback_context;
-  return (DayPickerKindNumItems - 1) + (data->allow_once ? 1 : 0);
+  return (DayPickerKindNumItems - 2) + (data->allow_once ? 2 : 0);
 }
 
 static int16_t prv_day_picker_get_cell_height(struct MenuLayer *menu_layer,

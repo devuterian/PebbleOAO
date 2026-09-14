@@ -3632,6 +3632,15 @@ msgstr ""
 msgid "%d BPM"
 msgstr ""
 
+#: src/fw/applib/ui/day_picker.c:51
+#: src/fw/services/alarms/alarm.c:1413
+msgid "Just once then delete"
+msgstr ""
+
+#: src/fw/services/alarms/alarm.c:1410
+msgid "JUST ONCE THEN DELETE"
+msgstr ""
+
 #. / Step count greater than 1000 with a thousands separator
 #: src/fw/apps/watch/kickstart/kickstart.c:470
 #, c-format

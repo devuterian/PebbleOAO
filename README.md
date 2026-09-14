@@ -50,6 +50,7 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 
 **소리와 진동**
 
+- **한 번만 쓸 알람은 울린 뒤 알아서 지워집니다.** 알람 반복에서 `한 번 후 삭제`를 고르면, 다시 울림을 쓴 뒤에도 마지막으로 해제할 때 목록에서 사라집니다.
 - **메뉴를 넘길 때 키음이 나게 할 수 있습니다.** 앱 서랍 열기, 이동, 선택, 뒤로 가기와 설정 적용에 각각 소리를 붙였습니다. 처음에는 꺼져 있어요.
 - **키음과 정각 알림 음량을 따로 고릅니다.** 각각 1~5단계로 정할 수 있습니다. 배터리 부족과 방해금지 해제 소리도 키음 안의 상태 알림음에서 켤 수 있어요.
 - **소리가 바뀔 때 섞이던 잡음을 손봤습니다.** 연속 입력 때 파형이 튀던 계산을 고치고, 정각 알림에도 쓰는 스피커 시작·종료 순서를 바꿨습니다. 실제 시계에서 남는 잡음은 더 확인해야 합니다.
@@ -281,6 +282,7 @@ PebbleOS의 Pull Request에서 괜찮아 보이는 기능, 잘 작동할 것 같
 - **[spr4bhu · #1156](https://github.com/coredevices/PebbleOS/pull/1156)** 배터리 충전을 80%로 제한하는 기능을 가져왔습니다.
 - **[amcolash · #1119](https://github.com/coredevices/PebbleOS/pull/1119)** 시스템 다크 모드를 가져오고, 사용 중 발견한 문제를 수정했습니다.
 - **[Joshsg3 · #1982](https://github.com/coredevices/PebbleOS/pull/1982)** 추가 진동 패턴을 가져오고 설정 문구를 한국어로 번역했습니다.
+- **[caco3 · #1810](https://github.com/coredevices/PebbleOS/pull/1810)** 한 번 울린 뒤 자동으로 지워지는 알람을 가져오고, 반복 선택 화면과 시간 변경 때 남아 있던 문제를 고쳤습니다.
 - **[pebble-korean-language-pack](https://github.com/devuterian/pebble-korean-language-pack)** 한글 번역을 가져와 기반 버전에 맞추고, 추가 기능의 문구를 번역했습니다.
 - **[TsFreddie/TUMBLED](https://github.com/TsFreddie/TUMBLED)** 내장 폰트로 넣었습니다. 저장 공간에 맞춰 글자 구성을 조정하고, 빠진 낱자 자모는 Galmuri로 보완했습니다.
 - **[quiple/Galmuri](https://github.com/quiple/galmuri)** 작은 글씨의 낱자 자모와 특수문자를 보완할 때 썼습니다.

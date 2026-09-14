@@ -3777,3 +3777,12 @@ msgstr "정각 알림 음량"
 
 msgid "Status Sounds"
 msgstr "상태 알림음"
+
+#: src/fw/applib/ui/day_picker.c:51
+#: src/fw/services/alarms/alarm.c:1413
+msgid "Just once then delete"
+msgstr "한 번 후 삭제"
+
+#: src/fw/services/alarms/alarm.c:1410
+msgid "JUST ONCE THEN DELETE"
+msgstr "한 번 후 삭제"

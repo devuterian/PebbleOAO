@@ -391,6 +391,8 @@ void test_alarm__get_string_for_kind(void) {
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_WEEKDAYS, all_caps), "Weekdays");
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_WEEKENDS, all_caps), "Weekends");
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_JUST_ONCE, all_caps), "Once");
+  cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_JUST_ONCE_DELETE, all_caps),
+                    "Just once then delete");
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_CUSTOM, all_caps), "Custom");
 
   all_caps = true;
@@ -398,6 +400,8 @@ void test_alarm__get_string_for_kind(void) {
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_WEEKDAYS, all_caps), "WEEKDAYS");
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_WEEKENDS, all_caps), "WEEKENDS");
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_JUST_ONCE, all_caps), "ONCE");
+  cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_JUST_ONCE_DELETE, all_caps),
+                    "JUST ONCE THEN DELETE");
   cl_assert_equal_s(alarm_get_string_for_kind(ALARM_KIND_CUSTOM, all_caps), "CUSTOM");
 }
 
@@ -1166,6 +1170,71 @@ void test_alarm__skip_two_alarms(void) {
   cl_assert_equal_i(s_num_alarms_fired, 1);
 }
 
+void test_alarm__just_once_delete_alarm_timeout_ahead(void) {
+  AlarmId id;
+  bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 30, .kind = ALARM_KIND_JUST_ONCE_DELETE });
+  prv_assert_alarm_config(id, 10, 30, false, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_thursday);
+  cl_assert_equal_i(s_num_timeline_adds, 1);
+}
+
+void test_alarm__just_once_delete_alarm_timeout_behind(void) {
+  AlarmId id;
+  s_current_hour = 11;
+  s_current_minute = 30;
+  bool just_once_schedule_friday[7] = {false, false, false, false, false, true, false};
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 30, .kind = ALARM_KIND_JUST_ONCE_DELETE });
+  prv_assert_alarm_config(id, 10, 30, false, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_friday);
+  cl_assert_equal_i(s_num_timeline_adds, 1);
+}
+
+void test_alarm__just_once_delete_alarm_dismiss(void) {
+  AlarmId id;
+  bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 30, .kind = ALARM_KIND_JUST_ONCE_DELETE });
+  prv_assert_alarm_config(id, 10, 30, false, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_thursday);
+  cl_assert_equal_i(s_num_timeline_adds, 1);
+
+  s_current_hour = 10;
+  s_current_minute = 30;
+  cron_service_wakeup();
+  cl_assert_equal_i(s_num_alarms_fired, 1);
+  cl_assert_equal_i(s_num_alarm_events_put, 1);
+  // After firing, the alarm is disabled but still present.
+  prv_assert_alarm_config(id, 10, 30, true, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_thursday);
+
+  // Dismissing the alarm should delete it.
+  alarm_dismiss_alarm();
+  prv_assert_alarm_config_absent(id);
+  assert_alarm_pins_absent(id);
+}
+
+void test_alarm__just_once_delete_alarm_snooze_then_dismiss(void) {
+  AlarmId id;
+  bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};
+  id = alarm_create(&(AlarmInfo) { .hour = 10, .minute = 30, .kind = ALARM_KIND_JUST_ONCE_DELETE });
+  prv_assert_alarm_config(id, 10, 30, false, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_thursday);
+  cl_assert_equal_i(s_num_timeline_adds, 1);
+
+  // Fire the alarm.
+  s_current_hour = 10;
+  s_current_minute = 30;
+  cron_service_wakeup();
+  cl_assert_equal_i(s_num_alarms_fired, 1);
+  cl_assert_equal_i(s_num_alarm_events_put, 1);
+  prv_assert_alarm_config(id, 10, 30, true, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_thursday);
+
+  // Snoozing should keep the alarm around.
+  alarm_set_snooze_alarm();
+  cl_assert_equal_i(s_snooze_timer_timeout_ms, 10 * 60 * 1000);
+  prv_assert_alarm_config(id, 10, 30, true, ALARM_KIND_JUST_ONCE_DELETE, just_once_schedule_thursday);
+
+  // Dismissing the alarm after snoozing should still delete it.
+  alarm_dismiss_alarm();
+  prv_assert_alarm_config_absent(id);
+  assert_alarm_pins_absent(id);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Alarms missed while the watch was down
 
@@ -1264,6 +1333,25 @@ void test_alarm__missed_just_once_alarm_rearmed_for_next_day(void) {
   cl_assert_equal_i(s_num_alarms_fired, 1);
 }
 
+void test_alarm__missed_just_once_delete_alarm_rearmed_for_next_day(void) {
+  AlarmId id = alarm_create(&(AlarmInfo) {
+    .hour = 6,
+    .minute = 0,
+    .kind = ALARM_KIND_JUST_ONCE_DELETE,
+  });
+  bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};
+  prv_assert_alarm_config(id, 6, 0, false, ALARM_KIND_JUST_ONCE_DELETE,
+                          just_once_schedule_thursday);
+
+  s_current_hour = 8;
+  prv_simulate_reboot();
+
+  cl_assert_equal_i(s_num_alarms_fired, 0);
+  bool just_once_schedule_friday[7] = {false, false, false, false, false, true, false};
+  prv_assert_alarm_config(id, 6, 0, false, ALARM_KIND_JUST_ONCE_DELETE,
+                          just_once_schedule_friday);
+}
+
 void test_alarm__missed_just_once_alarm_fires_and_is_disabled(void) {
   AlarmId id = alarm_create(&(AlarmInfo) { .hour = 6, .minute = 0, .kind = ALARM_KIND_JUST_ONCE });
 
@@ -1278,4 +1366,3 @@ void test_alarm__missed_just_once_alarm_fires_and_is_disabled(void) {
 // TODO:
 // - Test disable while snoozing
 // - Test delete while snoozing
-
