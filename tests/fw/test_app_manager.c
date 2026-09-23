@@ -197,6 +197,10 @@ bool app_install_entry_is_watchface(const AppInstallEntry *entry) {
   return true;
 }
 
+bool app_install_is_watchface(AppInstallId id) {
+  return true;
+}
+
 bool app_install_entry_is_hidden(const AppInstallEntry *entry) {
   return false;
 }
