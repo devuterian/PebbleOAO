@@ -16,5 +16,5 @@ endif
 
 config KEY_SOUNDS
     bool "Time 2 key sounds"
-    depends on SPEAKER && (BOARD_OBELIX || BOARD_QEMU_EMERY)
+    depends on SERVICE_SPEAKER && SPEAKER && (BOARD_OBELIX || BOARD_QEMU_EMERY)
     default y
