@@ -129,6 +129,13 @@ bool shell_prefs_get_charge_limit_enabled(void) {
 void shell_prefs_set_charge_limit_enabled(bool enabled) {
 }
 
+uint8_t shell_prefs_get_charge_limit_percent(void) {
+  return 100;
+}
+
+void shell_prefs_set_charge_limit_percent(uint8_t percent) {
+}
+
 bool shell_prefs_get_language_english(void) {
   return true;
 }
