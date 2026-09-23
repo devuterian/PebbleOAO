@@ -3084,45 +3084,37 @@ static void draw_intro_title(GContext *ctx, GlobeView *view, GRect bounds, int g
   (void)globe_y;
   (void)frame_size;
 
-    const int header_height = GLOBE_SMALL_RECT ? 24 : 38;
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
-    graphics_draw_text(ctx, i18n_get("CITY SELECT", view),
-                       fonts_get_system_font(GLOBE_SMALL_RECT ? FONT_KEY_GOTHIC_18_BOLD
-                                                              : FONT_KEY_GOTHIC_28_BOLD),
-                       GRect(0, -2, bounds.size.w, header_height + 2),
-                       GTextOverflowModeTrailingEllipsis,
-                       GTextAlignmentCenter,
-                       NULL);
-    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
-    graphics_fill_rect(ctx,
-                       GRect(0, header_height - 2, bounds.size.w, 2),
-                       0, GCornerNone);
+  const int header_height = GLOBE_SMALL_RECT ? 24 : 38;
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
+  graphics_draw_text(
+      ctx, i18n_get("CITY SELECT", view),
+      fonts_get_system_font(GLOBE_SMALL_RECT ? FONT_KEY_GOTHIC_18_BOLD : FONT_KEY_GOTHIC_28_BOLD),
+      GRect(0, -2, bounds.size.w, header_height + 2), GTextOverflowModeTrailingEllipsis,
+      GTextAlignmentCenter, NULL);
+  graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
+  graphics_fill_rect(ctx, GRect(0, header_height - 2, bounds.size.w, 2), 0, GCornerNone);
 #else
   const char *title = i18n_get("CITY SELECT", view);
   GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   int planet_center_y = globe_y + frame_size.h / 2 + GLOBE_PLANET_CENTER_Y_OFFSET;
   int planet_top = planet_center_y - GLOBE_RENDER_BASE_DIAMETER / 2;
   int title_y = (planet_top - GLOBE_INTRO_TITLE_HEIGHT) / 2;
-  if (title_y < 0)
+  if (title_y < 0) {
     title_y = 0;
+  }
 
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
-    graphics_draw_text(ctx, title,
-                       font,
-                       GRect(0, title_y - 4,
-                             bounds.size.w,
-                             GLOBE_INTRO_TITLE_HEIGHT + 8),
-                       GTextOverflowModeTrailingEllipsis,
-                       GTextAlignmentCenter,
-                       NULL);
-    // Divider under the title (round port of the rect city-select redesign): the same
-    // 2px rule, FULL WIDTH — the round framebuffer clips each row to the glass,
-    // so drawing edge to edge lands it bezel-to-bezel. Rides title_y like the title.
-    {
-      const int rule_y = title_y + GLOBE_INTRO_TITLE_HEIGHT - 2;
-      graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
-      graphics_fill_rect(ctx, GRect(0, rule_y, bounds.size.w, 2), 0, GCornerNone);
-    }
+  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
+  graphics_draw_text(ctx, title, font,
+                     GRect(0, title_y - 4, bounds.size.w, GLOBE_INTRO_TITLE_HEIGHT + 8),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  // Divider under the title (round port of the rect city-select redesign): the same
+  // 2px rule, FULL WIDTH — the round framebuffer clips each row to the glass,
+  // so drawing edge to edge lands it bezel-to-bezel. Rides title_y like the title.
+  {
+    const int rule_y = title_y + GLOBE_INTRO_TITLE_HEIGHT - 2;
+    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
+    graphics_fill_rect(ctx, GRect(0, rule_y, bounds.size.w, 2), 0, GCornerNone);
+  }
 #endif
 }
 
