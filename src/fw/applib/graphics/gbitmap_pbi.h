@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "pbl/kernel/compiler.h"
+
 //! @addtogroup Foundation
 //! @{
 //!   @addtogroup Resources
@@ -45,7 +47,8 @@
 //!   a GColor.argb value.
 //!   There is no restriction on row_size_bytes / stride.
 //!
-//! - \ref GBitmapFormat1BitPalette, \ref GBitmapFormat2BitPalette, \ref GBitmapFormat4BitPalette "GBitmapFormat4BitPalette":
+//! - \ref GBitmapFormat1BitPalette, \ref GBitmapFormat2BitPalette, \ref GBitmapFormat4BitPalette
+//! "GBitmapFormat4BitPalette":
 //!   Each pixel in the bitmap is represented by the number of bits the format specifies. Pixels
 //!   must be packed.
 //!   For example, in GBitmapFormat2BitPalette, each pixel uses 2 bits. This means 4 pixels / byte.
@@ -74,11 +77,11 @@
 
 //! This struct is used to either embed bitmap data directly into the software image or when
 //! reading resources from SPI flash.
-typedef struct __attribute__((__packed__)) {
+typedef struct PBL_PACKED {
   uint16_t row_size_bytes;
   uint16_t info_flags;
   uint16_t deprecated[2];
   uint16_t width;
   uint16_t height;
-  uint8_t data[];  // Pixel data followed by an optional palette
+  uint8_t data[]; // Pixel data followed by an optional palette
 } BitmapData;

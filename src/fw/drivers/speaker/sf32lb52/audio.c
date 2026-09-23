@@ -5,21 +5,22 @@
 #include <pbl/drivers/gpio.h>
 #include "kernel/util/delay.h"
 #include <pbl/drivers/audio.h>
+#include <pbl/kernel/irq.h>
 #include <pbl/drivers/speaker/sf32lb52/sf32lb_audio.h>
 
-#define PA_POWER_DELAY_TIME      (200) /* us */
+#define PA_POWER_DELAY_TIME (200) /* us */
 
-void audio_init(AudioDevice* audio_device) {
-    gpio_output_init(&audio_device->pa_ctrl, GPIO_OType_PP);
-    gpio_output_set(&audio_device->pa_ctrl, false);
-    delay_us(PA_POWER_DELAY_TIME*10);
-    audec_init(audio_device);
+void audio_init(AudioDevice *audio_device) {
+  gpio_output_init(&audio_device->pa_ctrl, GPIO_OType_PP);
+  gpio_output_set(&audio_device->pa_ctrl, false);
+  delay_us(PA_POWER_DELAY_TIME * 10);
+  audec_init(audio_device);
 }
 
-void audio_start(AudioDevice* audio_device, AudioTransCB cb) {
-    if (audio_device->power_ops && audio_device->power_ops->power_up) {
-        audio_device->power_ops->power_up();
-    }
+void audio_start(AudioDevice *audio_device, AudioTransCB cb) {
+  if (audio_device->power_ops && audio_device->power_ops->power_up) {
+    audio_device->power_ops->power_up();
+  }
 
     // Stabilize the silent DAC path before exposing it to the amplifier.
     audec_start(audio_device, cb);
@@ -31,12 +32,12 @@ void audio_start(AudioDevice* audio_device, AudioTransCB cb) {
     gpio_output_set(&audio_device->pa_ctrl, true);
 }
 
-uint32_t audio_write(AudioDevice* audio_device, void *writeBuf, uint32_t size) {
-    return audec_write(audio_device, writeBuf, size);
+uint32_t audio_write(AudioDevice *audio_device, void *writeBuf, uint32_t size) {
+  return audec_write(audio_device, writeBuf, size);
 }
 
-void audio_set_volume(AudioDevice* audio_device, int volume) {
-    audec_set_vol(audio_device, volume);
+void audio_set_volume(AudioDevice *audio_device, int volume) {
+  audec_set_vol(audio_device, volume);
 }
 
 void audio_stop(AudioDevice* audio_device) {

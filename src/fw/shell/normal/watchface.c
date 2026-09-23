@@ -24,8 +24,8 @@
 #include "system/passert.h"
 
 #define QUICK_LAUNCH_HOLD_MS (400)
-#define BIT_SET (1)
-#define BIT_CLEAR (0)
+#define BIT_SET              (1)
+#define BIT_CLEAR            (0)
 // Button events are remapped at the driver level when the display is rotated
 // (left-hand mode), so these masks are correct in either orientation.
 #define COMBO_BACK_UP_BUTTONS ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_UP))
@@ -52,8 +52,7 @@ static bool prv_should_ignore_button_click(void) {
   return false;
 }
 
-static void prv_launch_app_via_button(AppLaunchEventConfig *config,
-                                      ClickRecognizerRef recognizer) {
+static void prv_launch_app_via_button(AppLaunchEventConfig *config, ClickRecognizerRef recognizer) {
   config->common.button = click_recognizer_get_button_id(recognizer);
   app_manager_put_launch_app_event(config);
 }
@@ -81,8 +80,7 @@ static AppInstallId prv_combo_get_app(uint8_t combo_buttons) {
 }
 
 static bool prv_is_any_combo_active(void) {
-  return (s_combo_back_hold_timer != NULL) ||
-         prv_is_combo_pressed(COMBO_BACK_UP_BUTTONS) ||
+  return (s_combo_back_hold_timer != NULL) || prv_is_combo_pressed(COMBO_BACK_UP_BUTTONS) ||
          prv_is_combo_pressed(COMBO_UP_DOWN_BUTTONS);
 }
 
@@ -143,8 +141,8 @@ static void prv_check_combo_back_hold(void) {
   }
 }
 
-static void prv_launch_timeline_app(AppInstallId app_id, ButtonId button,
-                                    AppLaunchReason reason, AppQuickLaunchAction action) {
+static void prv_launch_timeline_app(AppInstallId app_id, ButtonId button, AppLaunchReason reason,
+                                    AppQuickLaunchAction action) {
   static TimelineArgs s_timeline_args;
   s_timeline_args.launch_into_pin = true;
   s_timeline_args.stay_in_list_view = true;
@@ -169,11 +167,11 @@ static void prv_launch_timeline_app(AppInstallId app_id, ButtonId button,
   animation = compositor_dot_transition_timeline_get(is_future, timeline_is_destination);
 #else
   const bool jump = (!uuid_is_invalid(&s_timeline_args.pin_id) && !timeline_peek_is_first_event());
-  animation = jump ? compositor_peek_transition_timeline_get() :
-                     compositor_slide_transition_timeline_get(is_future, timeline_is_destination,
+  animation = jump ? compositor_peek_transition_timeline_get()
+                   : compositor_slide_transition_timeline_get(is_future, timeline_is_destination,
                                                               timeline_peek_is_future_empty());
 #endif
-  app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig){
     .id = app_id,
     .common.reason = reason,
     .common.button = button,
@@ -185,13 +183,16 @@ static void prv_launch_timeline_app(AppInstallId app_id, ButtonId button,
 static void prv_launch_quick_launch_app(AppInstallId app_id, ButtonId button,
                                         AppLaunchReason timeline_reason,
                                         AppQuickLaunchAction action) {
-  const bool is_timeline = (app_id == APP_ID_TIMELINE) ||
-                           (app_id == APP_ID_TIMELINE_PAST) ||
+  if (app_id == APP_ID_QUICK_LAUNCH_NOTHING) {
+    return;
+  }
+
+  const bool is_timeline = (app_id == APP_ID_TIMELINE) || (app_id == APP_ID_TIMELINE_PAST) ||
                            (app_id == APP_ID_TIMELINE_FULL);
   if (is_timeline) {
     prv_launch_timeline_app(app_id, button, timeline_reason, action);
   } else {
-    app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
+    app_manager_put_launch_app_event(&(AppLaunchEventConfig){
       .id = app_id,
       .common.reason = APP_LAUNCH_QUICK_LAUNCH,
       .common.button = button,
@@ -207,8 +208,8 @@ static void prv_quick_launch_handler(ClickRecognizerRef recognizer, void *data) 
     return;
   }
 
-  AppInstallId app_id = quick_launch_is_enabled(button) ? quick_launch_get_app(button)
-                                                        : INSTALL_ID_INVALID;
+  AppInstallId app_id =
+      quick_launch_is_enabled(button) ? quick_launch_get_app(button) : INSTALL_ID_INVALID;
   if (app_id == INSTALL_ID_INVALID) {
     app_id = app_install_get_id_for_uuid(&quick_launch_setup_get_app_info()->uuid);
   }
@@ -225,16 +226,16 @@ static void prv_quick_launch_handler(ClickRecognizerRef recognizer, void *data) 
 
 static void prv_launch_up_down(ClickRecognizerRef recognizer, void *data) {
   ButtonId button = click_recognizer_get_button_id(recognizer);
-  
+
   if (prv_is_any_combo_active()) {
     return;
   }
-  
-  if (!quick_launch_single_click_is_enabled(button)) return;
+
+  if (!quick_launch_single_click_is_enabled(button))
+    return;
   const AppInstallId app_id = quick_launch_single_click_get_app(button);
 
-  prv_launch_quick_launch_app(app_id, button, APP_LAUNCH_SYSTEM,
-                              APP_QUICK_LAUNCH_ACTION_TAP);
+  prv_launch_quick_launch_app(app_id, button, APP_LAUNCH_SYSTEM, APP_QUICK_LAUNCH_ACTION_TAP);
 }
 
 static void prv_configure_click_handler(ButtonId button_id, ClickHandler single_click_handler) {
@@ -295,19 +296,19 @@ void watchface_handle_button_event(PebbleEvent *e) {
 
 static void prv_watchface_launch_low_power(void) {
   PBL_LOG_DBG("Switching default watchface to low_power_mode watchface");
-  app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig){
     .id = APP_ID_LOW_POWER_FACE,
   });
 }
 
 void watchface_launch_default(const CompositorTransition *animation) {
-  app_manager_put_launch_app_event(&(AppLaunchEventConfig) {
+  app_manager_put_launch_app_event(&(AppLaunchEventConfig){
     .id = watchface_get_default_install_id(),
     .common.transition = animation,
   });
 }
 
-static void kernel_callback_watchface_launch(void* data) {
+static void kernel_callback_watchface_launch(void *data) {
   watchface_launch_default(NULL);
 }
 

@@ -11,6 +11,7 @@
 #include "pbl/services/app_glances/app_glance_service.h"
 #include "pbl/services/blob_db/app_glance_db.h"
 #include "pbl/util/size.h"
+#include "pbl/util/testing.h"
 
 static GContext s_ctx;
 
@@ -104,8 +105,7 @@ static const LauncherMenuLayerTestAppNode s_fake_app_nodes[LauncherMenuLayerTest
   }
 };
 
-AppMenuNode* app_menu_data_source_get_node_at_index(AppMenuDataSource *source,
-                                                    uint16_t row_index) {
+AppMenuNode *app_menu_data_source_get_node_at_index(AppMenuDataSource *source, uint16_t row_index) {
   cl_assert(source);
   cl_assert(row_index < ARRAY_LENGTH(s_fake_app_nodes));
   const LauncherMenuLayerTestAppNode *test_node = &s_fake_app_nodes[row_index];
@@ -209,7 +209,7 @@ bool timeline_resources_is_system(TimelineResourceId timeline_id) {
 #include "stubs_system_theme.h"
 #undef system_theme_get_font_key
 #include "stubs_syscalls.h"
-#include "stubs_task_watchdog.h"
+#include "stubs_task_wdt.h"
 #include "stubs_tick.h"
 #include "stubs_time.h"
 #include "stubs_watchface.h"
@@ -253,11 +253,13 @@ const char *system_theme_get_font_key(TextStyleFont font) {
       (large ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18);
 }
 
-void vibes_enqueue_custom_pattern(VibePattern pattern) {}
+void vibes_enqueue_custom_pattern(VibePattern pattern) {
+}
 
 // We can't include stubs_process_manager.h because it conflicts with the two helper includes below
 void process_manager_send_callback_event_to_process(PebbleTask task, void (*callback)(void *),
-                                                    void *data) {}
+                                                    void *data) {
+}
 
 // Helper Functions
 /////////////////////
@@ -278,7 +280,7 @@ void test_launcher_menu_layer__initialize(void) {
   s_content_size = PreferredContentSizeDefault;
   // Setup framebuffer and graphics context
   fb = malloc(sizeof(FrameBuffer));
-  framebuffer_init(fb, &(GSize) {DISP_COLS, DISP_ROWS});
+  framebuffer_init(fb, &(GSize){DISP_COLS, DISP_ROWS});
   test_graphics_context_init(&s_ctx, fb);
   graphics_context_set_antialiased(&s_ctx, true);
 
@@ -303,6 +305,8 @@ void test_launcher_menu_layer__initialize(void) {
 
   // Default to showing bitmap icons
   s_use_pdc_icons = false;
+
+  s_content_size = PreferredContentSizeDefault;
 }
 
 void app_glance_db_deinit(void);
@@ -317,9 +321,9 @@ void test_launcher_menu_layer__cleanup(void) {
 // Helpers
 //////////////////////
 
-//! Declared T_STATIC in launcher_menu_layer.c so we can easily change the launcher's selected index
-//! from unit tests without also specifying the y offset for the scroll layer that is required by
-//! `launcher_menu_layer_set_selection_state()`.
+//! Declared PBL_T_STATIC in launcher_menu_layer.c so we can easily change the launcher's selected
+//! index from unit tests without also specifying the y offset for the scroll layer that is required
+//! by `launcher_menu_layer_set_selection_state()`.
 void prv_launcher_menu_layer_set_selection_index(LauncherMenuLayer *launcher_menu_layer,
                                                  uint16_t index, MenuRowAlign row_align,
                                                  bool animated);
@@ -335,8 +339,8 @@ void prv_render_launcher_menu_layer(uint16_t selected_index) {
   // If we used MenuRowAlignCenter on rect then the test images would show the top and bottom
   // rows being clipped by the edge of the screen
   const MenuRowAlign row_align = PBL_IF_RECT_ELSE(MenuRowAlignTop, MenuRowAlignCenter);
-  prv_launcher_menu_layer_set_selection_index(&launcher_menu_layer, selected_index,
-                                              row_align, animated);
+  prv_launcher_menu_layer_set_selection_index(&launcher_menu_layer, selected_index, row_align,
+                                              animated);
 
   layer_render_tree(launcher_menu_layer_get_layer(&launcher_menu_layer), &s_ctx);
 
@@ -354,13 +358,16 @@ void test_launcher_menu_layer__large_text_row_height(void) {
   s_content_size = PreferredContentSizeExtraLarge;
   LauncherMenuLayer launcher = {};
   launcher_menu_layer_init(&launcher, &data_source);
-  cl_assert(launcher.title_font == fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  cl_assert(launcher.subtitle_font == fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  const LauncherMenuLayerStyle *style = launcher_menu_layer_get_style();
+  cl_assert_equal_s(style->title_font_key, FONT_KEY_GOTHIC_28_BOLD);
+  cl_assert_equal_s(style->subtitle_font_key, FONT_KEY_GOTHIC_24);
   MenuIndex index = MenuIndex(0, 0);
   const int16_t height = launcher.menu_layer.callbacks.get_cell_height(
       &launcher.menu_layer, &index, &launcher);
-  cl_assert(height >= fonts_get_font_height(launcher.title_font) +
-                          fonts_get_font_height(launcher.subtitle_font) + 4);
+  cl_assert_equal_i(height, style->cell_height);
+  cl_assert(height >= fonts_get_font_height(fonts_get_system_font(style->title_font_key)) +
+                          fonts_get_font_height(fonts_get_system_font(style->subtitle_font_key)) +
+                          4);
   launcher_menu_layer_deinit(&launcher);
   app_menu_data_source_deinit(&data_source);
 #endif
@@ -383,21 +390,22 @@ void test_launcher_menu_layer__interior_app(void) {
 
 void test_launcher_menu_layer__no_icon_app_with_glance(void) {
   // Insert a glance with a slice for the app that doesn't have a default icon
-  const AppGlance glance = (AppGlance) {
-      .num_slices = 1,
-      .slices = {
-        {
-          .expiration_time = 1464734484, // (Tue, 31 May 2016 22:41:24 GMT)
-          .type = AppGlanceSliceType_IconAndSubtitle,
-          .icon_and_subtitle = {
-            .icon_resource_id = TIMELINE_RESOURCE_SCHEDULED_FLIGHT,
-            .template_string = "Glances baby!",
-          },
+  const AppGlance glance = (AppGlance){
+    .num_slices = 1,
+    .slices = {
+      {
+        .expiration_time = 1464734484, // (Tue, 31 May 2016 22:41:24 GMT)
+        .type = AppGlanceSliceType_IconAndSubtitle,
+        .icon_and_subtitle = {
+          .icon_resource_id = TIMELINE_RESOURCE_SCHEDULED_FLIGHT,
+          .template_string = "Glances baby!",
         },
       },
+    },
   };
   cl_assert_equal_i(app_glance_db_insert_glance(
-      &s_fake_app_nodes[LauncherMenuLayerTestApp_NoIcon].node.uuid, &glance), S_SUCCESS);
+                        &s_fake_app_nodes[LauncherMenuLayerTestApp_NoIcon].node.uuid, &glance),
+                    S_SUCCESS);
 
   prv_render_launcher_menu_layer(LauncherMenuLayerTestApp_NoIcon);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
@@ -410,9 +418,9 @@ static void prv_insert_glances_for_app_selected_and_apps_above_and_below_with_gl
   for (LauncherMenuLayerTestApp i = LauncherMenuLayerTestApp_InteriorApp - 1;
        i <= LauncherMenuLayerTestApp_InteriorApp + 1; i++) {
     const LauncherMenuLayerTestAppNode *test_node = &s_fake_app_nodes[i];
-    const uint32_t icon_resource_id = s_use_pdc_icons ? test_node->pdc_slice_icon_resource_id :
-                                                        test_node->bitmap_slice_icon_resource_id;
-    AppGlance glance = (AppGlance) {
+    const uint32_t icon_resource_id = s_use_pdc_icons ? test_node->pdc_slice_icon_resource_id
+                                                      : test_node->bitmap_slice_icon_resource_id;
+    AppGlance glance = (AppGlance){
       .num_slices = 1,
       .slices = {
         {
@@ -426,8 +434,8 @@ static void prv_insert_glances_for_app_selected_and_apps_above_and_below_with_gl
       },
     };
     snprintf(glance.slices[0].icon_and_subtitle.template_string,
-             sizeof(glance.slices[0].icon_and_subtitle.template_string),
-             "%s glance", s_fake_app_nodes[i].node.name);
+             sizeof(glance.slices[0].icon_and_subtitle.template_string), "%s glance",
+             s_fake_app_nodes[i].node.name);
     cl_assert_equal_i(app_glance_db_insert_glance(&s_fake_app_nodes[i].node.uuid, &glance),
                       S_SUCCESS);
   }
@@ -437,6 +445,65 @@ void test_launcher_menu_layer__app_selected_and_apps_above_and_below_with_glance
   prv_insert_glances_for_app_selected_and_apps_above_and_below_with_glances_test();
   prv_render_launcher_menu_layer(LauncherMenuLayerTestApp_InteriorApp);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
+}
+
+void test_launcher_menu_layer__extra_large_with_glances(void) {
+  s_content_size = PreferredContentSizeExtraLarge;
+  prv_insert_glances_for_app_selected_and_apps_above_and_below_with_glances_test();
+  prv_render_launcher_menu_layer(LauncherMenuLayerTestApp_InteriorApp);
+  cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
+}
+
+void test_launcher_menu_layer__medium_with_glances(void) {
+  s_content_size = PreferredContentSizeMedium;
+  prv_insert_glances_for_app_selected_and_apps_above_and_below_with_glances_test();
+  prv_render_launcher_menu_layer(LauncherMenuLayerTestApp_InteriorApp);
+  cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));
+}
+
+void test_launcher_menu_layer__content_size_change_keeps_selection(void) {
+  AppMenuDataSource data_source = {};
+  app_menu_data_source_init(&data_source, NULL, NULL);
+  app_menu_data_source_enable_icons(&data_source, RESOURCE_ID_MENU_LAYER_GENERIC_WATCHAPP_ICON);
+
+  LauncherMenuLayer launcher_menu_layer = {};
+  launcher_menu_layer_init(&launcher_menu_layer, &data_source);
+  cl_assert_equal_i(launcher_menu_layer.content_size, PreferredContentSizeDefault);
+
+  const uint16_t selected_row = LauncherMenuLayerTestApp_NoIcon;
+  prv_launcher_menu_layer_set_selection_index(&launcher_menu_layer, selected_row,
+                                              MenuRowAlignBottom, false /* animated */);
+  LauncherMenuLayerSelectionState state;
+  launcher_menu_layer_get_selection_state(&launcher_menu_layer, &state);
+  cl_assert_equal_i(state.row_index, selected_row);
+  cl_assert_equal_i(state.content_size, PreferredContentSizeDefault);
+
+  // Nothing to do while the preference is unchanged
+  launcher_menu_layer_update_content_size(&launcher_menu_layer);
+  cl_assert_equal_i(launcher_menu_layer.content_size, PreferredContentSizeDefault);
+
+  s_content_size = PreferredContentSizeExtraLarge;
+  launcher_menu_layer_update_content_size(&launcher_menu_layer);
+  cl_assert_equal_i(launcher_menu_layer.content_size, PreferredContentSizeExtraLarge);
+  cl_assert_equal_i(menu_layer_get_selected_index(&launcher_menu_layer.menu_layer).row,
+                    selected_row);
+
+  // The selection must still be on screen despite the taller cells
+  GRangeVertical selection_range;
+  launcher_menu_layer_get_selection_vertical_range(&launcher_menu_layer, &selection_range);
+  cl_assert(selection_range.origin_y >= 0);
+  cl_assert(selection_range.origin_y + selection_range.size_h <= DISP_ROWS);
+
+  // Restoring a state captured with a different content size also keeps the row on screen
+  launcher_menu_layer_set_selection_state(&launcher_menu_layer, &state);
+  cl_assert_equal_i(menu_layer_get_selected_index(&launcher_menu_layer.menu_layer).row,
+                    selected_row);
+  launcher_menu_layer_get_selection_vertical_range(&launcher_menu_layer, &selection_range);
+  cl_assert(selection_range.origin_y >= 0);
+  cl_assert(selection_range.origin_y + selection_range.size_h <= DISP_ROWS);
+
+  launcher_menu_layer_deinit(&launcher_menu_layer);
+  app_menu_data_source_deinit(&data_source);
 }
 
 void test_launcher_menu_layer__long_title_pdc(void) {
@@ -460,7 +527,7 @@ void test_launcher_menu_layer__interior_app_pdc(void) {
 void test_launcher_menu_layer__no_icon_app_with_glance_pdc(void) {
   s_use_pdc_icons = true;
   // Insert a glance with a slice for the app that doesn't have a default icon
-  const AppGlance glance = (AppGlance) {
+  const AppGlance glance = (AppGlance){
     .num_slices = 1,
     .slices = {
       {
@@ -474,7 +541,8 @@ void test_launcher_menu_layer__no_icon_app_with_glance_pdc(void) {
     },
   };
   cl_assert_equal_i(app_glance_db_insert_glance(
-      &s_fake_app_nodes[LauncherMenuLayerTestApp_NoIcon].node.uuid, &glance), S_SUCCESS);
+                        &s_fake_app_nodes[LauncherMenuLayerTestApp_NoIcon].node.uuid, &glance),
+                    S_SUCCESS);
 
   prv_render_launcher_menu_layer(LauncherMenuLayerTestApp_NoIcon);
   cl_check(gbitmap_pbi_eq(&s_ctx.dest_bitmap, TEST_PBI_FILE));

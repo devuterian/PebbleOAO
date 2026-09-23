@@ -34,7 +34,6 @@ typedef struct HealthAppData {
   HealthData *health_data;
 } HealthAppData;
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Callbacks
 //
@@ -57,7 +56,7 @@ static void prv_health_service_event_handler(HealthEventType event, void *contex
   } else if (event == HealthEventSleepUpdate) {
     const uint32_t seconds_sleep_today = health_service_sum_today(HealthMetricSleepSeconds);
     const uint32_t seconds_restful_sleep_today =
-      health_service_sum_today(HealthMetricSleepRestfulSeconds);
+        health_service_sum_today(HealthMetricSleepRestfulSeconds);
     health_data_update_sleep(health_app_data->health_data, seconds_sleep_today,
                              seconds_restful_sleep_today);
   } else if (event == HealthEventHeartRateUpdate) {
@@ -68,7 +67,6 @@ static void prv_health_service_event_handler(HealthEventType event, void *contex
   health_card_view_mark_dirty(health_app_data->health_card_view);
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Initialization and Termination
 //
@@ -76,8 +74,9 @@ static void prv_health_service_event_handler(HealthEventType event, void *contex
 //! Show insights onboarding dialog for first-time users
 static void prv_show_insights_onboarding_dialog(void) {
   /// Insights onboarding message
-  static const char *text = i18n_noop("Psst! Want smart tips about your activity and sleep? "
-                                      "You can enable Insights in the mobile app.");
+  static const char *text = i18n_noop(
+      "Psst! Want smart tips about your activity and sleep? "
+      "You can enable Insights in the mobile app.");
   ExpandableDialog *dialog = expandable_dialog_create_with_params(
       "Insights Onboarding",
       RESOURCE_ID_HEALTH_ICON_MOON,
@@ -111,16 +110,18 @@ static void prv_finish_initialization_cb(bool in_focus) {
 static void prv_initialize(void) {
   if (!activity_prefs_tracking_is_enabled()) {
     /// Health disabled text
-    static const char *msg = i18n_noop("Track your steps, sleep, and more!"
-                                       " Enable Pebble Health in the mobile app.");
+    static const char *msg = i18n_noop(
+        "Track your steps, sleep, and more!"
+        " Enable Pebble Health in the mobile app.");
     health_tracking_ui_show_message(RESOURCE_ID_HEART_TINY, msg, true);
     return;
   }
 
   if (!activity_is_initialized()) {
     /// Health waiting for time sync
-    static const char *msg = i18n_noop("Health requires the time to be synced."
-                                       " Please connect your phone.");
+    static const char *msg = i18n_noop(
+        "Health requires the time to be synced."
+        " Please connect your phone.");
     health_tracking_ui_show_message(RESOURCE_ID_ALARM_CLOCK_TINY, msg, true);
     return;
   }
@@ -140,8 +141,8 @@ static void prv_initialize(void) {
   health_card_view_push(health_app_data->health_card_view);
 
   // Show insights onboarding if user hasn't seen it yet and doesn't have insights enabled
-  const bool insights_enabled = activity_prefs_activity_insights_are_enabled() ||
-                                activity_prefs_sleep_insights_are_enabled();
+  const bool insights_enabled =
+      activity_prefs_activity_insights_are_enabled() || activity_prefs_sleep_insights_are_enabled();
   if (previous_version < CURRENT_HEALTH_APP_VERSION && !insights_enabled) {
     prv_show_insights_onboarding_dialog();
   }
@@ -177,15 +178,16 @@ static void prv_main(void) {
 
 const PebbleProcessMd *health_app_get_info(void) {
   static const PebbleProcessMdSystem s_health_app_info = {
-    .common = {
-      .main_func = &prv_main,
-      .uuid = UUID_HEALTH_DATA_SOURCE,
+    .common =
+        {
+          .main_func = &prv_main,
+          .uuid = UUID_HEALTH_DATA_SOURCE,
 #if CAPABILITY_HAS_CORE_NAVIGATION4
-      .visibility = ProcessVisibilityHidden,
+          .visibility = ProcessVisibilityHidden,
 #endif
-    },
+        },
     .icon_resource_id = RESOURCE_ID_MENU_ICON_HEALTH,
     .name = i18n_noop("Health"),
   };
-  return (const PebbleProcessMd*) &s_health_app_info;
+  return (const PebbleProcessMd *)&s_health_app_info;
 }

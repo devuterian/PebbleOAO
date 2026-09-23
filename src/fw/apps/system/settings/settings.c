@@ -63,18 +63,17 @@ static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   window_set_background_color(&data->window,
                               shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
   menu_layer_reload_data(&data->menu_layer);
-  menu_layer_set_selected_index(&data->menu_layer,
-                                menu_layer_get_selected_index(&data->menu_layer),
+  menu_layer_set_selected_index(&data->menu_layer, menu_layer_get_selected_index(&data->menu_layer),
                                 MenuRowAlignCenter, false /* animated */);
 }
 
-static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer,
-                                          uint16_t section_index, void *context) {
+static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index,
+                                          void *context) {
   return SettingsMenuItem_Count;
 }
 
-static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer,
-                                  MenuIndex *cell_index, void *context) {
+static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
+                                  void *context) {
   SettingsAppData *data = context;
 
   PBL_ASSERTN(cell_index->row < SettingsMenuItem_Count);
@@ -84,15 +83,15 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer,
   GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
   menu_layer_set_normal_colors(&(data->menu_layer), normal_bg, gcolor_legible_over(normal_bg));
   GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(&(data->menu_layer),
-                                highlight_bg,
-                                gcolor_legible_over(highlight_bg));
+  menu_layer_set_highlight_colors(&(data->menu_layer), highlight_bg,
+                                  gcolor_legible_over(highlight_bg));
   menu_layer_set_scroll_wrap_around(&(data->menu_layer),
-                                shell_prefs_get_menu_scroll_wrap_around_enable());
-  menu_layer_set_scroll_vibe_on_wrap(&(data->menu_layer),
-                                shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
-  menu_layer_set_scroll_vibe_on_blocked(&(data->menu_layer),
-                                shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
+                                    shell_prefs_get_menu_scroll_wrap_around_enable());
+  menu_layer_set_scroll_vibe_on_wrap(
+      &(data->menu_layer),
+      shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
+  menu_layer_set_scroll_vibe_on_blocked(
+      &(data->menu_layer), shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
 
 #ifdef CONFIG_SETTINGS_ICONS
   GBitmap *icon = data->icons[cell_index->row];
@@ -106,25 +105,24 @@ static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, vo
   settings_menu_push(cell_index->row);
 }
 
-static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer,
-                                            MenuIndex *cell_index, void *context) {
+static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
+                                            void *context) {
 #if PBL_ROUND
   PBL_ASSERTN(cell_index->row < SettingsMenuItem_Count);
 
   const int16_t focused_cell_height = MENU_CELL_ROUND_FOCUSED_SHORT_CELL_HEIGHT;
   const int16_t unfocused_cell_height =
       (((DISP_ROWS - focused_cell_height) / 2) -
-          SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING) /
+       SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING) /
       SETTINGS_CATEGORY_MENU_NUM_UNFOCUSED_ROWS_PER_SIDE;
-  return menu_layer_is_index_selected(menu_layer, cell_index) ? focused_cell_height :
-                                                                unfocused_cell_height;
+  return menu_layer_is_index_selected(menu_layer, cell_index) ? focused_cell_height
+                                                              : unfocused_cell_height;
 #else
   return fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellTitle)) + 12;
 #endif
 }
 
-static int16_t prv_get_separator_height_callback(MenuLayer *menu_layer,
-                                                 MenuIndex *cell_index,
+static int16_t prv_get_separator_height_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
                                                  void *context) {
   return 0;
 }
@@ -146,8 +144,8 @@ static void prv_window_load(Window *window) {
   // Create the menu
   GRect bounds = data->window.layer.bounds;
 #if PBL_ROUND
-  bounds = grect_inset_internal(bounds, 0,
-                                SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING);
+  bounds =
+      grect_inset_internal(bounds, 0, SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING);
 #endif
   MenuLayer *menu_layer = &data->menu_layer;
   menu_layer_init(menu_layer, &bounds);
@@ -164,12 +162,14 @@ static void prv_window_load(Window *window) {
   menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
-  menu_layer_set_scroll_vibe_on_wrap(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
-  menu_layer_set_scroll_vibe_on_blocked(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
+  menu_layer_set_scroll_vibe_on_wrap(
+      menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
+  menu_layer_set_scroll_vibe_on_blocked(
+      menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
 
   layer_add_child(&data->window.layer, menu_layer_get_layer(menu_layer));
 
-  data->pref_change_event_info = (EventServiceInfo) {
+  data->pref_change_event_info = (EventServiceInfo){
     .type = PEBBLE_PREF_CHANGE_EVENT,
     .handler = prv_pref_change_handler,
     .context = data,
@@ -232,14 +232,16 @@ static void s_main(void) {
 
 const PebbleProcessMd *settings_get_app_info() {
   static const PebbleProcessMdSystem s_settings_app = {
-    .common = {
-      .main_func = s_main,
-      // UUID: 07e0d9cb-8957-4bf7-9d42-35bf47caadfe
-      .uuid = {0x07, 0xe0, 0xd9, 0xcb, 0x89, 0x57, 0x4b, 0xf7,
-               0x9d, 0x42, 0x35, 0xbf, 0x47, 0xca, 0xad, 0xfe},
-    },
+    .common =
+        {
+          .main_func = s_main,
+          // UUID: 07e0d9cb-8957-4bf7-9d42-35bf47caadfe
+          .uuid =
+              {0x07, 0xe0, 0xd9, 0xcb, 0x89, 0x57, 0x4b, 0xf7, 0x9d, 0x42, 0x35, 0xbf, 0x47, 0xca,
+               0xad, 0xfe},
+        },
     .name = i18n_noop("Settings"),
     .icon_resource_id = RESOURCE_ID_SETTINGS_TINY,
   };
-  return (const PebbleProcessMd*) &s_settings_app;
+  return (const PebbleProcessMd *)&s_settings_app;
 }

@@ -4,16 +4,17 @@
 #pragma once
 
 #include "pbl/kernel/types.h"
+#include "pbl/kernel/compiler.h"
 
 //! Recursive mutex. Not usable from ISRs.
 struct pbl_mutex {
   struct pbl_thread *owner;
   uint32_t count;
-  uintptr_t lock_lr;  // return address of the outermost lock, for diagnostics
+  uintptr_t lock_lr; // return address of the outermost lock, for diagnostics
   struct pbl_mutex_backend backend;
 };
 
-#define PBL_MUTEX_INITIALIZER { .owner = NULL, .count = 0, .lock_lr = 0 }
+#define PBL_MUTEX_INITIALIZER {.owner = NULL, .count = 0, .lock_lr = 0}
 
 #define PBL_MUTEX_DEFINE(name) struct pbl_mutex name = PBL_MUTEX_INITIALIZER
 
@@ -26,7 +27,7 @@ void pbl_mutex_deinit(struct pbl_mutex *m);
 int pbl_mutex_lock_lr(struct pbl_mutex *m, pbl_timeout_t timeout, uintptr_t lr);
 
 static inline int pbl_mutex_lock(struct pbl_mutex *m, pbl_timeout_t timeout) {
-  return pbl_mutex_lock_lr(m, timeout, (uintptr_t)__builtin_return_address(0));
+  return pbl_mutex_lock_lr(m, timeout, (uintptr_t)PBL_RETURN_ADDRESS(0));
 }
 
 void pbl_mutex_unlock(struct pbl_mutex *m);

@@ -46,7 +46,6 @@ typedef struct SettingsData {
   EventServiceInfo pref_change_event_info; //!< Subscription for pref change notifications
 } SettingsData;
 
-
 // Pref change handler
 ///////////////////////
 
@@ -69,8 +68,7 @@ static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   window_set_background_color(&data->window, normal_bg);
   status_bar_layer_set_colors(&data->status_layer, normal_bg, gcolor_legible_over(normal_bg));
   menu_layer_reload_data(&data->menu_layer);
-  menu_layer_set_selected_index(&data->menu_layer,
-                                menu_layer_get_selected_index(&data->menu_layer),
+  menu_layer_set_selected_index(&data->menu_layer, menu_layer_get_selected_index(&data->menu_layer),
                                 MenuRowAlignCenter, false /* animated */);
 }
 
@@ -140,8 +138,8 @@ static void prv_selection_will_change_callback(MenuLayer *menu_layer, MenuIndex 
   }
 }
 
-static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer,
-                                  MenuIndex *cell_index, void *context) {
+static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index,
+                                  void *context) {
   SettingsData *data = context;
 
   uint16_t row = cell_index->row;
@@ -158,8 +156,8 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer,
   }
 }
 
-static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer,
-                                          uint16_t section_index, void *context) {
+static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index,
+                                          void *context) {
   PBL_ASSERTN(section_index < SettingsMenuItem_Count);
   SettingsData *data = context;
 
@@ -167,8 +165,8 @@ static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer,
   return callbacks->num_rows ? callbacks->num_rows(callbacks) : (uint16_t)0;
 }
 
-static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer,
-                                            MenuIndex *cell_index, void *context) {
+static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *cell_index,
+                                            void *context) {
   PBL_ASSERTN(cell_index->section < SettingsMenuItem_Count);
   SettingsData *data = context;
 
@@ -192,19 +190,19 @@ static void prv_settings_window_load(Window *window) {
 
   StatusBarLayer *status_layer = &data->status_layer;
   status_bar_layer_init(status_layer);
-  const char *title = data->title_override
-      ? data->title_override
-      : settings_menu_get_status_name(data->current_category);
+  const char *title = data->title_override ? data->title_override
+                                           : settings_menu_get_status_name(data->current_category);
   status_bar_layer_set_title(status_layer, i18n_get(title, data), false, false);
   GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
   status_bar_layer_set_colors(status_layer, normal_bg, gcolor_legible_over(normal_bg));
   status_bar_layer_set_separator_mode(status_layer, OPTION_MENU_STATUS_SEPARATOR_MODE);
   layer_add_child(&data->window.layer, status_bar_layer_get_layer(status_layer));
 
-  GRect bounds = grect_inset(data->window.layer.bounds, (GEdgeInsets) {
-    .top = STATUS_BAR_LAYER_HEIGHT,
-    .bottom = PBL_IF_RECT_ELSE(0, STATUS_BAR_LAYER_HEIGHT),
-  });
+  GRect bounds = grect_inset(data->window.layer.bounds,
+                             (GEdgeInsets){
+                               .top = STATUS_BAR_LAYER_HEIGHT,
+                               .bottom = PBL_IF_RECT_ELSE(0, STATUS_BAR_LAYER_HEIGHT),
+                             });
 
   // Create the menu
   MenuLayer *menu_layer = &data->menu_layer;
@@ -222,8 +220,10 @@ static void prv_settings_window_load(Window *window) {
   menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
-  menu_layer_set_scroll_vibe_on_wrap(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
-  menu_layer_set_scroll_vibe_on_blocked(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
+  menu_layer_set_scroll_vibe_on_wrap(
+      menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
+  menu_layer_set_scroll_vibe_on_blocked(
+      menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
   layer_add_child(&data->window.layer, menu_layer_get_layer(menu_layer));
 
   SettingsCallbacks *callbacks = prv_get_current_callbacks(data);
@@ -238,7 +238,7 @@ static void prv_settings_window_load(Window *window) {
   }
 
   // Subscribe to pref change events to auto-refresh when settings change remotely
-  data->pref_change_event_info = (EventServiceInfo) {
+  data->pref_change_event_info = (EventServiceInfo){
     .type = PEBBLE_PREF_CHANGE_EVENT,
     .handler = prv_pref_change_handler,
     .context = data,

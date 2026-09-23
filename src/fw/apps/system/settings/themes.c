@@ -47,21 +47,18 @@ static const ColorDefinition s_color_definitions[12] = {
   {i18n_noop("Magenta"), GColorMagenta},
   {i18n_noop("Pink"), GColorBrilliantRose},
 };
-static const char* color_names[ARRAY_LENGTH(s_color_definitions)];
+static const char *color_names[ARRAY_LENGTH(s_color_definitions)];
 static bool color_names_initialized = false;
 
-static const char** prv_get_color_names(bool short_list) {
+static const char **prv_get_color_names(bool short_list) {
   if (!color_names_initialized) {
     for (size_t i = 0; i < ARRAY_LENGTH(s_color_definitions); i++) {
-      color_names[i] = (char*)s_color_definitions[i].name;
+      color_names[i] = (char *)s_color_definitions[i].name;
     }
     color_names_initialized = true;
   }
   return color_names;
 }
-
-
-
 
 static int prv_color_to_index(GColor color, GColor default_color) {
   if (color.argb == GColorClear.argb || color.argb == default_color.argb) {
@@ -75,7 +72,6 @@ static int prv_color_to_index(GColor color, GColor default_color) {
   }
   return -1;
 }
-
 
 /////////////////////////////
 // Unified Accent Color Settings
@@ -103,10 +99,8 @@ static void prv_color_menu_select(OptionMenu *option_menu, int selection, void *
   app_window_stack_remove(&option_menu->window, true /* animated */);
 }
 
-static void prv_option_menu_selection_will_change(OptionMenu *option_menu,
-                                                   uint16_t new_row,
-                                                   uint16_t old_row,
-                                                   void *context) {
+static void prv_option_menu_selection_will_change(OptionMenu *option_menu, uint16_t new_row,
+                                                  uint16_t old_row, void *context) {
   if (new_row == old_row) {
     return;
   }
@@ -121,7 +115,8 @@ static void prv_option_menu_selection_will_change(OptionMenu *option_menu,
   if (color.argb != GColorClear.argb) {
     option_menu_set_highlight_colors(option_menu, color, gcolor_legible_over(color));
   } else {
-    option_menu_set_highlight_colors(option_menu, DEFAULT_THEME_HIGHLIGHT_COLOR, gcolor_legible_over(DEFAULT_THEME_HIGHLIGHT_COLOR));
+    option_menu_set_highlight_colors(option_menu, DEFAULT_THEME_HIGHLIGHT_COLOR,
+                                     gcolor_legible_over(DEFAULT_THEME_HIGHLIGHT_COLOR));
   }
 }
 
@@ -319,7 +314,6 @@ static Window *prv_create_top_menu(void) {
 static Window *prv_init(void) {
   return prv_create_top_menu();
 }
-
 
 const SettingsModuleMetadata *settings_themes_get_info(void) {
   static const SettingsModuleMetadata s_module_info = {

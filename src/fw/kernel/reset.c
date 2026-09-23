@@ -16,6 +16,7 @@
 
 #ifdef CONFIG_SOC_SF32LB52
 #include <bf0_hal.h>
+#include "pbl/kernel/compiler.h"
 #endif
 
 void system_reset_prepare(void) {
@@ -23,7 +24,7 @@ void system_reset_prepare(void) {
   flash_stop();
 }
 
-NORETURN system_reset(void) {
+PBL_NORETURN void system_reset(void) {
   static bool failure_occurred = false;
 
   bool already_failed = failure_occurred;
@@ -34,8 +35,7 @@ NORETURN system_reset(void) {
 
   // Skip safe teardown if doing so the first time already caused a second reset attempt; or
   // if we're in a critical section, interrupt or if the scheduler has been suspended
-  if (!already_failed && !mcu_state_is_isr() && !pbl_irq_is_locked() &&
-      (pbl_kernel_is_running())) {
+  if (!already_failed && !mcu_state_is_isr() && !pbl_irq_is_locked() && (pbl_kernel_is_running())) {
     system_reset_prepare();
     reboot_reason_set_restarted_safely();
   }
@@ -53,7 +53,7 @@ void system_reset_callback(void *data) {
   (void)data;
 }
 
-NORETURN system_hard_reset(void) {
+PBL_NORETURN void system_hard_reset(void) {
   // Don't do anything fancy here. We may be in a context where nothing works, not even
   // interrupts. Just reset us.
 
@@ -63,6 +63,5 @@ NORETURN system_hard_reset(void) {
   NVIC_SystemReset();
 #endif
 
-  __builtin_unreachable();
+  PBL_UNREACHABLE();
 }
-

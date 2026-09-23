@@ -9,7 +9,6 @@
 #include "drivers/flash.h"
 #include "drivers/rtc.h"
 #include "drivers/sf32lb52/rc10k.h"
-#include "drivers/task_watchdog.h"
 #include "kernel/util/idle.h"
 #include "pbl/services/analytics/analytics.h"
 #include "pbl/soc/sf32lb/sleep.h"
@@ -25,7 +24,7 @@
 extern __IO uint32_t uwTick;
 
 static LPTIM_HandleTypeDef s_lptim = {
-    .Instance = LPTIM1,
+  .Instance = LPTIM1,
 };
 
 // CPU analytics tracking
@@ -51,16 +50,6 @@ static const uint32_t MIN_DEEPSLEEP_TICKS = RTC_TICKS_HZ / 20;
 static const uint32_t MAX_LPTIM_CNT = 0xFFFFFFUL;
 
 static uint32_t s_iser_bak[16];
-
-static void prv_wdt_feed(uint16_t elapsed_ticks) {
-  static uint32_t wdt_feed_ticks;
-
-  wdt_feed_ticks += elapsed_ticks;
-  if (wdt_feed_ticks >= (RTC_TICKS_HZ / (1000 / TASK_WATCHDOG_FEED_PERIOD_MS))) {
-    wdt_feed_ticks = 0U;
-    task_watchdog_feed();
-  }
-}
 
 static void prv_save_iser(void) {
   uint32_t i;
@@ -226,8 +215,7 @@ void pbl_soc_idle(pbl_tick_t max_ticks) {
 
         // configure LPTIM to wake us up after expected idle time
         sleep_ticks = max_ticks - EARLY_WAKEUP_TICKS;
-        lptim_ticks = MIN(sleep_ticks * rc10k_get_freq_hz() / RTC_TICKS_HZ,
-                          MAX_LPTIM_CNT);
+        lptim_ticks = MIN(sleep_ticks * rc10k_get_freq_hz() / RTC_TICKS_HZ, MAX_LPTIM_CNT);
         HAL_LPTIM_Counter_Start_IT(&s_lptim, lptim_ticks);
 
         gtimer_start = HAL_GTIMER_READ();
@@ -252,8 +240,6 @@ void pbl_soc_idle(pbl_tick_t max_ticks) {
 
         // increment HAL tick counter by elapsed ticks
         uwTick += elapsed_ticks;
-
-        prv_wdt_feed(elapsed_ticks);
 
         // Force RTC synchronization of shadow registers
         hwp_rtc->ISR &= RTC_RSF_MASK;
@@ -318,24 +304,21 @@ bool pbl_soc_tick_enable(void) {
   return true;
 }
 
-void AON_IRQHandler(void)
-{
-    uint32_t status;
+void AON_IRQHandler(void) {
+  uint32_t status;
 
-    NVIC_DisableIRQ(AON_IRQn);
-    HAL_HPAON_CLEAR_POWER_MODE();
+  NVIC_DisableIRQ(AON_IRQn);
+  HAL_HPAON_CLEAR_POWER_MODE();
 
-    status = HAL_HPAON_GET_WSR();
-    status &= ~HPSYS_AON_WSR_PIN_ALL;
-    HAL_HPAON_CLEAR_WSR(status);
+  status = HAL_HPAON_GET_WSR();
+  status &= ~HPSYS_AON_WSR_PIN_ALL;
+  HAL_HPAON_CLEAR_WSR(status);
 }
 
 void SysTick_Handler(void) {
   pbl_kernel_tick_isr();
 
   HAL_IncTick();
-
-  prv_wdt_feed(1U);
 
   if (s_last_sleep_type == SleepTypeWfi) {
     s_analytics_wfi_ticks++;
@@ -360,19 +343,19 @@ void dump_current_runtime_stats(void) {
   uint32_t running_ticks = total_ticks - wfi_ticks - deepwfi_ticks - deepsleep_ticks;
 
   char buf[160];
-  snprintf(buf, sizeof(buf), "Run:       %"PRIu32" ticks (%"PRIu32" %%)",
-           running_ticks, (running_ticks * 100) / total_ticks);
+  snprintf(buf, sizeof(buf), "Run:       %" PRIu32 " ticks (%" PRIu32 " %%)", running_ticks,
+           (running_ticks * 100) / total_ticks);
   prompt_send_response(buf);
-  snprintf(buf, sizeof(buf), "WFI:       %"PRIu32" ticks (%"PRIu32" %%)",
-           wfi_ticks, (wfi_ticks * 100) / total_ticks);
+  snprintf(buf, sizeof(buf), "WFI:       %" PRIu32 " ticks (%" PRIu32 " %%)", wfi_ticks,
+           (wfi_ticks * 100) / total_ticks);
   prompt_send_response(buf);
-  snprintf(buf, sizeof(buf), "Deep WFI:  %"PRIu32" ticks (%"PRIu32" %%)",
-           deepwfi_ticks, (deepwfi_ticks * 100) / total_ticks);
+  snprintf(buf, sizeof(buf), "Deep WFI:  %" PRIu32 " ticks (%" PRIu32 " %%)", deepwfi_ticks,
+           (deepwfi_ticks * 100) / total_ticks);
   prompt_send_response(buf);
-  snprintf(buf, sizeof(buf), "Deepsleep: %"PRIu32" ticks (%"PRIu32" %%)",
-           deepsleep_ticks, (deepsleep_ticks * 100) / total_ticks);
+  snprintf(buf, sizeof(buf), "Deepsleep: %" PRIu32 " ticks (%" PRIu32 " %%)", deepsleep_ticks,
+           (deepsleep_ticks * 100) / total_ticks);
   prompt_send_response(buf);
-  snprintf(buf, sizeof(buf), "Tot:       %"PRIu32" ticks", total_ticks);
+  snprintf(buf, sizeof(buf), "Tot:       %" PRIu32 " ticks", total_ticks);
   prompt_send_response(buf);
 }
 

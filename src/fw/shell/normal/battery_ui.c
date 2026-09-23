@@ -167,13 +167,12 @@ typedef struct {
 ///////////////////////
 
 static const GColor s_warning_color[] = {
-  { .argb = GColorLightGrayARGB8 },
-  { .argb = GColorRedARGB8 },
+  {.argb = GColorLightGrayARGB8},
+  {.argb = GColorRedARGB8},
 };
 
 static const ResourceId s_warning_icon[] = {
-  RESOURCE_ID_BATTERY_ICON_LOW_LARGE,
-  RESOURCE_ID_BATTERY_ICON_VERY_LOW_LARGE
+  RESOURCE_ID_BATTERY_ICON_LOW_LARGE, RESOURCE_ID_BATTERY_ICON_VERY_LOW_LARGE
 };
 
 static void prv_update_ui_fully_charged(Dialog *dialog, void *ignored) {
@@ -324,8 +323,7 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
     return;
   }
 
-  SimpleDialog *new_simple_dialog = simple_dialog_create(
-      WINDOW_NAME("Battery Status"));
+  SimpleDialog *new_simple_dialog = simple_dialog_create(WINDOW_NAME("Battery Status"));
 
 #if CHARGE_DETAILS
   if (s_charge_dialog) {
@@ -361,9 +359,9 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
     const int num_lines = 3;
     const int line_spacing_delta = -4;
     const int text_shift_y = -2;
-    const int text_box_height = (font_height + text_cap_height) * num_lines +
-                                line_spacing_delta * (num_lines - 1);
-    const int text_flow_inset = 6;  // Modify to allow longer central lines
+    const int text_box_height =
+        (font_height + text_cap_height) * num_lines + line_spacing_delta * (num_lines - 1);
+    const int text_flow_inset = 6; // Modify to allow longer central lines
     text_layer_enable_screen_text_flow_and_paging(text_layer, text_flow_inset);
     text_layer_set_size(text_layer, GSize(DISP_COLS, text_box_height));
     text_layer->layer.frame.origin.y += text_shift_y;

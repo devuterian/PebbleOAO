@@ -7,7 +7,7 @@
 #include "pbl/services/regular_timer.h"
 #include "shell/prefs.h"
 #include <pbl/logging/logging.h>
-#include "pbl/util/attributes.h"
+#include "pbl/util/testing.h"
 #include "kernel/event_loop.h"
 
 #define CHARGE_RESUME_HYSTERESIS_PCT 3
@@ -15,9 +15,9 @@
 
 ////////////////////////
 // State
-T_STATIC bool s_limit_active;
-T_STATIC bool s_once_to_full;
-T_STATIC bool s_once_to_full_was_plugged;
+PBL_T_STATIC bool s_limit_active;
+PBL_T_STATIC bool s_once_to_full;
+PBL_T_STATIC bool s_once_to_full_was_plugged;
 static RegularTimerInfo s_periodic_timer;
 
 static void prv_set_periodic_check_enabled(bool enabled) {

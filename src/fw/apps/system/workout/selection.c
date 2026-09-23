@@ -84,9 +84,10 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
   const int max_icon_w = PBL_IF_RECT_ELSE(55, cell_layer->bounds.size.w);
   const int title_origin_x = PBL_IF_RECT_ELSE(max_icon_w, 0);
   const GTextAlignment title_alignment = PBL_IF_RECT_ELSE(GTextAlignmentLeft, GTextAlignmentCenter);
-  const GFont title_font = PBL_IF_RECT_ELSE(fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-      cell_layer->is_highlighted ? fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD)
-                                 : fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  const GFont title_font =
+      PBL_IF_RECT_ELSE(fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
+                       cell_layer->is_highlighted ? fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD)
+                                                  : fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   const int title_height = fonts_get_font_height(title_font);
 
   GRect image_bounds = gbitmap_get_bounds(icon);
@@ -156,8 +157,8 @@ WorkoutSelectionWindow *workout_selection_push(SelectWorkoutCallback select_work
   window_init(window, WINDOW_NAME("Workout Selection"));
   window_set_user_data(window, selection_window);
   window_set_window_handlers(window, &(WindowHandlers){
-    .unload = prv_window_unload_handler,
-  });
+                                       .unload = prv_window_unload_handler,
+                                     });
 
   for (int i = 0; i < WorkoutTypeCount; i++) {
     gbitmap_init_with_resource(&selection_window->workout_icons[i], prv_get_icon_resource_id(i));
@@ -178,8 +179,10 @@ WorkoutSelectionWindow *workout_selection_push(SelectWorkoutCallback select_work
                                   PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
   menu_layer_set_click_config_onto_window(menu_layer, &selection_window->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
-  menu_layer_set_scroll_vibe_on_wrap(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
-  menu_layer_set_scroll_vibe_on_blocked(menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
+  menu_layer_set_scroll_vibe_on_wrap(
+      menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnWrapAround);
+  menu_layer_set_scroll_vibe_on_blocked(
+      menu_layer, shell_prefs_get_menu_scroll_vibe_behavior() == MenuScrollVibeOnLocked);
   layer_add_child(&selection_window->window.layer, menu_layer_get_layer(menu_layer));
 
   app_window_stack_push(&selection_window->window, true);

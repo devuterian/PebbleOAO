@@ -18,8 +18,9 @@
 #include "pbl/services/bluetooth/ble_hrm.h"
 #include "pbl/services/notifications/alerts_private.h"
 #include "pbl/services/notifications/do_not_disturb.h"
+#include "shell/system_theme.h"
 #include "system/passert.h"
-#include "pbl/util/attributes.h"
+#include "pbl/kernel/compiler.h"
 #include "pbl/util/math.h"
 #include "pbl/util/size.h"
 #include "pbl/util/struct.h"
@@ -97,8 +98,8 @@ static const char *prv_get_title(LauncherAppGlanceStructured *structured_glance)
 }
 
 static void prv_charging_icon_node_draw_cb(GContext *ctx, const GRect *rect,
-                                           PBL_UNUSED const GTextNodeDrawConfig *config, bool render,
-                                           GSize *size_out, void *user_data) {
+                                           PBL_UNUSED const GTextNodeDrawConfig *config,
+                                           bool render, GSize *size_out, void *user_data) {
   LauncherAppGlanceStructured *structured_glance = user_data;
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
@@ -190,7 +191,7 @@ static void prv_battery_icon_node_draw_cb(GContext *ctx, const GRect *rect,
     graphics_context_set_fill_color(ctx, battery_silhouette_color);
 
     // Draw the battery silhouette
-    const GRect battery_silhouette_frame = (GRect) {
+    const GRect battery_silhouette_frame = (GRect){
       .origin = rect->origin,
       .size = battery_silhouette_icon_size,
     };
@@ -221,8 +222,8 @@ static void prv_battery_icon_node_draw_cb(GContext *ctx, const GRect *rect,
 
 static void prv_battery_percent_dynamic_text_node_update(
     PBL_UNUSED GContext *ctx, PBL_UNUSED GTextNode *node, PBL_UNUSED const GRect *box,
-    PBL_UNUSED const GTextNodeDrawConfig *config, PBL_UNUSED bool render, char *buffer, size_t buffer_size,
-    void *user_data) {
+    PBL_UNUSED const GTextNodeDrawConfig *config, PBL_UNUSED bool render, char *buffer,
+    size_t buffer_size, void *user_data) {
   LauncherAppGlanceStructured *structured_glance = user_data;
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
@@ -257,9 +258,8 @@ static GTextNode *prv_create_subtitle_node(LauncherAppGlanceStructured *structur
   horizontal_container_node->horizontal_alignment = GTextAlignmentLeft;
 
   if (!settings_glance->glance_state.battery_charge_state.is_plugged) {
-    GTextNode *battery_percent_text_node =
-        launcher_app_glance_structured_create_subtitle_text_node(
-            structured_glance, prv_battery_percent_dynamic_text_node_update);
+    GTextNode *battery_percent_text_node = launcher_app_glance_structured_create_subtitle_text_node(
+        structured_glance, prv_battery_percent_dynamic_text_node_update);
     // Achieves the design spec'd 6 px horizontal spacing b/w the percent text and battery icon
     battery_percent_text_node->margin.w = 4;
     GTextNode *vertically_centered_battery_percent_text_node =
@@ -361,7 +361,7 @@ static uint32_t prv_get_resource_id_for_connectivity_status(
 static void prv_refresh_glance_content(LauncherAppGlanceSettings *settings_glance) {
   // Update the battery percent text in the glance
   const size_t battery_percent_text_size = sizeof(settings_glance->battery_percent_text);
-  snprintf(settings_glance->battery_percent_text, battery_percent_text_size, "%"PRIu8"%%",
+  snprintf(settings_glance->battery_percent_text, battery_percent_text_size, "%" PRIu8 "%%",
            settings_glance->glance_state.battery_charge_state.charge_percent);
 
   // Update the icon
@@ -392,7 +392,7 @@ static void prv_event_handler(PebbleEvent *event, void *context) {
             event->bluetooth.comm_session_event.is_open;
       }
       break;
-    case PEBBLE_BT_STATE_EVENT:
+    case PBL_BT_PEBBLE_STATE_EVENT:
       settings_glance->glance_state.is_airplane_mode_enabled = bt_ctl_is_airplane_mode_on();
       break;
     case PEBBLE_DO_NOT_DISTURB_EVENT:
@@ -424,7 +424,7 @@ static void prv_subscribe_to_event(EventServiceInfo *event_service_info, PebbleE
                                    LauncherAppGlanceStructured *structured_glance) {
   PBL_ASSERTN(event_service_info);
 
-  *event_service_info = (EventServiceInfo) {
+  *event_service_info = (EventServiceInfo){
     .type = type,
     .handler = prv_event_handler,
     .context = structured_glance,
@@ -451,19 +451,18 @@ LauncherAppGlance *launcher_app_glance_settings_create(const AppMenuNode *node) 
   settings_glance->title[title_size - 1] = '\0';
 
   // Cache the subtitle font height for simplifying layout calculations
-  settings_glance->subtitle_font_height =
-      fonts_get_font_height(fonts_get_system_font(LAUNCHER_MENU_LAYER_SUBTITLE_FONT));
+  settings_glance->subtitle_font_height = fonts_get_font_height(
+      fonts_get_system_font(launcher_menu_layer_get_style()->subtitle_font_key));
 
   const bool should_consider_slices = false;
-  LauncherAppGlanceStructured *structured_glance =
-      launcher_app_glance_structured_create(&node->uuid, &s_settings_structured_glance_impl,
-                                            should_consider_slices, settings_glance);
+  LauncherAppGlanceStructured *structured_glance = launcher_app_glance_structured_create(
+      &node->uuid, &s_settings_structured_glance_impl, should_consider_slices, settings_glance);
   PBL_ASSERTN(structured_glance);
   // Disable selection animations for the settings glance
   structured_glance->selection_animation_disabled = true;
 
   // Set the first state of the glance
-  settings_glance->glance_state = (LauncherAppGlanceSettingsState) {
+  settings_glance->glance_state = (LauncherAppGlanceSettingsState){
     .battery_charge_state = battery_state_service_peek(),
     .is_pebble_app_connected = prv_is_pebble_app_connected(),
     .is_airplane_mode_enabled = bt_ctl_is_airplane_mode_on(),
@@ -481,14 +480,13 @@ LauncherAppGlance *launcher_app_glance_settings_create(const AppMenuNode *node) 
                          PEBBLE_BATTERY_STATE_CHANGE_EVENT, structured_glance);
   prv_subscribe_to_event(&settings_glance->pebble_app_event_info, PEBBLE_COMM_SESSION_EVENT,
                          structured_glance);
-  prv_subscribe_to_event(&settings_glance->airplane_mode_event_info, PEBBLE_BT_STATE_EVENT,
+  prv_subscribe_to_event(&settings_glance->airplane_mode_event_info, PBL_BT_PEBBLE_STATE_EVENT,
                          structured_glance);
   prv_subscribe_to_event(&settings_glance->quiet_time_event_info, PEBBLE_DO_NOT_DISTURB_EVENT,
                          structured_glance);
 #ifdef CONFIG_HRM
   prv_subscribe_to_event(&settings_glance->hrm_sharing_event_info,
-                         PEBBLE_BLE_HRM_SHARING_STATE_UPDATED_EVENT,
-                         structured_glance);
+                         PEBBLE_BLE_HRM_SHARING_STATE_UPDATED_EVENT, structured_glance);
 #endif
 
   return &structured_glance->glance;

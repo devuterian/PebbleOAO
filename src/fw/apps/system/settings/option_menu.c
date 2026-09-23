@@ -29,10 +29,10 @@ static void prv_menu_draw_row(OptionMenu *option_menu, GContext *ctx, const Laye
   option_menu_system_draw_row(option_menu, ctx, cell_layer, cell_frame, title, selected, context);
 }
 
-OptionMenu *settings_option_menu_create(
-    const char *i18n_title_key, OptionMenuContentType content_type, int choice,
-    const OptionMenuCallbacks *callbacks_ref, uint16_t num_rows, bool icons_enabled,
-    const char **rows, void *context) {
+OptionMenu *settings_option_menu_create(const char *i18n_title_key,
+                                        OptionMenuContentType content_type, int choice,
+                                        const OptionMenuCallbacks *callbacks_ref, uint16_t num_rows,
+                                        bool icons_enabled, const char **rows, void *context) {
   OptionMenu *option_menu = option_menu_create();
   if (!option_menu) {
     return NULL;
@@ -51,7 +51,7 @@ OptionMenu *settings_option_menu_create(
   option_menu_set_normal_colors(option_menu, normal_bg, gcolor_legible_over(normal_bg));
   SettingsOptionMenuData *data = task_malloc_check(sizeof(SettingsOptionMenuData));
   OptionMenuCallbacks callbacks = *callbacks_ref;
-  *data = (SettingsOptionMenuData) {
+  *data = (SettingsOptionMenuData){
     .callbacks = callbacks,
     .context = context,
     .num_rows = num_rows,
@@ -64,11 +64,11 @@ OptionMenu *settings_option_menu_create(
   return option_menu;
 }
 
-OptionMenu *settings_option_menu_push(
-    const char *i18n_title_key, OptionMenuContentType content_type, int choice,
-    const OptionMenuCallbacks *callbacks_ref, uint16_t num_rows, bool icons_enabled,
-    const char **rows, void *context) {
-  OptionMenu * const option_menu = settings_option_menu_create(
+OptionMenu *settings_option_menu_push(const char *i18n_title_key,
+                                      OptionMenuContentType content_type, int choice,
+                                      const OptionMenuCallbacks *callbacks_ref, uint16_t num_rows,
+                                      bool icons_enabled, const char **rows, void *context) {
+  OptionMenu *const option_menu = settings_option_menu_create(
       i18n_title_key, content_type, choice, callbacks_ref, num_rows, icons_enabled, rows, context);
   if (option_menu) {
     const bool animated = true;
