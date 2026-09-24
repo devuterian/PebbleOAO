@@ -108,6 +108,7 @@ pbl_clar_test(test_animation_timing
 )
 
 pbl_clar_test(test_kino_reel
+  OVERRIDES kino_reel
   SOURCES
     src/fw/applib/graphics/gtypes.c
     src/fw/applib/ui/layer.c
@@ -129,7 +130,6 @@ pbl_clar_test(test_kino_reel
     src/fw/applib/graphics/gdraw_command_frame.c
     src/fw/applib/graphics/gdraw_command_sequence.c
     tests/fakes/fake_resource_syscalls.c
-    tests/fakes/fake_applib_resource.c
     tests/fakes/fake_rtc.c
   TEST_IMAGES
 )

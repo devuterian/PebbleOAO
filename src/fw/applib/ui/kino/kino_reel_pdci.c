@@ -86,5 +86,9 @@ KinoReel *kino_reel_pdci_create_with_resource_system(ResAppNum app_num, uint32_t
   if (image == NULL) {
     return NULL;
   }
-  return kino_reel_pdci_create(image, true);
+  KinoReel *reel = kino_reel_pdci_create(image, true);
+  if (!reel) {
+    gdraw_command_image_destroy(image);
+  }
+  return reel;
 }

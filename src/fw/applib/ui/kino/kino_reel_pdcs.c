@@ -127,5 +127,9 @@ KinoReel *kino_reel_pdcs_create_with_resource_system(ResAppNum app_num, uint32_t
   if (sequence == NULL) {
     return NULL;
   }
-  return kino_reel_pdcs_create(sequence, true);
+  KinoReel *reel = kino_reel_pdcs_create(sequence, true);
+  if (!reel) {
+    gdraw_command_sequence_destroy(sequence);
+  }
+  return reel;
 }

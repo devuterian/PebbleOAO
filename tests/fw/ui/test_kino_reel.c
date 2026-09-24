@@ -15,6 +15,25 @@
 ////////////////////////////////////
 #include "fake_resource_syscalls.h"
 
+// Track resource ownership independently of the reel allocation.
+#define applib_resource_munmap_or_free prv_resource_free
+#include "fake_applib_resource.c"
+#undef applib_resource_munmap_or_free
+
+static bool s_fail_reel_alloc;
+static unsigned s_resource_frees;
+
+void *kino_test_zalloc(size_t size) {
+  return s_fail_reel_alloc ? NULL : calloc(1, size);
+}
+
+void applib_resource_munmap_or_free(void *bytes) {
+  if (bytes) {
+    ++s_resource_frees;
+  }
+  prv_resource_free(bytes);
+}
+
 // Stubs
 ////////////////////////////////////
 #include "stubs_app_state.h"
@@ -51,6 +70,8 @@ static FrameBuffer *fb = NULL;
 
 // Setup
 void test_kino_reel__initialize(void) {
+  s_fail_reel_alloc = false;
+  s_resource_frees = 0;
   fb = malloc(sizeof(FrameBuffer));
   fb->size = (GSize){DISP_COLS, DISP_ROWS};
 }
@@ -62,6 +83,24 @@ void test_kino_reel__cleanup(void) {
 
 // Tests
 ////////////////////////////////////
+
+void test_kino_reel__resource_pdci_freed_when_reel_allocation_fails(void) {
+  uint32_t id = sys_resource_load_file_as_resource(TEST_IMAGES_PATH,
+                                                  "test_kino_reel__resource_pdci.pdc");
+  cl_assert(id != UINT32_MAX);
+  s_fail_reel_alloc = true;
+  cl_assert(kino_reel_pdci_create_with_resource(id) == NULL);
+  cl_assert_equal_i(s_resource_frees, 1);
+}
+
+void test_kino_reel__resource_pdcs_freed_when_reel_allocation_fails(void) {
+  uint32_t id = sys_resource_load_file_as_resource(TEST_IMAGES_PATH,
+                                                  "test_kino_reel__resource_pdcs.pdc");
+  cl_assert(id != UINT32_MAX);
+  s_fail_reel_alloc = true;
+  cl_assert(kino_reel_pdcs_create_with_resource(id) == NULL);
+  cl_assert_equal_i(s_resource_frees, 1);
+}
 
 void test_kino_reel__resource_gbitmap(void) {
   GContext ctx;
