@@ -34,6 +34,7 @@ static bool s_charge_dialog;
 static char s_charge_percent[16];
 static char s_charge_detail[140];
 static void prv_update_ui_charging(Dialog *dialog, void *ignored);
+static void prv_charge_refresh(void *unused);
 
 static void prv_charge_draw(Layer *layer, GContext *ctx) {
   ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
@@ -136,6 +137,17 @@ static void prv_charge_icon_layout(Dialog *dialog) {
 static void prv_charge_disappear(Window *window) {
   SimpleDialog *simple_dialog = window_get_user_data(window);
   kino_layer_pause(&simple_dialog_get_dialog(simple_dialog)->icon_layer);
+  if (s_charge_timer != TIMER_INVALID_ID) {
+    new_timer_stop(s_charge_timer);
+  }
+}
+
+static void prv_charge_appear(Window *window) {
+  SimpleDialog *simple_dialog = window_get_user_data(window);
+  dialog_appear(simple_dialog_get_dialog(simple_dialog));
+  if (s_charge_timer != TIMER_INVALID_ID) {
+    prv_charge_refresh(NULL);
+  }
 }
 
 static void prv_charge_load(void *context) {
@@ -147,10 +159,10 @@ static void prv_charge_load(void *context) {
   layer_set_update_proc(&dialog->text_layer.layer, prv_charge_draw);
   prv_charge_icon_layout(dialog);
   WindowHandlers handlers = dialog->window.window_handlers;
+  handlers.appear = prv_charge_appear;
   handlers.disappear = prv_charge_disappear;
   window_set_window_handlers(&dialog->window, &handlers);
 }
-static void prv_charge_refresh(void *unused);
 #endif
 
 typedef void (*DialogUpdateFn)(Dialog *, void *);
@@ -287,17 +299,15 @@ static void prv_charge_refresh(void *unused) {
   if (!s_dialog || !s_charge_dialog) {
     return;
   }
-  if (!battery_get_charge_state().is_plugged) {
+  if (!battery_get_charge_state().is_plugged || !window_is_on_screen(&s_dialog->window)) {
     return;
   }
-  if (window_is_on_screen(&s_dialog->window)) {
-    ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
-    if (!(prefs.flags & ChargingDisplayStock) &&
-        (prefs.flags & (ChargingDisplayPercent | ChargingDisplayPower | ChargingDisplayRemaining))) {
-      battery_state_request_sample();
-    }
-    prv_update_ui_charging(s_dialog, NULL);
+  ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
+  if (!(prefs.flags & ChargingDisplayStock) &&
+      (prefs.flags & (ChargingDisplayPercent | ChargingDisplayPower | ChargingDisplayRemaining))) {
+    battery_state_request_sample();
   }
+  prv_update_ui_charging(s_dialog, NULL);
   new_timer_start(s_charge_timer, shell_prefs_get_charging_display().seconds * 1000U,
                   prv_charge_refresh, NULL, 0);
 }
@@ -398,7 +408,7 @@ void battery_ui_display_plugged(void) {
   if (s_charge_timer == TIMER_INVALID_ID) {
     s_charge_timer = new_timer_create();
   }
-  if (s_charge_timer != TIMER_INVALID_ID) {
+  if (s_charge_timer != TIMER_INVALID_ID && window_is_on_screen(&s_dialog->window)) {
     new_timer_start(s_charge_timer, shell_prefs_get_charging_display().seconds * 1000U,
                   prv_charge_refresh, NULL, 0);
   }
