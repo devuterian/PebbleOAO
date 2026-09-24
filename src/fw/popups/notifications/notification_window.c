@@ -1157,6 +1157,10 @@ static void prv_imaging_notification_received(uint8_t token, GBitmap *bitmap) {
   }
 }
 
+static void prv_imaging_notification_transfer_failed(uint8_t token) {
+  prv_imaging_notification_received(token, NULL);
+}
+
 static void prv_maybe_request_notification_image(LayoutLayer *layout, TimelineItem *item) {
   GSize size;
   uint8_t token;
@@ -1452,6 +1456,8 @@ void notification_window_service_init(void) {
   notification_image_service_init();
 #if NOTIFICATION_IMAGE_SUPPORTED
   imaging_register_handler(ImagingImageTypeNotification, prv_imaging_notification_received);
+  imaging_register_transfer_handlers(ImagingImageTypeNotification, NULL,
+                                     prv_imaging_notification_transfer_failed);
 #endif
 }
 
