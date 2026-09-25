@@ -87,6 +87,7 @@
 #include "stubs_weather_layout.h"
 #include "stubs_window_manager.h"
 #include "stubs_window_stack.h"
+#include "stubs_work_mode.h"
 
 #include "pbl/services/notifications/alerts_preferences_private.h"
 

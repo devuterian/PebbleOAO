@@ -31,6 +31,7 @@
 #include "pbl/services/light.h"
 #include "pbl/services/blob_db/ios_notif_pref_db.h"
 #include "pbl/services/notifications/alerts.h"
+#include "pbl/services/notifications/work_mode.h"
 #include "pbl/services/notifications/notification_constants.h"
 #include "pbl/services/phone_call.h"
 #include "pbl/services/timeline/timeline.h"
@@ -453,6 +454,9 @@ static void prv_ring(void *unused) {
     regular_timer_remove_callback(&s_phone_ui_data->ring_timer);
     return;
   }
+  if (work_mode_get_alert_style(AlertPhoneCall) == WorkModeAlertStyle_Flash) {
+    light_flash(WORK_MODE_CALL_FLASHES);
+  }
   if (alerts_should_vibrate_for_type(AlertPhoneCall)) {
     if (!s_phone_ui_data->vibe_score) {
       return;
@@ -470,20 +474,26 @@ static void prv_start_ringing(void) {
     .cb = prv_ring,
   };
   s_phone_ui_data->ring_start_time = rtc_get_time();
+  work_mode_count_alert(AlertPhoneCall);
   unsigned int vibe_repeat_interval_sec;
   s_phone_ui_data->vibe_score = vibe_client_get_score(VibeClient_PhoneCalls);
-  if (!s_phone_ui_data->vibe_score) {
+  if (s_phone_ui_data->vibe_score) {
+    unsigned int vibe_interval_ms = vibe_score_get_duration_ms(s_phone_ui_data->vibe_score) +
+                                    vibe_score_get_repeat_delay_ms(s_phone_ui_data->vibe_score);
+    vibe_repeat_interval_sec = DIVIDE_CEIL(vibe_interval_ms, MS_PER_SECOND);
+  } else if (work_mode_get_alert_style(AlertPhoneCall) == WorkModeAlertStyle_Flash) {
+    // Keep flashing even when call vibrations are turned off.
+    vibe_repeat_interval_sec = WORK_MODE_CALL_FLASH_INTERVAL_S;
+  } else {
     return;
   }
-  unsigned int vibe_interval_ms = vibe_score_get_duration_ms(s_phone_ui_data->vibe_score) +
-                                  vibe_score_get_repeat_delay_ms(s_phone_ui_data->vibe_score);
-  vibe_repeat_interval_sec = DIVIDE_CEIL(vibe_interval_ms, MS_PER_SECOND);
   prv_ring(NULL);
   regular_timer_add_multisecond_callback(&s_phone_ui_data->ring_timer, vibe_repeat_interval_sec);
 }
 
 static void prv_stop_ringing(void) {
   regular_timer_remove_callback(&s_phone_ui_data->ring_timer);
+  light_flash_cancel();
   if (s_phone_ui_data->vibe_score) {
     vibe_score_destroy(s_phone_ui_data->vibe_score);
     s_phone_ui_data->vibe_score = NULL;
