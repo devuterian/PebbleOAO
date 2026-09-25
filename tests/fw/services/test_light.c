@@ -344,3 +344,62 @@ void test_light__palm_releases_prior_touch(void) {
   light_enable_interaction();
   check_on_timed();
 }
+
+static uint8_t prv_full_brightness(void) {
+  return DIVIDE_CEIL(100 * (uint16_t)BOARD_CONFIG.backlight_on_percent, 100U);
+}
+
+//! The flash timer is the last one started by light_flash()
+static TimerID prv_running_flash_timer(void) {
+  const TimerID timer = s_new_timer_start_param_timer_id;
+  cl_assert(timer != s_light_timer);
+  cl_assert(stub_new_timer_is_scheduled(timer));
+  return timer;
+}
+
+void test_light__flash_blinks_at_full_brightness(void) {
+  backlight_set_intensity(50);
+
+  light_flash(2);
+  const TimerID flash_timer = prv_running_flash_timer();
+  cl_assert_equal_i(s_backlight_brightness, prv_full_brightness());
+
+  stub_new_timer_fire(flash_timer);
+  cl_assert_equal_i(s_backlight_brightness, 0);
+  stub_new_timer_fire(flash_timer);
+  cl_assert_equal_i(s_backlight_brightness, prv_full_brightness());
+  stub_new_timer_fire(flash_timer);
+
+  cl_assert(!stub_new_timer_is_scheduled(flash_timer));
+  check_off();
+}
+
+void test_light__button_press_cancels_flash(void) {
+  light_flash(3);
+  const TimerID flash_timer = prv_running_flash_timer();
+
+  light_button_pressed();
+  check_on();
+  cl_assert(!stub_new_timer_is_scheduled(flash_timer));
+
+  light_button_released();
+  check_on_timed_and_consume();
+}
+
+void test_light__flash_cancel_turns_off(void) {
+  light_flash(3);
+  const TimerID flash_timer = prv_running_flash_timer();
+
+  light_flash_cancel();
+  cl_assert(!stub_new_timer_is_scheduled(flash_timer));
+  check_off();
+}
+
+void test_light__flash_respects_disabled_backlight(void) {
+  s_backlight_enabled = false;
+  const int start_calls = s_num_new_timer_start_calls;
+
+  light_flash(2);
+  cl_assert_equal_i(s_num_new_timer_start_calls, start_calls);
+  check_off();
+}

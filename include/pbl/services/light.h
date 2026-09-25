@@ -57,6 +57,13 @@ void light_enable_respect_settings(bool enable);
 //! then do nothing
 void light_enable_interaction(void);
 
+//! Blink the backlight at full brightness `count` times, ignoring the ambient light sensor.
+//! Any regular backlight activity (a button press, an interaction) cancels the flash.
+void light_flash(uint8_t count);
+
+//! Stop a flash started with light_flash and turn the backlight off
+void light_flash_cancel(void);
+
 //! Reset the state if an app overrode the usual state machine using light_enable()
 void light_reset_user_controlled(void);
 

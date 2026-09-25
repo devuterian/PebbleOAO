@@ -66,6 +66,12 @@ static uint8_t s_current_brightness;
 //! Timer to count down from the LIGHT_STATE_ON_TIMED state.
 static TimerID s_timer_id;
 
+//! Timer driving an alert flash (see light_flash)
+static TimerID s_flash_timer_id;
+
+//! Backlight edges left in the current alert flash; 0 when not flashing
+static uint8_t s_flash_edges_left;
+
 //! Refcount of the number of buttons that are currently pushed
 static int s_num_buttons_down;
 
@@ -372,7 +378,15 @@ static uint8_t prv_build_fade_ladder(uint8_t from, uint8_t *levels) {
   return count;
 }
 
+static void prv_flash_stop(void) {
+  s_flash_edges_left = 0;
+  new_timer_stop(s_flash_timer_id);
+}
+
 static void prv_change_state(BacklightState new_state) {
+  // Any regular backlight activity takes over from an alert flash.
+  prv_flash_stop();
+
   BacklightState old_state = s_light_state;
   s_light_state = new_state;
 
@@ -462,12 +476,63 @@ static bool prv_light_allowed(void) {
   }
 }
 
+#define LIGHT_FLASH_ON_MS  (250)
+#define LIGHT_FLASH_OFF_MS (250)
+
+static void prv_flash_step(void);
+
+static void prv_flash_timer_callback(void *data) {
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+  if (s_flash_edges_left > 0) {
+    prv_flash_step();
+  }
+  pbl_mutex_unlock(&s_mutex);
+}
+
+static void prv_flash_step(void) {
+  s_flash_edges_left--;
+  // Edges alternate on/off, starting with on and ending with off.
+  const bool on = (s_flash_edges_left % 2) == 1;
+  prv_change_brightness(on ? 100 : 0);
+  if (s_flash_edges_left > 0) {
+    new_timer_start(s_flash_timer_id, on ? LIGHT_FLASH_ON_MS : LIGHT_FLASH_OFF_MS,
+                    prv_flash_timer_callback, NULL, 0 /* flags */);
+  }
+}
+
+void light_flash(uint8_t count) {
+  if (count == 0) {
+    return;
+  }
+
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+
+  // Don't fight a held button or an app that owns the backlight.
+  if (s_backlight_allowed && backlight_is_enabled() && s_num_buttons_down == 0 &&
+      !s_user_controlled_state) {
+    prv_change_state(LIGHT_STATE_OFF);
+    s_flash_edges_left = MIN(count, UINT8_MAX / 2) * 2;
+    prv_flash_step();
+  }
+
+  pbl_mutex_unlock(&s_mutex);
+}
+
+void light_flash_cancel(void) {
+  pbl_mutex_lock(&s_mutex, PBL_FOREVER);
+  if (s_flash_edges_left > 0) {
+    prv_change_state(LIGHT_STATE_OFF);
+  }
+  pbl_mutex_unlock(&s_mutex);
+}
+
 void light_init(void) {
   s_light_state = LIGHT_STATE_OFF;
   s_current_brightness = 0;
   s_num_buttons_down = 0;
   s_user_controlled_state = false;
   s_touch_holding = false;
+  s_flash_edges_left = 0;
   s_fade_level_count = 0;
   s_fade_level_idx = 0;
 
@@ -479,6 +544,9 @@ void light_init(void) {
 
   s_als_cached_level = 0;
   s_als_cached_ticks = 0;
+
+  // Created first so the fade timer below stays the most recently created one.
+  s_flash_timer_id = new_timer_create();
 
   // Create the ALS release timer before the fade timer so existing tests that
   // pluck the most-recently-created idle timer (test_light.c:149) still pick
