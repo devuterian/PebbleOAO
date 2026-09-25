@@ -98,6 +98,15 @@ static bool s_notification_backlight =
 #define PREF_KEY_NOTIF_GROUPING_RANGE "notifGroupingRange"
 static NotificationGroupingRange s_notification_grouping_range = NotificationGroupingRange_Never;
 
+#define PREF_KEY_WORK_MODE_ACTIVE "workModeActive"
+static bool s_work_mode_active = false;
+
+#define PREF_KEY_WORK_MODE_NOTIF_STYLE "workModeNotifStyle"
+static WorkModeAlertStyle s_work_mode_notification_style = WorkModeAlertStyle_Silent;
+
+#define PREF_KEY_WORK_MODE_CALL_STYLE "workModeCallStyle"
+static WorkModeAlertStyle s_work_mode_call_style = WorkModeAlertStyle_Flash;
+
 #define PREF_KEY_NOTIF_STATUS_BAR_STYLE "notifStatusBarStyle"
 static NotificationStatusBarStyle s_notification_status_bar_style =
     NotificationStatusBarStyle_Default;
@@ -377,6 +386,9 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_NOTIF_STATUS_BAR_STYLE, s_notification_status_bar_style);
   RESTORE_PREF(PREF_KEY_NOTIF_TEXT_SIZE, s_notification_content_size);
   RESTORE_PREF(PREF_KEY_DND_AUTO_DISMISS, s_dnd_auto_dismiss);
+  RESTORE_PREF(PREF_KEY_WORK_MODE_ACTIVE, s_work_mode_active);
+  RESTORE_PREF(PREF_KEY_WORK_MODE_NOTIF_STYLE, s_work_mode_notification_style);
+  RESTORE_PREF(PREF_KEY_WORK_MODE_CALL_STYLE, s_work_mode_call_style);
 #undef RESTORE_PREF
 
   prv_migrate_legacy_dnd_schedule(&file);
@@ -476,6 +488,35 @@ NotificationGroupingRange alerts_preferences_get_notification_grouping_range(voi
 void alerts_preferences_set_notification_grouping_range(NotificationGroupingRange range) {
   s_notification_grouping_range = range;
   SET_PREF(PREF_KEY_NOTIF_GROUPING_RANGE, s_notification_grouping_range);
+}
+
+bool alerts_preferences_get_work_mode_active(void) {
+  return s_work_mode_active;
+}
+
+void alerts_preferences_set_work_mode_active(bool active) {
+  s_work_mode_active = active;
+  SET_PREF(PREF_KEY_WORK_MODE_ACTIVE, s_work_mode_active);
+}
+
+WorkModeAlertStyle alerts_preferences_get_work_mode_notification_style(void) {
+  return (s_work_mode_notification_style < WorkModeAlertStyleCount) ? s_work_mode_notification_style
+                                                                    : WorkModeAlertStyle_Silent;
+}
+
+void alerts_preferences_set_work_mode_notification_style(WorkModeAlertStyle style) {
+  s_work_mode_notification_style = style;
+  SET_PREF(PREF_KEY_WORK_MODE_NOTIF_STYLE, s_work_mode_notification_style);
+}
+
+WorkModeAlertStyle alerts_preferences_get_work_mode_call_style(void) {
+  return (s_work_mode_call_style < WorkModeAlertStyleCount) ? s_work_mode_call_style
+                                                            : WorkModeAlertStyle_Flash;
+}
+
+void alerts_preferences_set_work_mode_call_style(WorkModeAlertStyle style) {
+  s_work_mode_call_style = style;
+  SET_PREF(PREF_KEY_WORK_MODE_CALL_STYLE, s_work_mode_call_style);
 }
 
 NotificationStatusBarStyle alerts_preferences_get_notification_status_bar_style(void) {

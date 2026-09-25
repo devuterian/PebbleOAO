@@ -25,6 +25,7 @@
 #include "stubs_task_wdt.h"
 #include "stubs_vibes.h"
 #include "stubs_vibe_score_info.h"
+#include "stubs_work_mode.h"
 #include "fake_rtc.h"
 
 // Overrides

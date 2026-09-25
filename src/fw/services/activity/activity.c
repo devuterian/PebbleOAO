@@ -14,6 +14,7 @@
 #include "pbl/services/alarms/alarm.h"
 #include "pbl/services/blob_db/health_db.h"
 #include "pbl/services/filesystem/pfs.h"
+#include "pbl/services/notifications/work_mode.h"
 #include "pbl/services/protobuf_log/protobuf_log.h"
 #include "pbl/services/protobuf_log/protobuf_log_hr.h"
 #include "syscall/syscall.h"
@@ -91,8 +92,10 @@ static void prv_activity_spo2_schedule_update(void); // defined below; used by t
 // @param[in] now_ts number of seconds the system has been running (from time_get_uptime_seconds())
 static void prv_heart_rate_subscription_update(uint32_t now_ts) {
 #ifdef CONFIG_HRM
-  // If measurement interval is disabled, ensure we're not sampling and skip
-  if (activity_prefs_get_hrm_measurement_interval() == HRMonitoringInterval_Disabled) {
+  // If measurement interval is disabled or the watch is set aside for work mode, ensure we're not
+  // sampling and skip
+  if (activity_prefs_get_hrm_measurement_interval() == HRMonitoringInterval_Disabled ||
+      work_mode_is_active()) {
     if (s_activity_state.hr.currently_sampling) {
       bool success = sys_hrm_manager_set_update_interval(s_activity_state.hr.hrm_session,
                                                          ACTIVITY_HRM_SUBSCRIPTION_OFF_PERIOD_SEC,
@@ -319,7 +322,8 @@ static void prv_spo2_subscription_update(uint32_t now_ts) {
   // If blood oxygen monitoring is disabled (master toggle off or "Disabled" interval), make sure
   // we're not sampling and skip.
   if (!activity_prefs_blood_oxygen_is_enabled() ||
-      activity_prefs_get_spo2_measurement_interval() == HRMonitoringInterval_Disabled) {
+      activity_prefs_get_spo2_measurement_interval() == HRMonitoringInterval_Disabled ||
+      work_mode_is_active()) {
     if (s_activity_state.spo2.currently_sampling) {
       prv_spo2_set_sampling(false, now_ts);
     }
@@ -513,8 +517,8 @@ static void prv_activity_spo2_update(uint32_t now_ts) {
   const bool auto_active = activity_prefs_hrm_activity_tracking_is_enabled() &&
                            activity_algorithm_activity_hrm_is_active();
   const bool workout_active = workout_service_is_workout_ongoing();
-  const bool eligible =
-      activity_prefs_blood_oxygen_activity_tracking_is_enabled() && (auto_active || workout_active);
+  const bool eligible = activity_prefs_blood_oxygen_activity_tracking_is_enabled() &&
+                        (auto_active || workout_active) && !work_mode_is_active();
 
   if (!eligible) {
     if (as->phase != ActivitySpO2ActPhase_Idle) {
@@ -1473,6 +1477,27 @@ bool activity_stop_tracking(void) {
   }
   pbl_mutex_unlock(&s_activity_state.mutex);
   return system_task_add_callback(prv_stop_tracking_cb, NULL);
+}
+
+// ------------------------------------------------------------------------------------------------
+static void prv_work_mode_changed_system_cb(void *unused) {
+  pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
+  if (s_activity_state.started) {
+    const uint32_t now_ts = time_get_uptime_seconds();
+    prv_heart_rate_subscription_update(now_ts);
+    prv_spo2_subscription_update(now_ts);
+#ifdef CONFIG_HRM
+    prv_activity_spo2_schedule_update();
+#endif
+  }
+  pbl_mutex_unlock(&s_activity_state.mutex);
+}
+
+void activity_handle_work_mode_changed(void) {
+  if (!s_activity_initialized) {
+    return;
+  }
+  system_task_add_callback(prv_work_mode_changed_system_cb, NULL);
 }
 
 // ------------------------------------------------------------------------------------------------

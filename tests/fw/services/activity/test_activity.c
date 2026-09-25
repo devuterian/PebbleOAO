@@ -55,6 +55,7 @@
 #include "stubs_worker_manager.h"
 #include "stubs_workout_service.h"
 #include "stubs_ambient_light.h"
+#include "stubs_work_mode.h"
 #include "pbl/util/testing.h"
 
 void prefs_sync_init(void) {

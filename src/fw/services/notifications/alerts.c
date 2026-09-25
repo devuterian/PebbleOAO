@@ -11,6 +11,7 @@
 #include "pbl/services/firmware_update.h"
 #include "pbl/services/notifications/do_not_disturb.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
+#include "pbl/services/notifications/work_mode.h"
 
 static const int NOTIFICATION_VIBE_HOLDOFF_MS = 3000;
 static RtcTicks s_notification_vibe_tick_timestamp = 0;
@@ -49,6 +50,11 @@ bool alerts_should_notify_for_type(AlertType type) {
 }
 
 bool alerts_should_enable_backlight_for_type(AlertType type) {
+  // Work mode flashes the backlight itself (see light_flash) or stays dark.
+  if (work_mode_get_alert_style(type) != WorkModeAlertStyle_Vibrate) {
+    return false;
+  }
+
   if (!alerts_preferences_get_notification_backlight()) {
     return false;
   }
@@ -61,6 +67,10 @@ bool alerts_should_enable_backlight_for_type(AlertType type) {
 }
 
 bool alerts_should_vibrate_for_type(AlertType type) {
+  if (work_mode_get_alert_style(type) != WorkModeAlertStyle_Vibrate) {
+    return false;
+  }
+
   if (do_not_disturb_is_active() && !(alerts_preferences_dnd_get_mask() & type)) {
     return false;
   }

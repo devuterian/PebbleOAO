@@ -53,6 +53,26 @@ NotificationGroupingRange alerts_preferences_get_notification_grouping_range(voi
 
 void alerts_preferences_set_notification_grouping_range(NotificationGroupingRange range);
 
+//! How an alert is delivered while work mode is active
+typedef enum {
+  WorkModeAlertStyle_Silent = 0,
+  WorkModeAlertStyle_Flash,
+  WorkModeAlertStyle_Vibrate,
+  WorkModeAlertStyleCount,
+} WorkModeAlertStyle;
+
+bool alerts_preferences_get_work_mode_active(void);
+
+void alerts_preferences_set_work_mode_active(bool active);
+
+WorkModeAlertStyle alerts_preferences_get_work_mode_notification_style(void);
+
+void alerts_preferences_set_work_mode_notification_style(WorkModeAlertStyle style);
+
+WorkModeAlertStyle alerts_preferences_get_work_mode_call_style(void);
+
+void alerts_preferences_set_work_mode_call_style(WorkModeAlertStyle style);
+
 typedef enum {
   NotificationStatusBarStyle_Default = 0,
   NotificationStatusBarStyle_Bold = 1,
