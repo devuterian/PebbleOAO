@@ -3777,3 +3777,35 @@ msgstr "정각 알림 음량"
 
 msgid "Status Sounds"
 msgstr "상태 알림음"
+
+msgid "Work Mode"
+msgstr "작업 모드"
+
+msgid "Work Mode\nStarted"
+msgstr "작업 모드\n시작"
+
+msgid "Work Mode\nEnded"
+msgstr "작업 모드\n종료"
+
+#, c-format
+msgid "%u notifications"
+msgstr "알림 %u개"
+
+#, c-format
+msgid "%u calls"
+msgstr "전화 %u통"
+
+msgid "Work Mode Alerts"
+msgstr "작업 모드 알림"
+
+msgid "Work Mode Calls"
+msgstr "작업 모드 전화"
+
+msgid "Silent"
+msgstr "조용히"
+
+msgid "Flash Backlight"
+msgstr "백라이트 깜빡임"
+
+msgid "Vibrate"
+msgstr "진동"

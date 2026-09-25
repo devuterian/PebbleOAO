@@ -15,6 +15,7 @@
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/notifications/alerts_preferences_private.h"
 #include "pbl/services/notifications/alerts_private.h"
+#include "pbl/services/notifications/work_mode.h"
 #include "system/passert.h"
 #include "pbl/util/size.h"
 #include "util/time/time.h"
@@ -38,6 +39,9 @@ enum NotificationsItem {
   NotificationsItemBacklight,
   NotificationsItemGroupBySender,
   NotificationsItemStatusBarStyle,
+  NotificationsItemWorkMode,
+  NotificationsItemWorkModeNotifications,
+  NotificationsItemWorkModeCalls,
   NotificationsItem_Count,
 };
 
@@ -327,6 +331,44 @@ static void prv_notification_grouping_range_menu_push(SettingsNotificationsData 
                             true /* icons_enabled */, s_notification_grouping_range_labels, data);
 }
 
+// Work Mode
+////////////////////////
+
+static const char *s_work_mode_style_labels[] = {
+  /// Work mode option: keep the alert quietly in history
+  [WorkModeAlertStyle_Silent] = i18n_noop("Silent"),
+  /// Work mode option: blink the backlight instead of vibrating
+  [WorkModeAlertStyle_Flash] = i18n_noop("Flash Backlight"),
+  /// Work mode option: alert as usual, with vibration
+  [WorkModeAlertStyle_Vibrate] = i18n_noop("Vibrate"),
+};
+
+_Static_assert(ARRAY_LENGTH(s_work_mode_style_labels) == WorkModeAlertStyleCount, "");
+
+static void prv_work_mode_notifications_menu_select(OptionMenu *option_menu, int selection,
+                                                    void *context) {
+  alerts_preferences_set_work_mode_notification_style((WorkModeAlertStyle)selection);
+  app_window_stack_remove(&option_menu->window, true /* animated */);
+}
+
+static void prv_work_mode_calls_menu_select(OptionMenu *option_menu, int selection, void *context) {
+  alerts_preferences_set_work_mode_call_style((WorkModeAlertStyle)selection);
+  app_window_stack_remove(&option_menu->window, true /* animated */);
+}
+
+static void prv_work_mode_style_menu_push(SettingsNotificationsData *data, bool calls) {
+  const OptionMenuCallbacks callbacks = {
+    .select = calls ? prv_work_mode_calls_menu_select : prv_work_mode_notifications_menu_select,
+  };
+  const WorkModeAlertStyle style = calls ? alerts_preferences_get_work_mode_call_style()
+                                         : alerts_preferences_get_work_mode_notification_style();
+  /// Titles for the work mode notification and call settings screens
+  const char *title = calls ? i18n_noop("Work Mode Calls") : i18n_noop("Work Mode Alerts");
+  settings_option_menu_push(title, OptionMenuContentType_SingleLine, style, &callbacks,
+                            ARRAY_LENGTH(s_work_mode_style_labels), true /* icons_enabled */,
+                            s_work_mode_style_labels, data);
+}
+
 // Menu Layer Callbacks
 ////////////////////////
 
@@ -390,6 +432,24 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
       subtitle = s_status_bar_style_labels[prv_status_bar_style_get_selection_index()];
       break;
     }
+    case NotificationsItemWorkMode: {
+      /// Settings->Notifications item that turns work mode on or off
+      title = i18n_noop("Work Mode");
+      subtitle = work_mode_is_active() ? i18n_noop("On") : i18n_noop("Off");
+      break;
+    }
+    case NotificationsItemWorkModeNotifications: {
+      /// Settings->Notifications item for how notifications behave during work mode
+      title = i18n_noop("Work Mode Alerts");
+      subtitle = s_work_mode_style_labels[alerts_preferences_get_work_mode_notification_style()];
+      break;
+    }
+    case NotificationsItemWorkModeCalls: {
+      /// Settings->Notifications item for how phone calls behave during work mode
+      title = i18n_noop("Work Mode Calls");
+      subtitle = s_work_mode_style_labels[alerts_preferences_get_work_mode_call_style()];
+      break;
+    }
     default:
       WTF;
   }
@@ -434,6 +494,15 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       break;
     case NotificationsItemStatusBarStyle:
       prv_status_bar_style_menu_push(data);
+      break;
+    case NotificationsItemWorkMode:
+      work_mode_toggle();
+      break;
+    case NotificationsItemWorkModeNotifications:
+      prv_work_mode_style_menu_push(data, false /* calls */);
+      break;
+    case NotificationsItemWorkModeCalls:
+      prv_work_mode_style_menu_push(data, true /* calls */);
       break;
     default:
       WTF;
