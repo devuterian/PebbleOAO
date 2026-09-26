@@ -11,6 +11,7 @@
 #include "applib/ui/dialogs/dialog_private.h"
 #include "applib/ui/dialogs/simple_dialog.h"
 #include "applib/ui/ui.h"
+#include "kernel/event_loop.h"
 #include "kernel/ui/kernel_ui.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "resource/resource_ids.auto.h"
@@ -283,6 +284,11 @@ static void prv_update_ui_warning(Dialog *dialog, void *context) {
 }
 
 #if CHARGE_DETAILS
+// NewTimer callbacks run on the timer task; the dialog belongs to KernelMain.
+static void prv_charge_refresh_timer_cb(void *unused) {
+  launcher_task_add_callback(prv_charge_refresh, NULL);
+}
+
 static void prv_charge_refresh(void *unused) {
   if (!s_dialog || !s_charge_dialog) {
     return;
@@ -299,7 +305,7 @@ static void prv_charge_refresh(void *unused) {
     prv_update_ui_charging(s_dialog, NULL);
   }
   new_timer_start(s_charge_timer, shell_prefs_get_charging_display().seconds * 1000U,
-                  prv_charge_refresh, NULL, 0);
+                    prv_charge_refresh_timer_cb, NULL, 0);
 }
 #endif
 
@@ -400,7 +406,7 @@ void battery_ui_display_plugged(void) {
   }
   if (s_charge_timer != TIMER_INVALID_ID) {
     new_timer_start(s_charge_timer, shell_prefs_get_charging_display().seconds * 1000U,
-                  prv_charge_refresh, NULL, 0);
+                    prv_charge_refresh_timer_cb, NULL, 0);
   }
 #endif
 }
