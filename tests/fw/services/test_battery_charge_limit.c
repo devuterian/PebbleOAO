@@ -64,7 +64,7 @@ void test_battery_charge_limit__stops_at_80_and_resumes_at_77(void) {
   cl_assert(battery_charge_limit_is_active());
   prv_evaluate(79, true);
   prv_evaluate(78, true);
-  cl_assert_equal_i(s_writes, 1);
+  cl_assert(!s_charging);
   prv_evaluate(77, true);
   cl_assert(s_charging);
   cl_assert(!battery_charge_limit_is_active());
@@ -139,4 +139,14 @@ void test_battery_charge_limit__one_time_full_resets_after_unplug(void) {
   cl_assert(battery_charge_limit_is_once_to_full());
   prv_evaluate(90, false);
   cl_assert(!battery_charge_limit_is_once_to_full());
+}
+
+void test_battery_charge_limit__reasserts_limit_when_charger_is_reenabled(void) {
+  prv_evaluate(85, true);
+  cl_assert(battery_charge_limit_is_active());
+  // e.g. the fuel gauge enabling the charger after its first update at boot
+  s_charging = true;
+  prv_evaluate(85, true);
+  cl_assert(!s_charging);
+  cl_assert(battery_charge_limit_is_active());
 }

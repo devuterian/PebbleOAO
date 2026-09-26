@@ -93,7 +93,11 @@ void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
     battery_set_charge_enable(false);
     s_limit_active = true;
     PBL_LOG_DBG("Charge limit: disabling charging at %d pct", state.pct);
-  } else if (millipercent <= (limit - CHARGE_RESUME_HYSTERESIS_PCT) * 1000U && s_limit_active) {
+  } else if (millipercent > (limit - CHARGE_RESUME_HYSTERESIS_PCT) * 1000U && s_limit_active) {
+    // Keep the charger off: the fuel gauge enables it after its first update at boot, which can
+    // land after the limit already engaged.
+    battery_set_charge_enable(false);
+  } else if (s_limit_active) {
     battery_set_charge_enable(true);
     s_limit_active = false;
     PBL_LOG_DBG("Charge limit: resuming charging at %d pct", state.pct);
