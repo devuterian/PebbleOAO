@@ -50,3 +50,15 @@ void audio_stop(AudioDevice* audio_device) {
     audio_device->power_ops->power_down();
   }
 }
+
+bool audio_set_playback_callback(AudioDevice *device, AudioPlaybackCB cb, void *context) {
+  if (device->samplerate != AUDIO_PLAYBACK_SAMPLE_RATE || device->channels != 1) {
+    return false;
+  }
+  pbl_irq_lock();
+  device->state->playback_cb = cb;
+  device->state->playback_context = context;
+  device->state->playback_started = false;
+  pbl_irq_unlock();
+  return true;
+}
