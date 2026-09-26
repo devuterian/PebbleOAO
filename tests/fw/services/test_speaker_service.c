@@ -558,3 +558,9 @@ void test_speaker_service__rejected_app_sound_does_not_take_ownership(void) {
   speaker_service_stop_for_task(PebbleTask_App);
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
 }
+
+void test_speaker_service__app_sound_replaces_chime(void) {
+  cl_assert(speaker_service_play_chime_resource(123));
+  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
+  cl_assert(s_resource_read < s_resource_size);
+}

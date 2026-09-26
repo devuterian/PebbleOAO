@@ -314,7 +314,7 @@ static bool prv_can_preempt(SpeakerPriority new_pri) {
   if (s_state.state == SpeakerStateIdle) {
     return true;
   }
-  if (s_state.source_type == SpeakerSourceUI) {
+  if (s_state.source_type == SpeakerSourceUI || s_state.source_type == SpeakerSourceChime) {
     return true;
   }
   if (s_state.pipeline_draining) {
