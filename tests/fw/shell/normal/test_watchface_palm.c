@@ -3,10 +3,13 @@
 
 #include "clar.h"
 #include "shell/normal/watchface.h"
+#include "applib/ui/window_stack.h"
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_manager.h"
 #include "stubs_logging.h"
 #include "stubs_passert.h"
+
+#include <string.h>
 
 static PebbleProcessMd s_md;
 static bool s_have_app, s_low_power, s_resetting, s_watchface;
@@ -35,12 +38,22 @@ void modal_manager_pop_all_below_priority(ModalPriority priority) {
 }
 void timeline_peek_dismiss(void) { s_peek_count++; }
 
+static WindowStack s_modal_stacks[NumModalPriorities];
+static uint32_t s_modal_counts[NumModalPriorities];
+WindowStack *modal_manager_get_window_stack(ModalPriority priority) {
+  return &s_modal_stacks[priority];
+}
+uint32_t window_stack_count(WindowStack *window_stack) {
+  return s_modal_counts[window_stack - s_modal_stacks];
+}
+
 void test_watchface_palm__initialize(void) {
   s_have_app = true;
   s_low_power = s_resetting = s_watchface = false;
   s_run_level = ProcessAppRunLevelNormal;
   s_launch_count = s_pop_count = s_peek_count = 0;
   s_pop_priority = ModalPriorityInvalid;
+  memset(s_modal_counts, 0, sizeof(s_modal_counts));
 }
 
 void test_watchface_palm__app_returns_to_selected_watchface(void) {
@@ -87,5 +100,15 @@ void test_watchface_palm__factory_reset_is_not_interrupted(void) {
 
 void test_watchface_palm__no_app_is_ignored(void) {
   s_have_app = false;
+  prv_assert_ignored();
+}
+
+void test_watchface_palm__incoming_call_is_not_dismissed(void) {
+  s_modal_counts[ModalPriorityPhone] = 1;
+  prv_assert_ignored();
+}
+
+void test_watchface_palm__dictation_is_not_dismissed(void) {
+  s_modal_counts[ModalPriorityVoice] = 1;
   prv_assert_ignored();
 }
