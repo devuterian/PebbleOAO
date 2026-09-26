@@ -135,7 +135,7 @@ SpeakerState speaker_service_get_state(void);
 //! Stop any playback initiated by the given task. Called on app exit.
 void speaker_service_stop_for_task(PebbleTask task);
 
-//! Set the task that owns the current playback session.
+//! Set the task that owns the playback started by the next note, tone or tracks call.
 void speaker_service_set_owner_task(PebbleTask task);
 
 //! @return true if the speaker is currently muted (always-on mute, or

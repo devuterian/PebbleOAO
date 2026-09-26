@@ -536,3 +536,25 @@ void test_speaker_service__ui_pending_replacement_keeps_audible_predecessor(void
   cl_assert_equal_i(s_volume_writes, volume_writes);
   cl_assert_equal_i(s_start_count, 1);
 }
+
+void test_speaker_service__app_owner_survives_replacing_a_ui_sound(void) {
+  static const int16_t pcm[2048];
+  cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 35, false));
+  speaker_service_set_owner_task(PebbleTask_App);
+  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
+  speaker_service_stop_for_task(PebbleTask_App);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
+}
+
+void test_speaker_service__rejected_app_sound_does_not_take_ownership(void) {
+  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityNotification, 100));
+  speaker_service_set_owner_task(PebbleTask_App);
+  cl_assert(!speaker_service_play_tone(880, 1000, 0, 0, SpeakerPriorityApp, 100));
+  speaker_service_stop_for_task(PebbleTask_App);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
+  // The next kernel sound doesn't inherit the rejected request's owner either.
+  speaker_service_stop();
+  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
+  speaker_service_stop_for_task(PebbleTask_App);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
+}

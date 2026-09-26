@@ -299,6 +299,17 @@ static void prv_stop_internal(SpeakerFinishReason reason) {
   }
 }
 
+//! Owner requested by speaker_service_set_owner_task() for the next play call. Kept apart from
+//! s_state.owner_task so that stopping the sound being replaced doesn't clear it.
+static PebbleTask s_pending_owner = PebbleTask_Unknown;
+
+//! Caller must hold s_lock.
+static PebbleTask prv_take_pending_owner(void) {
+  const PebbleTask owner = s_pending_owner;
+  s_pending_owner = PebbleTask_Unknown;
+  return owner;
+}
+
 static bool prv_can_preempt(SpeakerPriority new_pri) {
   if (s_state.state == SpeakerStateIdle) {
     return true;
@@ -563,6 +574,7 @@ static void prv_refill_realtime_locked(void) {
 bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
                                    SpeakerPriority pri, uint8_t vol) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  const PebbleTask owner = prv_take_pending_owner();
 
   if (!s_state.initialized || !notes || num_notes == 0) {
     pbl_mutex_unlock(&s_lock);
@@ -593,6 +605,7 @@ bool speaker_service_play_note_seq(const SpeakerNote *notes, uint32_t num_notes,
 
   s_state.state = SpeakerStatePlaying;
   s_state.source_type = SpeakerSourceNoteSeq;
+  s_state.owner_task = owner;
   s_state.priority = pri;
   s_state.volume = vol;
 
@@ -609,6 +622,7 @@ static bool prv_play_tone_internal(uint16_t freq_hz, uint16_t duration_ms, uint8
                                    uint8_t velocity, SpeakerPriority pri, uint8_t vol,
                                    bool volume_absolute) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  const PebbleTask owner = prv_take_pending_owner();
 
   if (!s_state.initialized || duration_ms == 0) {
     pbl_mutex_unlock(&s_lock);
@@ -633,6 +647,7 @@ static bool prv_play_tone_internal(uint16_t freq_hz, uint16_t duration_ms, uint8
 
   s_state.state = SpeakerStatePlaying;
   s_state.source_type = SpeakerSourceTone;
+  s_state.owner_task = owner;
   s_state.priority = pri;
   s_state.volume = vol;
   s_state.volume_absolute = volume_absolute;
@@ -662,6 +677,7 @@ bool speaker_service_play_volume_preview(uint8_t vol) {
 bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks,
                                  SpeakerPriority pri, uint8_t vol) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  const PebbleTask owner = prv_take_pending_owner();
 
   if (!s_state.initialized || !tracks || num_tracks == 0 || num_tracks > SPEAKER_MAX_TRACKS) {
     pbl_mutex_unlock(&s_lock);
@@ -736,6 +752,7 @@ bool speaker_service_play_tracks(const SpeakerTrack *tracks, uint32_t num_tracks
 
   s_state.state = SpeakerStatePlaying;
   s_state.source_type = SpeakerSourceTracks;
+  s_state.owner_task = owner;
   s_state.priority = pri;
   s_state.volume = vol;
 
@@ -1044,7 +1061,9 @@ void speaker_service_stop_for_task(PebbleTask task) {
 }
 
 void speaker_service_set_owner_task(PebbleTask task) {
-  s_state.owner_task = task;
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  s_pending_owner = task;
+  pbl_mutex_unlock(&s_lock);
 }
 
 void speaker_service_register_finish(PebbleTask task) {
