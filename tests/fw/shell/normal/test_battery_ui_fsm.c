@@ -41,9 +41,12 @@ static bool s_modal_charging;
 static bool s_low_power;
 static bool s_critical;
 static bool s_charge_limit;
+static bool s_charge_limit_active;
+static bool s_once_to_full;
 
 bool shell_prefs_get_charge_limit_enabled(void) { return s_charge_limit; }
-bool battery_charge_limit_is_active(void) { return s_charge_limit; }
+bool battery_charge_limit_is_active(void) { return s_charge_limit_active; }
+bool battery_charge_limit_is_once_to_full(void) { return s_once_to_full; }
 
 void prv_set_state(PowerState state) {
   s_state = state;
@@ -139,6 +142,8 @@ BatteryChargeState battery_get_charge_state(void) {
 ////////////////////////////////////
 void test_battery_ui_fsm__initialize(void) {
   s_charge_limit = false;
+  s_charge_limit_active = false;
+  s_once_to_full = false;
   prv_set_state(PowerGood);
 
   s_entered_standby = false;
@@ -375,13 +380,26 @@ void test_battery_ui_fsm__no_vibe_complete(void) {
 void test_battery_ui_fsm__charge_limit_keeps_modal_without_extra_vibration(void) {
   prv_change_state(prv_make_state(79, true, true));
   uint8_t initial_vibes = s_vibe_count;
-  s_charge_limit = true;
+  s_charge_limit = s_charge_limit_active = true;
   prv_change_state(prv_make_state(80, false, true));
   prv_change_state(prv_make_state(78, false, true));
   cl_assert(s_modal_onscreen);
   cl_assert_equal_i(s_vibe_count, initial_vibes);
-  s_charge_limit = false;
+  s_charge_limit = s_charge_limit_active = false;
   prv_change_state(prv_make_state(78, false, false));
   cl_assert(!s_modal_onscreen);
+}
+
+void test_battery_ui_fsm__charge_limit_resume_keeps_modal_without_vibration(void) {
+  s_charge_limit = s_charge_limit_active = true;
+  prv_change_state(prv_make_state(80, false, true));
+  const uint8_t initial_vibes = s_vibe_count;
+  // At the resume threshold the limit clears before the charger reports charging again.
+  s_charge_limit_active = false;
+  prv_change_state(prv_make_state(77, false, true));
+  cl_assert(s_modal_onscreen);
+  prv_change_state(prv_make_state(77, true, true));
+  cl_assert(s_modal_onscreen);
+  cl_assert_equal_i(s_vibe_count, initial_vibes);
 }
 #endif

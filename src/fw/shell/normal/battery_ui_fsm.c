@@ -242,8 +242,10 @@ static bool prv_is_valid_transition(BatteryUIStateID next_state) {
 
 static BatteryUIStateID prv_get_state(PreciseBatteryChargeState *state) {
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
+  // Under a charge limit the charger is off above the limit, and briefly reads as not charging
+  // after it resumes below it. Keep the charging modal up for the whole connection.
   if (state->is_plugged && shell_prefs_get_charge_limit_enabled() &&
-      battery_charge_limit_is_active()) {
+      (battery_charge_limit_is_active() || !battery_charge_limit_is_once_to_full())) {
     return BatteryCharging;
   }
 #endif
