@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "clar.h"
 #include "pbl/services/hourly_chime.h"
+#include "pbl/services/notifications/work_mode.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/system_task.h"
@@ -18,6 +19,7 @@ struct tm *localtime_r(const time_t *epoch, struct tm *result) {
 }
 static bool s_dnd, s_muted, s_low_power, s_updating, s_has_saved, s_write_fails;
 static uint8_t s_volume;
+static WorkModeAlertStyle s_work_mode_style;
 static SpeakerState s_speaker_state;
 static HourlyChimeSettings s_saved;
 static SystemTaskEventCallback s_pending;
@@ -41,6 +43,9 @@ bool speaker_service_is_muted(void) {
 }
 uint8_t alerts_preferences_get_speaker_volume(void) {
   return s_volume;
+}
+WorkModeAlertStyle work_mode_get_alert_style(AlertType type) {
+  return s_work_mode_style;
 }
 SpeakerState speaker_service_get_state(void) {
   return s_speaker_state;
@@ -94,6 +99,7 @@ void test_hourly_chime__initialize(void) {
   s_timezone_hours = 0;
   s_dnd = s_muted = s_low_power = s_updating = s_has_saved = s_write_fails = false;
   s_volume = 100;
+  s_work_mode_style = WorkModeAlertStyle_Vibrate;
   s_speaker_state = SpeakerStateIdle;
   s_pending = NULL;
   s_plays = s_queued = s_writes = 0;
@@ -192,4 +198,15 @@ void test_hourly_chime__local_timezone_and_equal_endpoints(void) {
   cl_assert(hourly_chime_set_settings(&settings));
   prv_tick(15, 0, 0);  // Midnight in Korea, all-day schedule.
   cl_assert_equal_i(s_plays, 2);
+}
+
+void test_hourly_chime__work_mode_follows_notification_style(void) {
+  s_work_mode_style = WorkModeAlertStyle_Silent;
+  prv_tick(10, 0, 0);
+  s_work_mode_style = WorkModeAlertStyle_Flash;
+  prv_tick(11, 0, 0);
+  cl_assert_equal_i(s_plays, 0);
+  s_work_mode_style = WorkModeAlertStyle_Vibrate;
+  prv_tick(12, 0, 0);
+  cl_assert_equal_i(s_plays, 1);
 }
