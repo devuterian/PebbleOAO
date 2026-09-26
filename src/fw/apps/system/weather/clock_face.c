@@ -1004,6 +1004,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
       int abs_x = cx - cx_scaled;
       int abs_y = cy - cy_scaled;
 
+#if !PBL_BW
+      const uint8_t bg_argb = system_theme_get_bg_color().argb;
+#endif
       GBitmap *fb = graphics_capture_frame_buffer(ctx);
       if (fb) {
         GRect fbb = gbitmap_get_bounds(fb);
@@ -1038,7 +1041,8 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
             weather_fb_row_set(ri.data, ax, GColorBlackARGB8);
 #else
             uint8_t pixel = srow[sx];
-            if (pixel == system_theme_get_bg_color().argb) continue;
+            if (pixel == bg_argb)
+              continue;
             weather_fb_row_set(ri.data, ax, pixel);
 #endif
           }
