@@ -19,11 +19,13 @@ static bool s_light;
 static int s_hour, s_minute;
 static PebbleTask s_task;
 static ProcessAppSDKType s_sdk;
+static RtcTicks s_ticks;
 
 DarkMode shell_prefs_get_dark_mode(void) { return s_mode; }
 void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule) { *schedule = s_schedule; }
 PreferredContentSize system_theme_get_content_size(void) { return PreferredContentSizeDefault; }
 bool ambient_light_is_light(void) { return s_light; }
+RtcTicks rtc_get_ticks(void) { return s_ticks; }
 void rtc_get_time_tm(struct tm *value) { *value = (struct tm){ .tm_hour = s_hour, .tm_min = s_minute }; }
 PebbleTask pebble_task_get_current(void) { return s_task; }
 ProcessAppSDKType process_metadata_get_app_sdk_type(const PebbleProcessMd *md) { return s_sdk; }
@@ -35,6 +37,8 @@ void test_system_dark_mode__initialize(void) {
   s_sdk = ProcessAppSDKType_System;
   s_schedule = (DarkModeSchedule){ .from_hour = 19, .to_hour = 7 };
   s_hour = s_minute = 0;
+  // Expire the ambient light cache left by the previous test.
+  s_ticks += 3600 * RTC_TICKS_HZ;
 }
 
 void test_system_dark_mode__manual_and_ambient(void) {
@@ -46,6 +50,17 @@ void test_system_dark_mode__manual_and_ambient(void) {
   s_mode = DarkModeAmbient;
   cl_assert(!system_theme_is_dark_mode());
   s_light = false;
+  s_ticks += 30 * RTC_TICKS_HZ;
+  cl_assert(system_theme_is_dark_mode());
+}
+
+void test_system_dark_mode__ambient_reading_is_cached(void) {
+  s_mode = DarkModeAmbient;
+  cl_assert(!system_theme_is_dark_mode());
+  s_light = false;
+  s_ticks += 30 * RTC_TICKS_HZ - 1;
+  cl_assert(!system_theme_is_dark_mode());
+  s_ticks += 1;
   cl_assert(system_theme_is_dark_mode());
 }
 

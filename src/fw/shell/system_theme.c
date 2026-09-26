@@ -188,6 +188,21 @@ static bool prv_is_system_app(void) {
   return sdk_type == ProcessAppSDKType_System;
 }
 
+// Colors are looked up on draw paths, often several times per frame. An unprimed ambient light
+// read polls the sensor for up to 200 ms, so only re-read it this often.
+#define AMBIENT_DARK_MODE_CACHE_TICKS (30 * RTC_TICKS_HZ)
+
+static bool prv_is_ambient_dark(void) {
+  static RtcTicks s_checked_ticks;
+  static bool s_is_dark;
+  const RtcTicks now = rtc_get_ticks();
+  if (s_checked_ticks == 0 || (now - s_checked_ticks) >= AMBIENT_DARK_MODE_CACHE_TICKS) {
+    s_is_dark = !ambient_light_is_light();
+    s_checked_ticks = now;
+  }
+  return s_is_dark;
+}
+
 // App metadata is privileged memory, including when dark mode is disabled.
 DEFINE_SYSCALL(bool, system_theme_is_dark_mode, void) {
   // Dark mode is only supported on color platforms, so treat all non-color platforms as light mode
@@ -203,7 +218,7 @@ DEFINE_SYSCALL(bool, system_theme_is_dark_mode, void) {
     case DarkModeOn:
       return true;
     case DarkModeAmbient:
-      return !ambient_light_is_light();
+      return prv_is_ambient_dark();
     case DarkModeScheduled: {
       DarkModeSchedule schedule;
       shell_prefs_get_dark_mode_schedule(&schedule);
