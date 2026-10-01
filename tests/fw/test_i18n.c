@@ -4,6 +4,7 @@
 #include "clar.h"
 #include "fixtures/load_test_resources.h"
 
+#include "kernel/events.h"
 #include "pbl/services/i18n/i18n.h"
 #include "pbl/services/i18n/mo.h"
 #include "pbl/services/filesystem/pfs.h"
@@ -25,7 +26,6 @@
 #include "stubs_mutex.h"
 #include "stubs_pbl_malloc.h"
 #include "stubs_pebble_tasks.h"
-#include "stubs_prompt.h"
 #include "stubs_serial.h"
 #include "stubs_sleep.h"
 #include "stubs_system_reset.h"
@@ -44,6 +44,13 @@ void shell_prefs_set_language_english(bool english) {
 
 void launcher_task_add_callback(void (*callback)(void *data), void *data) {
   callback(data);
+}
+
+static int s_num_language_change_events;
+void event_put(PebbleEvent *event) {
+  if (event->type == PEBBLE_LANGUAGE_CHANGE_EVENT) {
+    s_num_language_change_events++;
+  }
 }
 
 // Setup
@@ -190,4 +197,28 @@ void test_i18n__reset_language(void) {
   // reinitialize
   test_i18n__cleanup();
   test_i18n__initialize();
+}
+
+void test_i18n__language_change_event(void) {
+  s_num_language_change_events = 0;
+
+  i18n_set_resource(RESOURCE_ID_STRINGS);
+  cl_assert_equal_i(s_num_language_change_events, 0);
+
+  i18n_enable(false);
+  cl_assert_equal_i(s_num_language_change_events, 1);
+  cl_assert_equal_s(i18n_get("Music", __FILE__), "Music");
+  i18n_free_all(__FILE__);
+
+  i18n_enable(false);
+  cl_assert_equal_i(s_num_language_change_events, 1);
+
+  i18n_enable(true);
+  cl_assert_equal_i(s_num_language_change_events, 2);
+  cl_assert_equal_s(i18n_get("Music", __FILE__), "Musique");
+  i18n_free_all(__FILE__);
+
+  shell_prefs_set_language_english(true);
+  i18n_set_resource(RESOURCE_ID_STRINGS);
+  cl_assert_equal_i(s_num_language_change_events, 3);
 }

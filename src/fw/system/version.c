@@ -16,16 +16,16 @@
 
 #include "version.h"
 
-#include "git_version.auto.h"
+#include "pbl/version.h"
 
 //! This symbol and its contents are provided by the linker script, see the
 //! .note.gnu.build-id section in src/fw/fw_common.ld
 extern const ElfExternalNote TINTIN_BUILD_ID;
 
 const FirmwareMetadata TINTIN_METADATA PBL_SECTION(".pbl_fw_version") = {
-  .version_timestamp = GIT_TIMESTAMP,
-  .version_tag = GIT_TAG,
-  .version_short = GIT_REVISION,
+  .version_timestamp = PBL_VERSION_TIMESTAMP,
+  .version_tag = PBL_VERSION_TAG,
+  .version_short = PBL_VERSION_GIT_SHA,
 
   .is_recovery_firmware = FIRMWARE_METADATA_IS_RECOVERY_FIRMWARE,
   .is_ble_firmware = false,
@@ -84,9 +84,17 @@ static bool prv_version_copy_flash_fw_metadata(FirmwareMetadata *out_metadata,
 }
 
 bool version_copy_recovery_fw_metadata(FirmwareMetadata *out_metadata) {
+#ifdef CONFIG_QEMU
+  // QEMU has no recovery firmware. Report the running one, so the phone app
+  // does not treat the emulator as a watch without PRF.
+  version_copy_running_fw_metadata(out_metadata);
+  out_metadata->is_recovery_firmware = true;
+  return true;
+#else
   const bool check_crc = true;
   return prv_version_copy_flash_fw_metadata(out_metadata, FLASH_REGION_SAFE_FIRMWARE_BEGIN,
                                             check_crc);
+#endif
 }
 
 bool version_copy_update_fw_metadata(FirmwareMetadata *out_metadata) {
@@ -98,9 +106,7 @@ bool version_copy_update_fw_metadata(FirmwareMetadata *out_metadata) {
 
 bool version_copy_recovery_fw_version(char *dest, const int dest_len_bytes) {
   FirmwareMetadata out_metadata;
-  const bool check_crc = true;
-  bool success = prv_version_copy_flash_fw_metadata(&out_metadata, FLASH_REGION_SAFE_FIRMWARE_BEGIN,
-                                                    check_crc);
+  bool success = version_copy_recovery_fw_metadata(&out_metadata);
   if (success) {
     strncpy(dest, out_metadata.version_tag, dest_len_bytes);
   }
@@ -142,13 +148,13 @@ void version_copy_current_build_id_hex_string(char *buffer, size_t buffer_bytes_
 
 void version_get_major_minor_patch(unsigned int *major, unsigned int *minor,
                                    char const **patch_ptr) {
-  *major = GIT_MAJOR_VERSION;
-  *minor = GIT_MINOR_VERSION;
-  *patch_ptr = GIT_PATCH_VERBOSE_STRING;
+  *major = PBL_VERSION_MAJOR;
+  *minor = PBL_VERSION_MINOR;
+  *patch_ptr = PBL_VERSION_VERBOSE_STR;
 }
 
 bool version_is_release_build(void) {
-  const char *tag = GIT_TAG;
+  const char *tag = PBL_VERSION_TAG;
 
   if (*tag++ != 'v') {
     return false;

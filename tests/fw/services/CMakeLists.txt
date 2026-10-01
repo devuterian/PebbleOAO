@@ -100,6 +100,11 @@ pbl_clar_test(test_imaging
     src/fw/services/imaging/imaging.c
 )
 
+pbl_clar_test(test_analytics_native
+  SOURCES
+    src/fw/services/analytics/native.c
+)
+
 pbl_clar_test(test_compass_cal
   SOURCES
     src/fw/services/ecompass/correction.c
@@ -131,6 +136,12 @@ pbl_clar_test(test_phone_pp
 pbl_clar_test(test_phone_call
   SOURCES
     src/fw/services/phone_call/service.c
+)
+
+pbl_clar_test(test_regular_timer
+  SOURCES
+    src/fw/services/regular_timer/service.c
+    tests/fakes/fake_rtc.c
 )
 
 pbl_clar_test(test_debounced_connection_service

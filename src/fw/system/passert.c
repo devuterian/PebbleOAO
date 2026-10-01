@@ -5,6 +5,7 @@
 
 #include "system/reboot_reason.h"
 #include "kernel/fault_handling.h"
+#include "kernel/kernel_heap.h"
 
 #include "kernel/pebble_tasks.h"
 #include "syscall/syscall.h"
@@ -15,6 +16,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "pbl/kernel/compiler.h"
+#include "pbl/kernel/debug.h"
 
 #define CORE_NUMBER 0
 
@@ -99,6 +101,10 @@ PBL_NORETURN void passert_failed_no_message(const char *filename, int line_numbe
   handle_passert_failed(filename, line_number, (uintptr_t)PBL_RETURN_ADDRESS(0), "ASSERTN", NULL);
 }
 
+PBL_NORETURN void pbl_kernel_assert_failed(const char *filename, int line) {
+  handle_passert_failed(filename, line, (uintptr_t)PBL_RETURN_ADDRESS(0), "ASSERTN", NULL);
+}
+
 PBL_NORETURN void wtf(void) {
   uintptr_t saved_lr = (uintptr_t)PBL_RETURN_ADDRESS(0);
   PBL_LOG_ALWAYS("*** WTF %p", (void *)saved_lr);
@@ -136,8 +142,6 @@ void assert_failed(uint8_t *file, uint32_t line) {
                         "STM32 peripheral library tripped an assert");
 }
 
-extern void command_dump_malloc_kernel(void);
-
 PBL_NORETURN void croak_oom(size_t bytes, int saved_lr, Heap *heap_ptr) {
   unsigned int used = 0, free_bytes = 0, max_free = 0;
   if (heap_ptr) {
@@ -147,7 +151,7 @@ PBL_NORETURN void croak_oom(size_t bytes, int saved_lr, Heap *heap_ptr) {
                  bytes, saved_lr, used, free_bytes, max_free);
 
 #ifdef CONFIG_MALLOC_INSTRUMENTATION
-  command_dump_malloc_kernel();
+  kernel_heap_dump_instrumentation();
 #endif
 
   trigger_oom_fault(bytes, saved_lr, heap_ptr);

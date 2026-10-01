@@ -128,6 +128,8 @@ typedef enum {
   PEBBLE_PREF_CHANGE_EVENT,
   PEBBLE_SPEAKER_EVENT,
   PEBBLE_BACKLIGHT_EVENT,
+  //! Emitted when the system language changes; i18n_get() already returns the new strings
+  PEBBLE_LANGUAGE_CHANGE_EVENT,
 
   PEBBLE_NUM_EVENTS
 } PebbleEventType;
@@ -824,7 +826,7 @@ _Static_assert(sizeof(PebbleEvent) <= 12, "PebbleEvent grew; check the event uni
 void events_init(void);
 
 void event_put(PebbleEvent *event);
-bool event_put_isr(PebbleEvent *event);
+void event_put_isr(PebbleEvent *event);
 void event_put_from_process(PebbleTask task, PebbleEvent *event);
 
 //! Like event_put_from_app but it's allowed to fail.

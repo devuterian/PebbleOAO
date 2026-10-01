@@ -15,7 +15,6 @@ void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {}
 #include "stubs_analytics.h"
 #include "stubs_logging.h"
 #include "stubs_passert.h"
-#include "stubs_prompt.h"
 #include "stubs_serial.h"
 #include "fake_new_timer.h"
 #include "fake_battery.h"
