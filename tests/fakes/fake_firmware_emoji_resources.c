@@ -8,11 +8,8 @@
 
 #include <stdio.h>
 
-#if CONFIG_SCREEN_COLOR_DEPTH_BITS == 8
-#define EMOJI_SUFFIX "~color.pbf"
-#else
+// The firmware only ships the 1-bit emoji fonts, on color platforms too.
 #define EMOJI_SUFFIX ".pbf"
-#endif
 
 static FILE *prv_open_emoji(ResAppNum app_num, uint32_t id) {
   if (app_num != SYSTEM_APP) {
