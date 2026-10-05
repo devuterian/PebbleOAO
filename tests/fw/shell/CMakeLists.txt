@@ -8,7 +8,7 @@ pbl_clar_test(test_system_theme
 
 pbl_clar_test(test_system_dark_mode
   SOURCES
-    src/fw/shell/system_theme.c
+    fw/shell/system_theme.c
   PLATFORMS obelix
 )
 

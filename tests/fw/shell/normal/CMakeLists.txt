@@ -32,5 +32,5 @@ pbl_clar_test(test_battery_ui_fsm_percent
 
 pbl_clar_test(test_watchface_palm
   SOURCES
-    src/fw/shell/normal/watchface_palm.c
+    fw/shell/normal/watchface_palm.c
 )
