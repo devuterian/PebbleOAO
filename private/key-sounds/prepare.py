@@ -102,6 +102,6 @@ parts.append(
     )
     + "};"
 )
-Path("src/fw/services/speaker/key_sounds_data.inc").write_text("\n".join(parts) + "\n")
+Path("fw/services/speaker/key_sounds_data.inc").write_text("\n".join(parts) + "\n")
 (out / "processing.json").write_text(json.dumps(metadata, indent=2) + "\n")
 print(json.dumps(metadata, indent=2))

@@ -30,7 +30,7 @@ jobs:
               - 'resources/**'
               - 'sdk/**'
               - 'soc/**'
-              - 'src/**'
+              - 'fw/**'
               - 'stored_apps/**'
               - 'subsys/**'
               - 'tests/**'

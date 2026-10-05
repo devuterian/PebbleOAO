@@ -564,3 +564,21 @@ void test_speaker_service__app_sound_replaces_chime(void) {
   cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
   cl_assert(s_resource_read < s_resource_size);
 }
+
+void test_speaker_service__refill_catches_up_to_driver_capacity(void) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_16kHz_16bit));
+  int16_t input[1536] = {0};
+  cl_assert_equal_i(speaker_service_stream_write(input, sizeof(input)), sizeof(input));
+
+  uint32_t space = 1024 * sizeof(int16_t);
+  s_trans_cb(&space);
+  cl_assert_equal_i(s_samples_written, 1024);
+
+  space = 0;
+  s_trans_cb(&space);
+  cl_assert_equal_i(s_samples_written, 1024);
+
+  space = 1024 * sizeof(int16_t);
+  s_trans_cb(&space);
+  cl_assert_equal_i(s_samples_written, 1536);
+}

@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DRIVER = ROOT / "src/fw/drivers/speaker/sf32lb52/audio.c"
+DRIVER = ROOT / "fw/drivers/speaker/sf32lb52/audio.c"
 HEADER = """#pragma once
 #include <stdint.h>
 #include <stdbool.h>
