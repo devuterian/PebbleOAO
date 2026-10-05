@@ -41,6 +41,7 @@
 #include "pbl/services/notifications/ancs/ancs_filtering.h"
 #include "pbl/services/imaging.h"
 #include "pbl/services/notifications/do_not_disturb.h"
+#include "pbl/services/notifications/work_mode.h"
 #include "pbl/services/notifications/notification_image.h"
 #include "pbl/services/notifications/notification_storage.h"
 #include "pbl/services/notifications/notification_types.h"
@@ -1576,12 +1577,21 @@ static void prv_do_notification_vibe(NotificationWindowData *data, Uuid *id) {
 static void prv_handle_notification_added_common(Uuid *id, NotificationType type) {
   NotificationWindowData *data = &s_notification_window_data;
   prv_log_notification_vibe("received", id);
+  const AlertType alert_type = prv_alert_type_for_notification_type(type);
 
-  if (!alerts_should_notify_for_type(prv_alert_type_for_notification_type(type))) {
+  if (!alerts_should_notify_for_type(alert_type)) {
     return;
   }
 
   alerts_incoming_alert_analytics();
+
+  // In work mode a silent notification only goes to history.
+  const WorkModeAlertStyle work_mode_style = work_mode_get_alert_style(alert_type);
+  work_mode_count_alert(alert_type);
+  if (work_mode_style == WorkModeAlertStyle_Silent) {
+    prv_log_notification_vibe("skipped: work mode", id);
+    return;
+  }
 
   if (do_not_disturb_is_active() &&
       alerts_preferences_dnd_get_show_notifications() == DndNotificationModeHide) {
@@ -1654,6 +1664,10 @@ static void prv_handle_notification_added_common(Uuid *id, NotificationType type
       }
       light_enable_interaction();
     }
+  }
+
+  if (work_mode_style == WorkModeAlertStyle_Flash) {
+    light_flash(WORK_MODE_NOTIFICATION_FLASHES);
   }
 
   prv_refresh_pop_timer(data);

@@ -559,6 +559,9 @@ bool activity_tracking_on(void);
  */
 void activity_set_enabled(bool enable);
 
+//! Re-evaluate background heart rate and SpO2 sampling after work mode is turned on or off
+void activity_handle_work_mode_changed(void);
+
 // Functions for getting and setting the activity preferences (defined in shell/normal/prefs.c)
 
 /**

@@ -8,6 +8,7 @@
 #include "pbl/services/firmware_update.h"
 #include "pbl/services/notifications/alerts_preferences.h"
 #include "pbl/services/notifications/do_not_disturb.h"
+#include "pbl/services/notifications/work_mode.h"
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/system_task.h"
@@ -85,7 +86,8 @@ static void prv_play(void *context) {
   // Recheck after queueing: never play late, after a clock change, or in Quiet Time.
   if (now < scheduled || now - scheduled >= 5 || !prv_due(now) || do_not_disturb_is_active() ||
       low_power_is_active() || firmware_update_is_in_progress() || speaker_service_is_muted() ||
-      alerts_preferences_get_speaker_volume() == 0) {
+      alerts_preferences_get_speaker_volume() == 0 ||
+      work_mode_get_alert_style(AlertOther) != WorkModeAlertStyle_Vibrate) {
     return;
   }
 #ifdef CONFIG_KEY_SOUNDS

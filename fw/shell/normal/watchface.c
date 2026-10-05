@@ -20,16 +20,19 @@
 #include "applib/app_launch_reason.h"
 #include "applib/ui/click_internal.h"
 #include "pbl/services/notifications/do_not_disturb.h"
+#include "pbl/services/notifications/work_mode.h"
 #include <pbl/logging/logging.h>
 #include "system/passert.h"
 
 #define QUICK_LAUNCH_HOLD_MS (400)
+#define WORK_MODE_HOLD_MS    (1000)
 #define BIT_SET              (1)
 #define BIT_CLEAR            (0)
 // Button events are remapped at the driver level when the display is rotated
 // (left-hand mode), so these masks are correct in either orientation.
-#define COMBO_BACK_UP_BUTTONS ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_UP))
-#define COMBO_UP_DOWN_BUTTONS ((BIT_SET << BUTTON_ID_UP) | (BIT_SET << BUTTON_ID_DOWN))
+#define COMBO_BACK_UP_BUTTONS     ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_UP))
+#define COMBO_UP_DOWN_BUTTONS     ((BIT_SET << BUTTON_ID_UP) | (BIT_SET << BUTTON_ID_DOWN))
+#define COMBO_BACK_SELECT_BUTTONS ((BIT_SET << BUTTON_ID_BACK) | (BIT_SET << BUTTON_ID_SELECT))
 
 static ClickManager s_click_manager;
 static uint8_t s_buttons_pressed = BIT_CLEAR;
@@ -81,13 +84,22 @@ static AppInstallId prv_combo_get_app(uint8_t combo_buttons) {
 
 static bool prv_is_any_combo_active(void) {
   return (s_combo_back_hold_timer != NULL) || prv_is_combo_pressed(COMBO_BACK_UP_BUTTONS) ||
-         prv_is_combo_pressed(COMBO_UP_DOWN_BUTTONS);
+         prv_is_combo_pressed(COMBO_UP_DOWN_BUTTONS) ||
+         prv_is_combo_pressed(COMBO_BACK_SELECT_BUTTONS);
 }
 
 static void prv_combo_back_timer_callback(void *data) {
   s_combo_back_hold_timer = NULL;
   if (!prv_is_combo_pressed(s_active_combo_buttons)) {
     s_active_combo_buttons = BIT_CLEAR;
+    return;
+  }
+
+  if (s_active_combo_buttons == COMBO_BACK_SELECT_BUTTONS) {
+    s_active_combo_buttons = BIT_CLEAR;
+    s_buttons_pressed = BIT_CLEAR;
+    key_sounds_play(KeySoundLongPressShortcut);
+    work_mode_toggle();
     return;
   }
 
@@ -115,6 +127,8 @@ static void prv_check_combo_back_hold(void) {
     combo_buttons = COMBO_BACK_UP_BUTTONS;
   } else if (prv_is_combo_pressed(COMBO_UP_DOWN_BUTTONS)) {
     combo_buttons = COMBO_UP_DOWN_BUTTONS;
+  } else if (prv_is_combo_pressed(COMBO_BACK_SELECT_BUTTONS)) {
+    combo_buttons = COMBO_BACK_SELECT_BUTTONS;
   }
 
   if (combo_buttons != BIT_CLEAR) {
@@ -125,12 +139,16 @@ static void prv_check_combo_back_hold(void) {
       if (combo_buttons == COMBO_BACK_UP_BUTTONS) {
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_BACK]);
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_UP]);
+      } else if (combo_buttons == COMBO_BACK_SELECT_BUTTONS) {
+        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_BACK]);
+        click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_SELECT]);
       } else {
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_UP]);
         click_recognizer_reset(&s_click_manager.recognizers[BUTTON_ID_DOWN]);
       }
-      s_combo_back_hold_timer =
-          app_timer_register(QUICK_LAUNCH_HOLD_MS, prv_combo_back_timer_callback, NULL);
+      const uint32_t hold_ms =
+          (combo_buttons == COMBO_BACK_SELECT_BUTTONS) ? WORK_MODE_HOLD_MS : QUICK_LAUNCH_HOLD_MS;
+      s_combo_back_hold_timer = app_timer_register(hold_ms, prv_combo_back_timer_callback, NULL);
     }
   } else {
     if (s_combo_back_hold_timer != NULL) {
@@ -246,6 +264,9 @@ static void prv_configure_click_handler(ButtonId button_id, ClickHandler single_
 }
 
 static void prv_launch_launcher_app(ClickRecognizerRef recognizer, void *data) {
+  if (prv_is_any_combo_active()) {
+    return;
+  }
   key_sounds_play(KeySoundMenu);
   static const LauncherMenuArgs s_launcher_args = { .reset_scroll = true };
   prv_launch_app_via_button(&(AppLaunchEventConfig) {
