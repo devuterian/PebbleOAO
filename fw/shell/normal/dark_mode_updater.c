@@ -14,7 +14,10 @@ static struct pbl_cron_job s_schedule_end_job;
 
 static void prv_schedule_edge_callback(struct pbl_cron_job *job, void *data) {
   system_theme_request_dark_mode_check();
-  pbl_cron_job_schedule(job);
+  // Scheduled mode may have been switched off while this job was running
+  if (shell_prefs_get_dark_mode() == DarkModeScheduled) {
+    pbl_cron_job_schedule(job);
+  }
 }
 
 static void prv_init_daily_job(struct pbl_cron_job *job) {
