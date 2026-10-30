@@ -1180,7 +1180,7 @@ msgstr "지정 안 됨"
 
 #: fw/apps/system/toggle/quiet_time.c:26
 msgid "Toggle Quiet Time"
-msgstr "방해 금지 켜기/끄기"
+msgstr "방해 금지 전환"
 
 #: fw/apps/system/music_actions.c:44
 msgid "Next Track"
@@ -3899,9 +3899,6 @@ msgctxt "MonthAbbr"
 msgid "Dec"
 msgstr "12월"
 
-msgid "Just Once"
-msgstr "한 번만"
-
 msgid "kcal"
 msgstr "kcal"
 
@@ -3972,13 +3969,13 @@ msgid "Disconnect the charger to shut down."
 msgstr "전원을 끄려면 충전기를 분리하십시오."
 
 msgid "Toggle Airplane Mode"
-msgstr "비행기 모드 켜기/끄기"
+msgstr "비행기 모드 전환"
 
 msgid "Toggle Backlight"
-msgstr "백라이트 켜기/끄기"
+msgstr "백라이트 전환"
 
 msgid "Toggle Motion Backlight"
-msgstr "흔들어 백라이트 켜기/끄기"
+msgstr "흔들어 백라이트 전환"
 
 msgid "Turn On Touch?"
 msgstr "터치를 켜시겠습니까?"
@@ -3993,7 +3990,7 @@ msgid "Touch Off"
 msgstr "터치 꺼짐"
 
 msgid "Toggle Touch"
-msgstr "터치 켜기/끄기"
+msgstr "터치 전환"
 
 msgid "%a, %b %d"
 msgstr "%b %d일 (%a)"
