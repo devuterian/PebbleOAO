@@ -264,7 +264,7 @@ void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
       scroll_layer_get_content_indicator(&menu_layer->scroll_layer);
   ContentIndicatorConfig content_indicator_config = (ContentIndicatorConfig){
     .layer = up_arrow_layer,
-    .colors.background = GColorWhite,
+    .colors.background = normal_bg,
     .colors.foreground = GColorDarkGray,
   };
   content_indicator_configure_direction(content_indicator, ContentIndicatorDirectionUp,
