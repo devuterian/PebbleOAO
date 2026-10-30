@@ -1173,6 +1173,15 @@ msgstr "아래 버튼 길게"
 msgid "Hold Back"
 msgstr "뒤로 버튼 길게"
 
+#: fw/apps/system/settings/quick_launch.c:82
+#: fw/apps/system/settings/quick_launch_app_menu.c:111
+msgid "Unassigned"
+msgstr "지정 안 됨"
+
+#: fw/apps/system/toggle/quiet_time.c:26
+msgid "Toggle Quiet Time"
+msgstr "방해 금지 켜기/끄기"
+
 #: src/fw/apps/system/settings/quick_launch.c:61
 #: src/fw/apps/system/settings/system.c:522
 #: src/fw/apps/system/settings/system.c:537
