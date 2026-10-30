@@ -17,6 +17,7 @@ pbl_clar_test(test_battery_ui_fsm
     fw/services/battery/voltage/battery_curve.c
   PLATFORMS emery
   DEFINES
+    CONFIG_BOARD_OBELIX=1
     CONFIG_BATTERY_WARNING_FIRST_PERCENT=0
     CONFIG_BATTERY_WARNING_SECOND_PERCENT=0
     CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT=5
@@ -31,6 +32,7 @@ pbl_clar_test(test_battery_ui_fsm_percent
     fw/services/battery/voltage/battery_curve.c
   PLATFORMS emery
   DEFINES
+    CONFIG_BOARD_OBELIX=1
     CONFIG_BATTERY_WARNING_FIRST_PERCENT=12
     CONFIG_BATTERY_WARNING_SECOND_PERCENT=8
     CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT=5

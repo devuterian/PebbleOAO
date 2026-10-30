@@ -572,7 +572,7 @@ void test_light__palm_off_respects_held_button(void) {
 
 void test_light__palm_releases_prior_touch(void) {
   light_touch_down();
-  check_on();
+  check_on_timed();
   light_off_now();
   check_off();
   light_touch_up();

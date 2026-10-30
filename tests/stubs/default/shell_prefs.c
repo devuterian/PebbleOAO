@@ -82,3 +82,14 @@ MenuScrollVibeBehavior PBL_WEAK shell_prefs_get_menu_scroll_vibe_behavior(void) 
 void PBL_WEAK shell_prefs_set_menu_scroll_vibe_behavior(MenuScrollVibeBehavior behavior) {
   s_menu_scroll_vibe_behavior = behavior;
 }
+bool PBL_WEAK shell_prefs_get_theme_dark_background(void) {
+  return false;
+}
+
+DarkMode PBL_WEAK shell_prefs_get_dark_mode(void) {
+  return DarkModeOff;
+}
+
+void PBL_WEAK shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
+  *schedule_out = (DarkModeSchedule){};
+}

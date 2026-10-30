@@ -6,7 +6,6 @@
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_manager.h"
 #include "stubs_logging.h"
-#include "stubs_passert.h"
 
 static PebbleProcessMd s_md;
 static bool s_have_app, s_low_power, s_resetting, s_watchface;

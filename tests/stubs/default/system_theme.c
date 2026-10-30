@@ -36,3 +36,15 @@ PreferredContentSize PBL_WEAK
 system_theme_convert_host_content_size_to_runtime_platform(PreferredContentSize size) {
   return size;
 }
+
+bool PBL_WEAK system_theme_is_dark_mode(void) {
+  return false;
+}
+
+GColor PBL_WEAK system_theme_get_bg_color(void) {
+  return GColorWhite;
+}
+
+GColor PBL_WEAK system_theme_get_fg_color(void) {
+  return GColorBlack;
+}

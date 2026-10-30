@@ -6,12 +6,9 @@
 #include "shell/prefs.h"
 #include "process_management/pebble_process_md.h"
 #include "kernel/pebble_tasks.h"
-#include <time.h>
-#include "stubs_analytics.h"
+#include <pbl/drivers/rtc.h>
 #include "stubs_fonts.h"
 #include "stubs_logging.h"
-#include "stubs_passert.h"
-#include "stubs_process_manager.h"
 
 static DarkMode s_mode;
 static DarkModeSchedule s_schedule;
@@ -23,8 +20,11 @@ static ProcessAppSDKType s_sdk;
 DarkMode shell_prefs_get_dark_mode(void) { return s_mode; }
 void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule) { *schedule = s_schedule; }
 PreferredContentSize system_theme_get_content_size(void) { return PreferredContentSizeDefault; }
-bool ambient_light_is_light(void) { return s_light; }
-void rtc_get_time_tm(struct tm *value) { *value = (struct tm){ .tm_hour = s_hour, .tm_min = s_minute }; }
+uint32_t light_get_ambient_gate_lux(void) { return s_light ? 100 : 0; }
+uint32_t light_get_dark_threshold(void) { return 10; }
+void rtc_get_time_tm(struct pbl_tm *value) {
+  *value = (struct pbl_tm){ .tm_hour = s_hour, .tm_min = s_minute };
+}
 PebbleTask pebble_task_get_current(void) { return s_task; }
 ProcessAppSDKType process_metadata_get_app_sdk_type(const PebbleProcessMd *md) { return s_sdk; }
 
