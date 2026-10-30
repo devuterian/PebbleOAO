@@ -1335,6 +1335,23 @@ void test_alarm__just_once_delete_alarm_dismiss(void) {
   cl_assert_equal_i(s_num_alarm_events_put, 2);
 }
 
+void test_alarm__just_once_delete_alarm_kept_when_it_rings_out(void) {
+  bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};
+  AlarmId id =
+      alarm_create(&(AlarmInfo){.hour = 10, .minute = 30, .kind = ALARM_KIND_JUST_ONCE_DELETE});
+
+  s_current_hour = 10;
+  s_current_minute = 30;
+  pbl_cron_wakeup();
+  cl_assert_equal_i(s_num_alarms_fired, 1);
+
+  // Nobody dismissed it, so it stays in the list, switched off.
+  alarm_expire_alarm();
+  cl_assert_equal_i(s_num_alarm_events_put, 1);
+  prv_assert_alarm_config(id, 10, 30, true, ALARM_KIND_JUST_ONCE_DELETE,
+                          just_once_schedule_thursday);
+}
+
 void test_alarm__just_once_delete_alarm_snooze_then_dismiss(void) {
   AlarmId id;
   bool just_once_schedule_thursday[7] = {false, false, false, false, true, false, false};

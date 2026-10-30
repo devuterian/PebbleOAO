@@ -316,6 +316,13 @@ void alarm_set_snooze_delay(uint16_t delay_m);
  */
 bool alarm_dismiss_alarm(void);
 
+/*!
+ * Stop tracking the most recent alarm after it rang out without being dismissed.
+ * Unlike @ref alarm_dismiss_alarm, this never deletes the alarm, so a missed
+ * @ref ALARM_KIND_JUST_ONCE_DELETE alarm stays in the list, switched off.
+ */
+void alarm_expire_alarm(void);
+
 /**
  * @brief Call a function for each configured alarm.
  *

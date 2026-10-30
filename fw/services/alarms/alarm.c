@@ -1189,6 +1189,10 @@ bool alarm_dismiss_alarm(void) {
   return true;
 }
 
+void alarm_expire_alarm(void) {
+  prv_clear_snooze_timer();
+}
+
 // ----------------------------------------------------------------------------------------------
 typedef struct {
   AlarmForEach cb;

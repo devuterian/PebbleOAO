@@ -238,8 +238,8 @@ static void prv_vibe_kernel_main_cb(void *callback_context) {
     } else {
       prv_stop_vibes();
       launcher_task_add_callback(prv_stop_animation_kernel_main_cb, nullptr);
-      // Auto-dismiss the alarm after the vibration period ends
-      alarm_dismiss_alarm();
+      // Nobody dismissed it: keep a "then delete" alarm so a missed one isn't lost silently
+      alarm_expire_alarm();
       if (s_alarm_popup_data && s_alarm_popup_data->alarm_popup) {
         actionable_dialog_pop(s_alarm_popup_data->alarm_popup);
       }
