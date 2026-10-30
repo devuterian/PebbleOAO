@@ -348,8 +348,8 @@ static void prv_check_emoji_picker(unsigned int selected_index, const char *file
 void test_action_menu_window__thin_display_mode_with_emoji(void) {
   prv_check_emoji_picker(0, TEST_PBI_FILE);
   const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_28_EMOJI);
-  // The firmware ships the 1-bit emoji fonts on every platform.
-  cl_assert(!HAS_FEATURE(font->base.md.version, VERSION_FIELD_FEATURE_COLOR));
+  cl_assert_equal_i(HAS_FEATURE(font->base.md.version, VERSION_FIELD_FEATURE_COLOR) != 0,
+                    PBL_IF_COLOR_ELSE(true, false));
 }
 
 // Apps can only use the thin display mode, which must show the selected emoji too
