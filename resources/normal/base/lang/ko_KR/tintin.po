@@ -1182,6 +1182,26 @@ msgstr "지정 안 됨"
 msgid "Toggle Quiet Time"
 msgstr "방해 금지 켜기/끄기"
 
+#: fw/apps/system/music_actions.c:44
+msgid "Next Track"
+msgstr "다음 곡"
+
+#: fw/apps/system/music_actions.c:58
+msgid "Previous Track"
+msgstr "이전 곡"
+
+#: fw/apps/system/music_actions.c:72
+msgid "Play/Pause"
+msgstr "재생/일시정지"
+
+#: fw/apps/system/music_actions.c:86
+msgid "Volume Up"
+msgstr "볼륨 높이기"
+
+#: fw/apps/system/music_actions.c:100
+msgid "Volume Down"
+msgstr "볼륨 낮추기"
+
 #: src/fw/apps/system/settings/quick_launch.c:61
 #: src/fw/apps/system/settings/system.c:522
 #: src/fw/apps/system/settings/system.c:537
