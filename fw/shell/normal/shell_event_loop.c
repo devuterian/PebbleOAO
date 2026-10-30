@@ -136,6 +136,16 @@ void shell_event_loop_handle_event(PebbleEvent *e) {
       notification_window_handle_reminder(&e->reminder);
       return;
 
+    case PEBBLE_SET_TIME_EVENT:
+      dark_mode_updater_handle_clock_change();
+      return;
+
+    case PEBBLE_BACKLIGHT_EVENT:
+      if (e->backlight.is_on) {
+        dark_mode_updater_handle_backlight_on();
+      }
+      return;
+
     case PEBBLE_BATTERY_STATE_CHANGE_EVENT:
       battery_ui_handle_state_change_event(e->battery_state.new_state);
       return;
