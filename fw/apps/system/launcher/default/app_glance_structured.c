@@ -376,11 +376,6 @@ static GTextNode *prv_create_structured_glance_title_subtitle_node(
   // We require a valid title node
   PBL_ASSERTN(title_node);
 
-  // Push the margin a bit closer
-#if PBL_DISPLAY_HEIGHT >= 200 && PBL_RECT
-  title_node->margin.h = -3;
-#endif
-
   title_node->margin.h = launcher_menu_layer_get_style()->title_margin_h;
   title_node->offset.y -= 1;
   graphics_text_node_container_add_child(&vertical_node->container, title_node);
