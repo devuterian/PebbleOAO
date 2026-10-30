@@ -3,8 +3,8 @@
 #include "clar.h"
 #include "pbl/services/battery/battery_curve.h"
 #include "pbl/drivers/battery.h"
-#include "pbl/drivers/qemu/qemu_serial.h"
-#include "pbl/drivers/qemu/qemu_settings.h"
+#include <comm/qemu/serial.h>
+#include <comm/qemu/settings.h>
 #include "stubs_logging.h"
 uint32_t qemu_setting_get(QemuSetting setting) { return 1; }
 uint32_t battery_curve_lookup_voltage_by_percent(uint32_t percent, bool charging) { return 4000; }

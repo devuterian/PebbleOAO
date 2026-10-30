@@ -5,19 +5,21 @@
 // This is derived from the freertos port provided by NimBLE
 // and modified to suit Pebble OS (timers, mutexes).
 
+#include "nimble/nimble_npl.h"
+#include "nimble/nimble_port.h"
 #include "pbl/kernel/irq.h"
+#include "pbl/kernel/mutex.h"
+#include "pbl/kernel/types.h"
+#include "pbl/mcu/interrupts.h"
+#include "pbl/services/new_timer/new_timer.h"
+
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
 
-#include "pbl/mcu/interrupts.h"
-#include "nimble/nimble_npl.h"
-#include "nimble/nimble_port.h"
-#include "pbl/kernel/mutex.h"
-#include "pbl/kernel/types.h"
-#include "pbl/services/new_timer/new_timer.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
 
 struct ble_npl_event *npl_pebble_eventq_get(struct ble_npl_eventq *evq, ble_npl_time_t tmo) {
   struct ble_npl_event *ev = NULL;
@@ -96,7 +98,7 @@ ble_npl_error_t npl_pebble_mutex_pend(struct ble_npl_mutex *mu, ble_npl_time_t t
   }
 
   if (mcu_state_is_isr()) {
-    WTF;
+    pbl_panic();
   }
 
   return (pbl_mutex_lock(&mu->handle, PBL_TICKS(timeout)) == 0) ? BLE_NPL_OK : BLE_NPL_TIMEOUT;

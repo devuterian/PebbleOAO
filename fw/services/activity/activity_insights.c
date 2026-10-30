@@ -1,34 +1,33 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/activity/activity_insights.h"
-
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/activity/activity_private.h"
-#include "pbl/services/activity/insights_settings.h"
-
-#include "applib/event_service_client.h"
-#include "kernel/pbl_malloc.h"
-#include "resource/timeline_resource_ids.auto.h"
-#include "pbl/services/clock.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/system_task.h"
-#include "pbl/services/activity/health_util.h"
-#include "pbl/services/activity/hr_util.h"
-#include "pbl/services/settings/settings_file.h"
-#include "pbl/services/timeline/health_layout.h"
-#include "pbl/services/timeline/timeline.h"
-#include "pbl/services/timeline/weather_layout.h"
-#include <pbl/logging/logging.h>
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/testing.h"
-#include "pbl/util/math.h"
-#include "pbl/util/stats.h"
-#include "pbl/util/string.h"
-#include "pbl/services/time.h"
-#include "pbl/util/units.h"
-
 #include <stdio.h>
+
+#include <pbl/kernel/compiler.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/activity/activity_insights.h>
+#include <pbl/services/activity/activity_private.h>
+#include <pbl/services/activity/health_util.h>
+#include <pbl/services/activity/hr_util.h>
+#include <pbl/services/activity/insights_settings.h>
+#include <pbl/services/clock.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/services/settings/settings_file.h>
+#include <pbl/services/system_task.h>
+#include <pbl/services/time.h>
+#include <pbl/services/timeline/health_layout.h>
+#include <pbl/services/timeline/timeline.h>
+#include <pbl/services/timeline/weather_layout.h>
+#include <pbl/util/math.h>
+#include <pbl/util/stats.h>
+#include <pbl/util/string.h>
+#include <pbl/util/testing.h>
+#include <pbl/util/units.h>
+
+#include <applib/event_service_client.h>
+#include <kernel/pbl_malloc.h>
+#include <resource/timeline_resource_ids.auto.h>
 
 PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
@@ -42,6 +41,10 @@ PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 // time-of-day window ([min, max)). The timeline pin is updated regardless.
 #define SLEEP_SUMMARY_NOTIF_WAKE_MINUTE_MIN (4 * PBL_MIN_PER_HOUR)
 #define SLEEP_SUMMARY_NOTIF_WAKE_MINUTE_MAX (18 * PBL_MIN_PER_HOUR)
+
+// Consecutive sleep windows start at least 23h apart (DST), so a smaller move of the window
+// start comes from a UTC offset change, not from a new window.
+#define SLEEP_WINDOW_TZ_SHIFT_MAX (12 * PBL_SEC_PER_HOUR)
 
 typedef struct NotificationConfig {
   time_t notif_time;
@@ -98,13 +101,13 @@ static ActivityInsightSettings s_activity_reward_settings;
 static ActivityInsightSettings s_activity_summary_settings;
 static ActivityInsightSettings s_activity_session_settings;
 
-static PFSCallbackHandle s_pfs_cb_handle = NULL; // Required for handling settings file changes
-static EventServiceInfo s_blobdb_event_info;     // Used to detect pin deletion events
+static PFSCallbackHandle s_pfs_cb_handle = nullptr; // Required for handling settings file changes
+static EventServiceInfo s_blobdb_event_info;        // Used to detect pin deletion events
 
 // Timestamp and UUID of the last time we added a new summary pin - stored to flash to allow
 // us to continue to update the pin across reboots
 typedef struct PBL_PACKED SummaryPinLastState {
-  time_t last_triggered_utc;
+  int32_t last_triggered_utc;
   Uuid uuid;
 } SummaryPinLastState;
 
@@ -292,7 +295,7 @@ static const char *prv_get_variant(const InsightCopyVariants *set, int variant) 
   } else if (variant < set->num_variants) {
     return set->variants[variant];
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -331,12 +334,12 @@ static void prv_build_notification_attr_list(AttributeList *attr_list, const cha
 // Generates a new timeline item for a reward notification
 static PBL_NOINLINE TimelineItem *prv_create_reward_notification(
     time_t notif_time, const RewardNotifConfig *notif_config) {
-  AttributeList notif_attr_list = {0};
+  AttributeList notif_attr_list = {};
   prv_build_notification_attr_list(
       &notif_attr_list, i18n_get(notif_config->text_body, &notif_attr_list), notif_config->icon,
       notif_config->insight_type, ActivitySessionType_None);
 
-  AttributeList positive_attr_list = {0};
+  AttributeList positive_attr_list = {};
   attribute_list_add_cstring(&positive_attr_list, AttributeIdTitle,
                              i18n_get(notif_config->text_positive_action, &notif_attr_list));
   attribute_list_add_cstring(&positive_attr_list, AttributeIdBody,
@@ -344,7 +347,7 @@ static PBL_NOINLINE TimelineItem *prv_create_reward_notification(
   attribute_list_add_uint32(&positive_attr_list, AttributeIdIconLarge,
                             notif_config->icon_positive_response);
 
-  AttributeList neutral_attr_list = {0};
+  AttributeList neutral_attr_list = {};
   attribute_list_add_cstring(&neutral_attr_list, AttributeIdTitle,
                              i18n_get(notif_config->text_neutral_action, &notif_attr_list));
   attribute_list_add_cstring(&neutral_attr_list, AttributeIdBody,
@@ -352,7 +355,7 @@ static PBL_NOINLINE TimelineItem *prv_create_reward_notification(
   attribute_list_add_uint32(&neutral_attr_list, AttributeIdIconLarge,
                             notif_config->icon_neutral_response);
 
-  AttributeList negative_attr_list = {0};
+  AttributeList negative_attr_list = {};
   attribute_list_add_cstring(&negative_attr_list, AttributeIdTitle,
                              i18n_get(notif_config->text_negative_action, &notif_attr_list));
   attribute_list_add_cstring(&negative_attr_list, AttributeIdBody,
@@ -411,7 +414,7 @@ static void prv_push_notification(TimelineItem *item, const Uuid *parent_id) {
 // Generates a new notification and pushes it to the notification window
 static void prv_push_reward_notification(time_t notif_time, const RewardNotifConfig *notif_config) {
   TimelineItem *item = prv_create_reward_notification(notif_time, notif_config);
-  prv_push_notification(item, NULL);
+  prv_push_notification(item, nullptr);
 }
 
 typedef struct ResponseItem {
@@ -435,10 +438,10 @@ static PBL_NOINLINE TimelineItem *prv_create_pin_with_response_items(
     time_t pin_time_utc, time_t now_utc, uint32_t duration_m, LayoutId layout_id,
     AttributeList *pin_attr_list, HealthCardType health_card_type, int num_responses,
     ResponseItem *response_items) {
-  AttributeList open_attr_list = {0};
+  AttributeList open_attr_list = {};
   prv_set_open_app_action(&open_attr_list, health_card_type, pin_attr_list);
 
-  AttributeList remove_attr_list = {0};
+  AttributeList remove_attr_list = {};
   attribute_list_add_cstring(&remove_attr_list, AttributeIdTitle,
                              i18n_get("Remove", pin_attr_list));
 
@@ -489,7 +492,7 @@ static TimelineItem *prv_create_pin(time_t pin_time_utc, time_t now_utc, uint32_
                                     LayoutId layout_id, AttributeList *pin_attr_list,
                                     HealthCardType health_card_type) {
   return prv_create_pin_with_response_items(pin_time_utc, now_utc, duration_m, layout_id,
-                                            pin_attr_list, health_card_type, 0, NULL);
+                                            pin_attr_list, health_card_type, 0, nullptr);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -515,7 +518,7 @@ static PBL_NOINLINE TimelineItem *prv_create_summary_pin(time_t pin_time_utc, ti
                                                          ActivityScalarStore cur_val,
                                                          ActivityScalarStore average,
                                                          const SummaryPinConfig *config) {
-  AttributeList pin_attr_list = {0};
+  AttributeList pin_attr_list = {};
   attribute_list_add_cstring(&pin_attr_list, AttributeIdShortTitle,
                              i18n_get(config->short_title, &pin_attr_list));
   attribute_list_add_cstring(&pin_attr_list, AttributeIdShortSubtitle, config->short_subtitle);
@@ -640,7 +643,7 @@ static void prv_push_reward(time_t now_utc, const RewardNotifConfig *notif_confi
   prv_save_state(notif_config->settings_key, &notif_config->state->last_triggered_utc,
                  sizeof(notif_config->state->last_triggered_utc));
 
-  PBL_LOG_DBG("Saved reward state: %ld", notif_config->state->last_triggered_utc);
+  PBL_LOG_DBG("Saved reward state: %ld", (long)notif_config->state->last_triggered_utc);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -667,7 +670,7 @@ PBL_T_STATIC void prv_calculate_metric_history_stats(ActivityMetric metric,
   } result;
 
   // Note: we ignore history[0] since it's the current day
-  pbl_stats_calculate(op, &history[1], ACTIVITY_HISTORY_DAYS - 1, prv_stats_filter, NULL,
+  pbl_stats_calculate(op, &history[1], ACTIVITY_HISTORY_DAYS - 1, prv_stats_filter, nullptr,
                       &result.mean);
 
   *stats = (ActivityInsightMetricHistoryStats){
@@ -819,7 +822,7 @@ static void prv_do_sleep_reward(time_t now_utc) {
 // Format a time given in seconds after midnight
 static void prv_strcat_formatted_time(int32_t time_seconds, char *out_buf, size_t buf_length,
                                       const void *i18n_owner) {
-  struct tm time = (struct tm){
+  struct pbl_tm time = (struct pbl_tm){
     .tm_hour = time_seconds / PBL_SEC_PER_HOUR,
     .tm_min = (time_seconds % PBL_SEC_PER_HOUR) / PBL_SEC_PER_MIN
   };
@@ -828,7 +831,7 @@ static void prv_strcat_formatted_time(int32_t time_seconds, char *out_buf, size_
       clock_is_24h_style() ? i18n_get("%H:%M", i18n_owner) : i18n_get("%l:%M%p", i18n_owner);
 
   char time_str_buf[TIME_BUFFER_LENGTH];
-  strftime(time_str_buf, TIME_BUFFER_LENGTH, format, &time);
+  pbl_strftime_r(time_str_buf, TIME_BUFFER_LENGTH, format, &time);
   safe_strcat(out_buf, string_strip_leading_whitespace(time_str_buf), buf_length);
 }
 
@@ -1005,7 +1008,7 @@ static void prv_do_sleep_notification(time_t now_utc, time_t sleep_exit_utc,
   // Notify about the pin after a certain amount of time
   const time_t since_exited = now_utc - sleep_exit_utc;
   if (since_exited < s_sleep_summary_settings.summary.sleep.trigger_notif_seconds) {
-    PBL_LOG_DBG("Not notifying sleep pin - not trigger time yet (%ld)", since_exited);
+    PBL_LOG_DBG("Not notifying sleep pin - not trigger time yet (%ld)", (long)since_exited);
     return;
   }
 
@@ -1060,6 +1063,14 @@ static void prv_do_sleep_summary(time_t now_utc) {
   // Bounds changes within one window (merged sessions, evening extensions) update the pin
   // below without re-arming the notification.
   const time_t window_utc = activity_sessions_prv_get_sleep_window_start_utc(now_utc);
+  const time_t window_shift = window_utc - s_sleep_pin_state.window_utc;
+  if (window_shift != 0 && window_shift > -SLEEP_WINDOW_TZ_SHIFT_MAX &&
+      window_shift < SLEEP_WINDOW_TZ_SHIFT_MAX) {
+    // A UTC offset change (travel, DST) moves the local 9pm cutoff without starting a new
+    // window. Follow it, keeping the notified state.
+    PBL_LOG_DBG("Sleep window moved by %ld s, keeping pin state", (long)window_shift);
+    s_sleep_pin_state.window_utc = window_utc;
+  }
   if (window_utc != s_sleep_pin_state.window_utc ||
       now_utc < s_sleep_pin_state.last_triggered_utc) {
     // Checking "now_utc < s_sleep_pin_state.last_triggered_utc" catches cases where
@@ -1093,7 +1104,7 @@ static void prv_do_sleep_summary(time_t now_utc) {
       sleep_enter_utc == s_sleep_pin_state.first_enter_utc) {
     // Notify about the sleep pin
     prv_do_sleep_notification(now_utc, sleep_exit_utc, sleep_total_seconds);
-    PBL_LOG_DBG("Not adding sleep pin - already checked session %ld", sleep_exit_utc);
+    PBL_LOG_DBG("Not adding sleep pin - already checked session %ld", (long)sleep_exit_utc);
     return;
   }
 
@@ -1262,7 +1273,7 @@ static PBL_NOINLINE TimelineItem *prv_create_notification(const NotificationConf
 static void prv_create_and_push_notification(const NotificationConfig *config) {
   TimelineItem *item = prv_create_notification(config);
   prv_push_notification(
-      item, (config->open_pin.enabled && config->open_pin.uuid ? config->open_pin.uuid : NULL));
+      item, (config->open_pin.enabled && config->open_pin.uuid ? config->open_pin.uuid : nullptr));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -1354,7 +1365,7 @@ static void prv_push_activity_summary_notification(time_t notif_time, int32_t st
   // Enough to fit any filled out format string above and i18n variants
   const int max_notif_length = 256;
   const char *fmt = prv_get_variant(&s_tier_config[tier], variant);
-  if (fmt == NULL) {
+  if (fmt == nullptr) {
     return;
   }
 
@@ -1464,7 +1475,7 @@ static void prv_push_sleep_summary_notification(time_t notif_time, int32_t sleep
   // Enough to fit any filled out format string above and i18n variants
   const int max_notif_length = 256;
   const char *fmt = prv_get_variant(&s_tier_config[tier], variant);
-  if (fmt == NULL) {
+  if (fmt == nullptr) {
     // invalid variant
     return;
   }
@@ -1881,7 +1892,7 @@ static void prv_do_activity_session(time_t now_utc, ActivitySession *session) {
                  sizeof(s_session_pin_state.start_utc));
 
   if (s_activity_session_settings.session.show_notification) {
-    activity_insights_push_activity_session_notification(now_utc, session, 0, NULL);
+    activity_insights_push_activity_session_notification(now_utc, session, 0, nullptr);
   }
 }
 
@@ -1898,7 +1909,6 @@ void prv_process_activity_sessions(time_t now_utc) {
       }
       switch (sessions[i].type) {
         case ActivitySessionType_Nap:
-          // PBL-36355 Disable nap notifications
           // Nap notifications are disabled until we get better at detecting naps
           // Re-enable nap session unit tests when re-enabling nap session notifications
           break;
@@ -2008,7 +2018,7 @@ void activity_insights_init(time_t now_utc) {
   activity_insights_settings_init();
 
   // Cache the settings so we don't hit flash every minute
-  prv_reload_settings(NULL);
+  prv_reload_settings(nullptr);
 
   // Subscribe to pin removal events
   s_blobdb_event_info = (EventServiceInfo){
@@ -2048,8 +2058,9 @@ void activity_insights_init(time_t now_utc) {
     s_sleep_pin_state.notified = true;
   }
 
-  PBL_LOG_DBG("Last sleep reward state: %ld", s_sleep_reward_state.common.last_triggered_utc);
-  PBL_LOG_DBG("Last activity reward state: %ld", s_activity_reward_state.common.last_triggered_utc);
+  PBL_LOG_DBG("Last sleep reward state: %ld", (long)s_sleep_reward_state.common.last_triggered_utc);
+  PBL_LOG_DBG("Last activity reward state: %ld",
+              (long)s_activity_reward_state.common.last_triggered_utc);
 
   // Recalculate metric stats
   activity_insights_recalculate_stats();
@@ -2202,17 +2213,17 @@ static void prv_test_push_nap_session(void *unused) {
 }
 
 void activity_insights_test_push_summary_pins(void) {
-  system_task_add_callback(prv_test_push_summary_pins, NULL);
+  system_task_add_callback(prv_test_push_summary_pins, nullptr);
 }
 
 void activity_insights_test_push_rewards(void) {
-  system_task_add_callback(prv_test_push_rewards, NULL);
+  system_task_add_callback(prv_test_push_rewards, nullptr);
 }
 
 void activity_insights_test_push_walk_run_sessions(void) {
-  system_task_add_callback(prv_test_push_walk_run_session, NULL);
+  system_task_add_callback(prv_test_push_walk_run_session, nullptr);
 }
 
 void activity_insights_test_push_nap_session(void) {
-  system_task_add_callback(prv_test_push_nap_session, NULL);
+  system_task_add_callback(prv_test_push_nap_session, nullptr);
 }

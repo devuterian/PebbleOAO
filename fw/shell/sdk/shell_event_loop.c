@@ -1,20 +1,22 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "apps/system_app_ids.h"
-#include "apps/system/timeline/timeline.h"
-#include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
-#include "popups/notifications/notification_window.h"
-#include "popups/timeline/peek.h"
-#include "process_management/app_manager.h"
-#include "pbl/services/compositor/compositor.h"
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/app_inbox_service.h"
-#include "pbl/services/app_outbox_service.h"
-#include "shell/prefs.h"
-#include "shell/sdk/watchface.h"
-#include "shell/shell_event_loop.h"
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/app_inbox_service.h>
+#include <pbl/services/app_outbox_service.h>
+#include <pbl/services/compositor/compositor.h>
+
+#include <apps/system/timeline/timeline.h>
+#include <apps/system_app_ids.h>
+#include <kernel/events.h>
+#include <kernel/pbl_malloc.h>
+#include <popups/mic_banner.h>
+#include <popups/notifications/notification_window.h>
+#include <popups/timeline/peek.h>
+#include <process_management/app_manager.h>
+#include <shell/prefs.h>
+#include <shell/sdk/watchface.h>
+#include <shell/shell_event_loop.h>
 
 extern void shell_prefs_init(void);
 
@@ -26,6 +28,7 @@ void shell_event_loop_init(void) {
   app_message_sender_init();
   watchface_init();
   timeline_peek_init();
+  mic_banner_init();
   // Start activity tracking if enabled
   if (activity_prefs_tracking_is_enabled()) {
     activity_start_tracking(false /*test_mode*/);

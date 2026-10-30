@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "applib/ui/property_animation.h"
-#include "applib/ui/window.h"
+#include <applib/ui/property_animation.h>
+#include <applib/ui/window.h>
 
 /**
  * @defgroup services_compositor Compositor
@@ -70,8 +70,7 @@ typedef enum {
  */
 typedef void (*CompositorTransitionInitFunc)(Animation *animation);
 
-// TODO: PBL-31460 Change compositor transitions to use AnimationProgress
-// This would enable time-based bounce back transitions
+// TODO: use AnimationProgress to allow time-based bounce back transitions
 /**
  * @brief Draw one frame of a transition.
  *

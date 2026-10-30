@@ -1,22 +1,23 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "applib/app.h"
-#include "applib/app_logging.h"
-#include "applib/fonts/fonts.h"
-#include "applib/ui/simple_menu_layer.h"
-#include "applib/ui/ui.h"
-#include <pbl/drivers/temperature.h>
-#include "kernel/pbl_malloc.h"
-#include "process_state/app_state/app_state.h"
-#include <pbl/logging/logging.h>
-#include "pbl/util/math.h"
-#include "pbl/util/size.h"
-
 #include "temperature_demo.h"
 
 #include <stdio.h>
-#include "pbl/util/units.h"
+
+#include <pbl/drivers/temperature.h>
+#include <pbl/logging/logging.h>
+#include <pbl/util/math.h>
+#include <pbl/util/size.h>
+#include <pbl/util/units.h>
+
+#include <applib/app.h>
+#include <applib/app_logging.h>
+#include <applib/fonts/fonts.h>
+#include <applib/ui/simple_menu_layer.h>
+#include <applib/ui/ui.h>
+#include <kernel/pbl_malloc.h>
+#include <process_state/app_state/app_state.h>
 
 #define USE_FAKE_DATA 0
 
@@ -70,9 +71,16 @@ static void click_config_provider(void *context) {
 }
 
 // -------------------------------------------------------------------------------
+static int32_t prv_read_temp(void) {
+  int32_t temp;
+
+  return (pbl_temp_read(DIE_TEMP, &temp) == 0) ? temp : INT32_MIN;
+}
+
+// -------------------------------------------------------------------------------
 static void cur_temp_update_text(TemperatureDemoAppData *data) {
   // Show current temp
-  int cur_temp = temperature_read();
+  int cur_temp = prv_read_temp();
   snprintf(data->cur_temp_text, sizeof(data->cur_temp_text), "%d", cur_temp);
   text_layer_set_text(data->cur_temp_layer, data->cur_temp_text);
 
@@ -84,8 +92,8 @@ static void cur_temp_update_text(TemperatureDemoAppData *data) {
 }
 
 // -------------------------------------------------------------------------------
-static void handle_second_tick(struct tm *tick_time, TimeUnits units_changed) {
-  int32_t reading = temperature_read();
+static void handle_second_tick(struct pbl_tm *tick_time, TimeUnits units_changed) {
+  int32_t reading = prv_read_temp();
   memmove(s_temp_readings, s_temp_readings + 1, (READ_HISTORY_ENTRIES - 1) * sizeof(int32_t));
   s_temp_readings[READ_HISTORY_ENTRIES - 1] = reading;
   cur_temp_update_text(s_data);

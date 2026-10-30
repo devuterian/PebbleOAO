@@ -3,21 +3,20 @@
 
 #include "health_tracking_ui.h"
 
-#include "applib/ui/dialogs/expandable_dialog.h"
-#include "kernel/event_loop.h"
-#include "kernel/pbl_malloc.h"
-#include "kernel/ui/modals/modal_manager.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/light.h"
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/services/light.h>
+
+#include <applib/ui/dialogs/expandable_dialog.h>
+#include <kernel/event_loop.h>
+#include <kernel/pbl_malloc.h>
+#include <kernel/ui/modals/modal_manager.h>
+#include <resource/resource_ids.auto.h>
 
 typedef struct HealthTrackingUIData {
   uint32_t res_id;
   const char *text;
   bool show_action_bar;
 } HealthTrackingUIData;
-
-static AppInstallId s_last_app_id;
 
 // ---------------------------------------------------------------------------
 static WindowStack *prv_get_window_stack(void) {
@@ -76,9 +75,4 @@ void health_tracking_ui_feature_show_disabled(void) {
       " mobile app to continue.");
 
   health_tracking_ui_show_message(RESOURCE_ID_GENERIC_WARNING_TINY, msg, false);
-}
-
-// ---------------------------------------------------------------------------
-void health_tracking_ui_register_app_launch(AppInstallId app_id) {
-  s_last_app_id = 0;
 }

@@ -5,8 +5,9 @@
 
 #include <stdlib.h>
 
-#include "comm/ble/kernel_le_client/ancs/ancs_types.h"
-#include "pbl/services/timeline/item.h"
+#include <pbl/services/timeline/item.h>
+
+#include <comm/ble/kernel_le_client/ancs/ancs_types.h>
 
 /**
  * @defgroup services_notifications_ancs ANCS notifications
@@ -51,5 +52,13 @@ void ancs_notifications_handle_notification_removed(uint32_t ancs_uid, ANCSPrope
  * turn on notification sharing.
  */
 void ancs_notifications_handle_access_denied(void);
+
+/**
+ * @brief Record that the ANCS session went away.
+ *
+ * Notifications posted after this point are recovered when iOS re-sends them as pre-existing on
+ * reconnection (see ANCSProperty_Recovered).
+ */
+void ancs_notifications_handle_session_lost(void);
 
 /** @} */

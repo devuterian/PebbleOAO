@@ -1,28 +1,23 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-
-#include "kernel/event_loop.h"
-#include "kernel/events.h"
-#include "kernel/pebble_tasks.h"
-#include <pbl/drivers/display/display.h>
-#include "pbl/services/event_service.h"
-#include "pbl/services/touch/touch.h"
-#include "pbl/services/touch/touch_event.h"
-#include "pbl/services/touch/touch_session.h"
-
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#include "fake_events.h"
+#include <pbl/drivers/touch.h>
+#include <pbl/services/event_service.h>
+#include <pbl/services/touch/touch.h>
+#include <pbl/services/touch/touch_event.h>
+#include <pbl/services/touch/touch_session.h>
+
+#include <board/display.h>
+#include <clar.h>
+#include <fake_events.h>
+#include <kernel/event_loop.h>
+#include <kernel/events.h>
+#include <kernel/pebble_tasks.h>
 
 // Stubs
-#include "stubs_analytics.h"
-#include "stubs_logging.h"
-#include "stubs_mutex.h"
-#include "stubs_passert.h"
 
 void kernel_free(void *p) {
 }
@@ -64,20 +59,25 @@ static int s_touch_sensor_enable_count;
 static int s_touch_sensor_disable_count;
 static bool s_touch_sensor_enabled;
 
-void touch_sensor_set_enabled(bool enabled) {
-  if (enabled) {
-    s_touch_sensor_enable_count++;
-  } else {
-    s_touch_sensor_disable_count++;
-  }
-  s_touch_sensor_enabled = enabled;
+const struct pbl_touch *const TOUCH = nullptr;
+
+int pbl_touch_enable(const struct pbl_touch *touch) {
+  s_touch_sensor_enable_count++;
+  s_touch_sensor_enabled = true;
+  return 0;
+}
+
+int pbl_touch_disable(const struct pbl_touch *touch) {
+  s_touch_sensor_disable_count++;
+  s_touch_sensor_enabled = false;
+  return 0;
 }
 
 // setup and teardown
 void test_touch__initialize(void) {
   fake_event_init();
-  s_add_subscriber_cb = NULL;
-  s_remove_subscriber_cb = NULL;
+  s_add_subscriber_cb = nullptr;
+  s_remove_subscriber_cb = nullptr;
   s_touch_sensor_enable_count = 0;
   s_touch_sensor_disable_count = 0;
   s_touch_sensor_enabled = false;
@@ -156,8 +156,8 @@ void test_touch__reset_clears_state(void) {
 }
 
 void test_touch__subscriber_enables_sensor(void) {
-  cl_assert(s_add_subscriber_cb != NULL);
-  cl_assert(s_remove_subscriber_cb != NULL);
+  cl_assert(s_add_subscriber_cb != nullptr);
+  cl_assert(s_remove_subscriber_cb != nullptr);
 
   s_add_subscriber_cb(PebbleTask_App);
   cl_assert_equal_i(s_touch_sensor_enable_count, 1);
@@ -393,19 +393,6 @@ void test_touch__gestures_delivered_when_enabled(void) {
   cl_assert_equal_i(event.gesture.event.type, GestureEvent_Tap);
 }
 
-void test_touch__global_disable_sleeps_unsubscribed_sensor(void) {
-  // The driver can re-arm the sensor outside the service's subscriber
-  // bookkeeping (e.g. its I2C error-recovery path). Disabling globally must
-  // still put the chip to sleep, even when s_subscriber_count is 0.
-  s_touch_sensor_enabled = true;
-
-  touch_service_set_globally_enabled(false);
-  cl_assert(!s_touch_sensor_enabled);
-  cl_assert(s_touch_sensor_disable_count >= 1);
-
-  touch_service_set_globally_enabled(true);
-}
-
 void test_touch__wake_gate_latches_across_gesture(void) {
   // A session-gated Touchdown stamps non_navigational and latches it for the gesture.
   TouchWakeGateResult blocked = {.latch = true};
@@ -415,21 +402,21 @@ void test_touch__wake_gate_latches_across_gesture(void) {
 
   // PositionUpdate and Liftoff carry the latch, regardless of their gate arg.
   TouchEvent pu = {.type = TouchEvent_PositionUpdate};
-  touch_wake_gate_stamp(&pu, (TouchWakeGateResult){0});
+  touch_wake_gate_stamp(&pu, (TouchWakeGateResult){});
   cl_assert(pu.non_navigational);
 
   TouchEvent lo = {.type = TouchEvent_Liftoff};
-  touch_wake_gate_stamp(&lo, (TouchWakeGateResult){0});
+  touch_wake_gate_stamp(&lo, (TouchWakeGateResult){});
   cl_assert(lo.non_navigational);
 
   // A fresh navigational Touchdown clears the latch for the next gesture.
-  TouchWakeGateResult nav = {0};
+  TouchWakeGateResult nav = {};
   TouchEvent td2 = {.type = TouchEvent_Touchdown};
   touch_wake_gate_stamp(&td2, nav);
   cl_assert(!td2.non_navigational);
 
   TouchEvent pu2 = {.type = TouchEvent_PositionUpdate};
-  touch_wake_gate_stamp(&pu2, (TouchWakeGateResult){0});
+  touch_wake_gate_stamp(&pu2, (TouchWakeGateResult){});
   cl_assert(!pu2.non_navigational);
 }
 

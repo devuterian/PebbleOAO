@@ -1,46 +1,39 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/kernel/irq.h"
-#include "pbl/kernel/sched.h"
-#include "pbl/kernel/thread.h"
-#include "kernel/core_dump.h"
-#include "kernel/fault_handling.h"
-#include "logging/logging_private.h"
-#include "process_management/process_manager.h"
-#include "process_management/app_manager.h"
-#include "process_management/worker_manager.h"
-
-#include "applib/app_logging.h"
-#include "kernel/memory_layout.h"
-#include "pbl/mcu/interrupts.h"
-#include "pbl/mcu/privilege.h"
-#include "pbl/services/system_task.h"
-#include "process_state/app_state/app_state.h"
-#include "process_state/worker_state/worker_state.h"
-#include "syscall/syscall.h"
-#include "syscall/syscall_internal.h"
-#include "pbl/util/size.h"
+#include <pbl/kernel/fatal.h>
+#include <pbl/kernel/irq.h>
+#include <pbl/kernel/sched.h>
+#include <pbl/kernel/syscall.h>
+#include <pbl/kernel/thread.h>
 #include <pbl/logging/logging.h>
-#include "system/reboot_reason.h"
-#include "syscall/syscall.h"
-
+#include <pbl/mcu/interrupts.h>
+#include <pbl/services/system_task.h>
 #include <pbl/util/heap.h>
+#include <pbl/util/size.h>
 
+#include <applib/app_logging.h>
+#include <kernel/core_dump.h>
+#include <kernel/fault_handling.h>
+#include <kernel/memory_layout.h>
+#include <logging/logging_private.h>
+#include <process_management/app_manager.h>
+#include <process_management/process_manager.h>
+#include <process_management/worker_manager.h>
+#include <process_state/app_state/app_state.h>
+#include <process_state/worker_state/worker_state.h>
+#include <syscall/syscall.h>
+#include <system/reboot_reason.h>
+
+#ifndef CONFIG_ARCH_POSIX
 #include <cmsis_core.h>
+#endif
 
 #include <stdint.h>
 #include <stdio.h>
 
-// These variables are assigned values when the watch faults
-// TODO PBL-PBL-36253: We should probably save these in CrashInfo in the future. Saved here because
-// they are easier to pull out through GDB and because we can keep the Bluetooth FW and Normal FW
-// fault handling the way they are now.
-static uint32_t s_fault_saved_sp;
-static uint32_t s_fault_saved_lr;
-static uint32_t s_fault_saved_pc;
-
 void enable_fault_handlers(void) {
+#ifndef CONFIG_ARCH_POSIX
   // NVIC_SetPriority() takes the unshifted priority; PBL_IRQ_PRIO_* are register values.
   const uint32_t prio = PBL_IRQ_PRIO_MAX_SYSCALL >> (8U - __NVIC_PRIO_BITS);
   NVIC_SetPriority(MemoryManagement_IRQn, prio);
@@ -54,6 +47,7 @@ void enable_fault_handlers(void) {
   SCB->CCR &= ~SCB_CCR_DIV_0_TRP_Msk;
   __DSB();
   __ISB();
+#endif
 }
 
 typedef struct CrashInfo {
@@ -72,12 +66,6 @@ CrashInfo make_crash_info_pc(uintptr_t pc) {
 
 CrashInfo make_crash_info_pc_lr(uintptr_t pc, uintptr_t lr) {
   return (CrashInfo){.pc = pc, .pc_known = true, .lr = lr, .lr_known = true};
-}
-
-static void prv_save_debug_registers(unsigned int *stacked_args) {
-  s_fault_saved_lr = (uint32_t)stacked_args[5];
-  s_fault_saved_pc = (uint32_t)stacked_args[6];
-  s_fault_saved_sp = (uint32_t)&stacked_args[8];
 }
 
 static void prv_log_app_lr_and_pc_system_task(void *data) {
@@ -138,7 +126,7 @@ static void setup_log_app_crash_info(CrashInfo crash_info) {
   convert_to_process_offset(s_current_app_crash_info.lr_known, &s_current_app_crash_info.lr, task);
 }
 
-static PBL_NORETURN void kernel_fault(RebootReasonCode reason_code, uint32_t lr) {
+[[noreturn]] static void kernel_fault(RebootReasonCode reason_code, uint32_t lr) {
   RebootReason reason = {.code = reason_code, .extra = {.value = lr}};
   reboot_reason_set(&reason);
   if (reason_code == RebootReasonCode_Assert) {
@@ -152,15 +140,19 @@ static PBL_NORETURN void kernel_fault(RebootReasonCode reason_code, uint32_t lr)
 // TODO: Can we tell if it was the worker and not the app?
 extern void sys_app_fault(uint32_t lr);
 
-PBL_NORETURN void trigger_fault(RebootReasonCode reason_code, uint32_t lr) {
-  if (mcu_state_is_privileged()) {
+[[noreturn]] void trigger_fault(RebootReasonCode reason_code, uint32_t lr) {
+  if (!pbl_is_user_context()) {
     kernel_fault(reason_code, lr);
   } else {
     sys_app_fault(lr);
   }
 }
 
-PBL_NORETURN void trigger_oom_fault(size_t bytes, uint32_t lr, Heap *heap_ptr) {
+[[noreturn]] void pbl_fatal_error_handler(uintptr_t lr) {
+  trigger_fault(RebootReasonCode_Assert, lr);
+}
+
+[[noreturn]] void trigger_oom_fault(size_t bytes, uint32_t lr, Heap *heap_ptr) {
   // OOM on a process's own heap is the app's fault, not the kernel's: kill just
   // that process even when privileged (Moddable apps run privileged inside the
   // moddable_createMachine syscall). Only kernel-heap OOM reboots.
@@ -172,7 +164,7 @@ PBL_NORETURN void trigger_oom_fault(size_t bytes, uint32_t lr, Heap *heap_ptr) {
   // scheduler running and outside an ISR, else reboot.
   bool can_kill_safely = !mcu_state_is_isr() && (pbl_kernel_is_running());
 
-  if (!mcu_state_is_privileged() || (process_heap_oom && can_kill_safely)) {
+  if (pbl_is_user_context() || (process_heap_oom && can_kill_safely)) {
     sys_app_fault(lr);
   }
 
@@ -181,7 +173,7 @@ PBL_NORETURN void trigger_oom_fault(size_t bytes, uint32_t lr, Heap *heap_ptr) {
     .code = RebootReasonCode_OutOfMemory,
     .heap_data = {
       .heap_alloc_lr = lr,
-      .heap_ptr = (uint32_t)heap_ptr,
+      .heap_ptr = (uint32_t)(uintptr_t)heap_ptr,
     }
   };
   reboot_reason_set(&reason);
@@ -215,11 +207,11 @@ static void prv_kill_user_process(uint32_t stashed_lr) {
   process_manager_put_kill_process_event(task, false /* gracefully */);
 
   // Wait for the kernel to kill us...
-  pbl_thread_suspend(NULL);
+  pbl_thread_suspend(nullptr);
 }
 
-DEFINE_SYSCALL(PBL_NORETURN void, sys_app_fault, uint32_t stashed_lr) {
-  // This is the privileged side of handling a failed assert/croak from unprivileged code.
+PBL_SYSCALL_NORETURN(sys_app_fault, (VAL, uint32_t, stashed_lr)) {
+  // This is the privileged side of handling a failed assert/panic from unprivileged code.
   // Always run on the current task.
 
   CrashInfo crash_info = make_crash_info_pc(stashed_lr);
@@ -229,6 +221,24 @@ DEFINE_SYSCALL(PBL_NORETURN void, sys_app_fault, uint32_t stashed_lr) {
   prv_kill_user_process(stashed_lr);
   for (;;) {
   } // Not Reached
+}
+
+[[noreturn]] void pbl_kernel_syscall_fault(uintptr_t lr) {
+  sys_app_fault(lr);
+}
+
+// The hardware fault handlers; a native build gets signals instead.
+#ifndef CONFIG_ARCH_POSIX
+// These variables are assigned values when the watch faults
+// Saved here rather than in CrashInfo because they are easy to pull out through GDB.
+static uint32_t s_fault_saved_sp;
+static uint32_t s_fault_saved_lr;
+static uint32_t s_fault_saved_pc;
+
+static void prv_save_debug_registers(unsigned int *stacked_args) {
+  s_fault_saved_lr = (uint32_t)stacked_args[5];
+  s_fault_saved_pc = (uint32_t)stacked_args[6];
+  s_fault_saved_sp = (uint32_t)&stacked_args[8];
 }
 
 static void hardware_fault_landing_zone(void) {
@@ -276,14 +286,15 @@ static void prv_return_to_landing_zone(uintptr_t stacked_pc, uintptr_t stacked_l
   //      http://stackoverflow.com/a/9538628/1546
   stacked_args[7] = 1 << 24;
 
-  mcu_state_set_thread_privilege(true);
+  // Return to it privileged.
+  __set_CONTROL(__get_CONTROL() & ~CONTROL_nPRIV_Msk);
 
   // Now return to hardware_fault_landing_zone...
 }
 
 // Only an unprivileged thread, faulting on its own stack, can be redirected to the landing zone.
 static bool prv_fault_is_recoverable(unsigned int exc_return) {
-  return (exc_return & 0x04) && !mcu_state_is_thread_privileged();
+  return (exc_return & 0x04) && (__get_CONTROL() & CONTROL_nPRIV_Msk);
 }
 
 static void attempt_handle_stack_overflow(unsigned int *stacked_args, uintptr_t fault_pc,
@@ -500,3 +511,4 @@ void UsageFault_Handler(void) {
       "mov r1, lr\n"
       "b %0\n" ::"i"(usagefault_handler_c));
 }
+#endif

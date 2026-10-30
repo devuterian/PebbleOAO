@@ -3,13 +3,12 @@
 
 #pragma once
 
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/pstring.h"
-#include "pbl/util/size.h"
-
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include <pbl/kernel/compiler.h>
+#include <pbl/util/pstring.h>
+#include <pbl/util/size.h>
 
 //! Dumping ground for ANCS types
 
@@ -61,7 +60,7 @@ typedef struct PBL_PACKED {
   EventID event_id : 8;
   EventFlags event_flags : 8;
   CategoryID category_id : 8;
-  uint8_t category_count; //<! FIXME PBL-1619: signed?
+  uint8_t category_count;
   uint32_t uid;
 } NSNotification;
 
@@ -216,4 +215,8 @@ typedef enum {
   ANCSProperty_VoiceMail = (1 << 2),
   ANCSProperty_MultiMedia = (1 << 3),
   ANCSProperty_iOS9 = (1 << 4),
+  //! Pre-existing notification seen right after reconnecting, possibly missed while disconnected
+  ANCSProperty_Recovered = (1 << 5),
+  //! Notification silenced on the phone (EventFlagSilent)
+  ANCSProperty_Silent = (1 << 6),
 } ANCSProperty;

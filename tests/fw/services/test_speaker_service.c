@@ -1,30 +1,21 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-
-#include "pbl/services/speaker/speaker_service.h"
+#include <string.h>
 
 #include <pbl/drivers/audio.h>
 #include <pbl/drivers/rtc.h>
+#include <pbl/services/speaker/speaker_service.h>
 
-#include <string.h>
+#include <clar.h>
+#include <fake_events.h>
+#include <fake_mutex.h>
+#include <fake_pbl_malloc.h>
+#include <fake_pebble_tasks.h>
+#include <fake_system_task.h>
 
-#include "stubs_logging.h"
-#include "stubs_passert.h"
-#include "stubs_analytics.h"
-#include "stubs_rtc.h"
-#include "resource/resource.h"
-#include "fake_mutex.h"
-#include "fake_pbl_malloc.h"
-#include "fake_system_task.h"
-#include "fake_events.h"
-#include "fake_pebble_tasks.h"
+#include <resource/resource.h>
 
-static bool s_dnd;
-bool do_not_disturb_is_active(void) {
-  return s_dnd;
-}
 static size_t s_resource_size;
 static uint32_t s_resource_read;
 static bool s_resource_read_fails;
@@ -44,16 +35,24 @@ size_t resource_load_byte_range_system(ResAppNum app, uint32_t id, uint32_t offs
   return size;
 }
 
-// Alerts preferences: speaker unmuted, no volume cap
-static bool s_muted;
+// Alerts preferences: speaker unmuted by default, no volume cap
+static bool s_speaker_muted;
+static bool s_dnd_mute_speaker;
+static bool s_dnd_active;
 static uint8_t s_cap;
+
 bool alerts_preferences_get_speaker_muted(void) {
-  return s_muted;
+  return s_speaker_muted;
 }
 uint8_t alerts_preferences_get_speaker_volume(void) {
   return s_cap;
 }
-bool alerts_preferences_dnd_get_mute_speaker(void) { return false; }
+bool alerts_preferences_dnd_get_mute_speaker(void) {
+  return s_dnd_mute_speaker;
+}
+bool do_not_disturb_is_active(void) {
+  return s_dnd_active;
+}
 
 // ---------------------------------------------------------------------------
 // Fake audio driver. Counts what the service hands to the hardware so the
@@ -111,7 +110,7 @@ void audio_set_volume(AudioDevice *device, int volume) {
 
 void audio_stop(AudioDevice *device) {
   s_stop_count++;
-  s_trans_cb = NULL;
+  s_trans_cb = nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,20 +129,23 @@ static void prv_pump_until_idle(void) {
 
 void test_speaker_service__initialize(void) {
   fake_system_task_callbacks_cleanup();
-  s_dnd = false;
+  fake_event_init();
   s_volume_writes = 0;
-  s_muted = false;
   s_cap = 100;
   s_resource_size = 135598;
   s_resource_read = 0;
   s_resource_read_fails = false;
-  s_trans_cb = NULL;
+  s_trans_cb = nullptr;
   s_start_count = 0;
   s_stop_count = 0;
   s_samples_written = 0;
   s_nonzero_samples = 0;
   s_driver_space = 4096;
   s_output_count = 0;
+  s_volume = -1;
+  s_speaker_muted = false;
+  s_dnd_mute_speaker = false;
+  s_dnd_active = false;
   speaker_service_init();
 }
 
@@ -293,6 +295,121 @@ void test_speaker_service__live_stream_close_preserves_already_queued_audio(void
 
 #define RESAMPLE_INPUT_SAMPLES 600
 
+static void prv_close_after_pcm_ring_is_empty(SpeakerPcmFormat format) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, format));
+  speaker_service_register_finish(PebbleTask_App);
+  const uint8_t samples[1024] = {100};
+  cl_assert_equal_i(speaker_service_stream_write(samples, sizeof(samples)), sizeof(samples));
+  uint32_t space = 4096;
+  s_trans_cb(&space);
+  const unsigned generated = s_samples_written;
+  cl_assert_equal_i(generated, format == SpeakerPcmFormat_16kHz_8bit ? 1024 : 512);
+
+  speaker_service_stream_close();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateDraining);
+  cl_assert_equal_i(s_stop_count, 0);
+  cl_assert_equal_i(fake_event_get_count(), 0);
+  prv_pump_until_idle();
+  cl_assert_equal_i(s_samples_written, generated + DRAIN_SAMPLES);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
+  cl_assert_equal_i(s_stop_count, 1);
+  cl_assert_equal_i(fake_event_get_count(), 1);
+  cl_assert_equal_i(fake_event_get_last().speaker.finish_reason, SpeakerFinishReasonDone);
+}
+
+void test_speaker_service__close_empty_pcm_ring_preserves_16khz_16bit_pipeline(void) {
+  prv_close_after_pcm_ring_is_empty(SpeakerPcmFormat_16kHz_16bit);
+}
+
+void test_speaker_service__close_empty_pcm_ring_preserves_16khz_8bit_pipeline(void) {
+  prv_close_after_pcm_ring_is_empty(SpeakerPcmFormat_16kHz_8bit);
+}
+
+static void prv_repeated_close_during_drain(bool realtime, SpeakerPcmFormat format) {
+  speaker_service_register_finish(PebbleTask_BTHCI);
+  if (realtime) {
+    cl_assert(speaker_service_stream_open_realtime_owned(SpeakerPriorityNotification, 50, format,
+                                                         PebbleTask_BTHCI));
+  } else {
+    cl_assert(speaker_service_stream_open_owned(SpeakerPriorityNotification, 50, format,
+                                                PebbleTask_BTHCI));
+  }
+  const int16_t samples[] = {100, -100};
+  cl_assert_equal_i(speaker_service_stream_write_owned(PebbleTask_BTHCI, samples, sizeof(samples)),
+                    sizeof(samples));
+  speaker_service_stream_close_owned(PebbleTask_BTHCI);
+  uint32_t space = 4096;
+  s_trans_cb(&space);
+  if (format == SpeakerPcmFormat_8kHz_16bit) {
+    s_trans_cb(&space); // interpolation tail
+  }
+  s_trans_cb(&space); // first pipeline padding block
+  const unsigned generated = format == SpeakerPcmFormat_8kHz_16bit ? 10 : 2;
+  cl_assert_equal_i(s_samples_written, generated + 512);
+
+  speaker_service_stream_close_owned(PebbleTask_BTHCI);
+  speaker_service_stream_close_owned(PebbleTask_KernelMain);
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateDraining);
+  cl_assert_equal_i(s_stop_count, 0);
+  cl_assert_equal_i(fake_event_get_count(), 0);
+  prv_pump_until_idle();
+  cl_assert_equal_i(s_samples_written, generated + DRAIN_SAMPLES);
+  cl_assert_equal_i(s_stop_count, 1);
+  cl_assert_equal_i(fake_event_get_count(), 1);
+  cl_assert_equal_i(fake_event_get_last().speaker.finish_reason, SpeakerFinishReasonDone);
+  speaker_service_stream_close_owned(PebbleTask_BTHCI);
+  cl_assert_equal_i(fake_event_get_count(), 1);
+}
+
+void test_speaker_service__repeated_close_preserves_normal_16khz_drain(void) {
+  prv_repeated_close_during_drain(false, SpeakerPcmFormat_16kHz_16bit);
+}
+
+void test_speaker_service__repeated_close_preserves_normal_8khz_drain(void) {
+  prv_repeated_close_during_drain(false, SpeakerPcmFormat_8kHz_16bit);
+}
+
+void test_speaker_service__repeated_close_preserves_realtime_16khz_drain(void) {
+  prv_repeated_close_during_drain(true, SpeakerPcmFormat_16kHz_16bit);
+}
+
+void test_speaker_service__repeated_close_preserves_realtime_8khz_drain(void) {
+  prv_repeated_close_during_drain(true, SpeakerPcmFormat_8kHz_16bit);
+}
+
+void test_speaker_service__stop_still_cancels_a_draining_stream_immediately(void) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_16kHz_16bit));
+  speaker_service_register_finish(PebbleTask_App);
+  const int16_t samples[] = {100, -100};
+  cl_assert_equal_i(speaker_service_stream_write(samples, sizeof(samples)), sizeof(samples));
+  speaker_service_stream_close();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateDraining);
+
+  speaker_service_stop();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
+  cl_assert_equal_i(s_stop_count, 1);
+  cl_assert_equal_i(s_samples_written, 0);
+  cl_assert_equal_i(fake_event_get_count(), 1);
+  cl_assert_equal_i(fake_event_get_last().speaker.finish_reason, SpeakerFinishReasonStopped);
+  speaker_service_stream_close();
+  cl_assert_equal_i(s_stop_count, 1);
+}
+
+void test_speaker_service__closing_an_empty_stream_finishes_asynchronously(void) {
+  cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_16kHz_16bit));
+  speaker_service_stream_close();
+  speaker_service_stream_close();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateDraining);
+  cl_assert_equal_i(s_stop_count, 0);
+  const int16_t samples[] = {100, -100};
+  cl_assert_equal_i(speaker_service_stream_write(samples, sizeof(samples)), 0);
+  prv_pump_until_idle();
+  cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
+  cl_assert_equal_i(s_samples_written, DRAIN_SAMPLES);
+  cl_assert_equal_i(s_nonzero_samples, 0);
+  cl_assert_equal_i(s_stop_count, 1);
+}
+
 static int16_t prv_cubic_midpoint(int16_t s0, int16_t s1, int16_t s2, int16_t s3) {
   int32_t v = -(int32_t)s0 + 9 * (int32_t)s1 + 9 * (int32_t)s2 - (int32_t)s3;
   return (int16_t)((v + 8) >> 4);
@@ -376,7 +493,7 @@ void test_speaker_service__upsampling_underrun_runs_silence_through_the_filter(v
 
 void test_speaker_service__stream_write_keeps_16bit_samples_aligned(void) {
   cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_8kHz_16bit));
-  const uint8_t bytes[3] = {0};
+  const uint8_t bytes[3] = {};
   cl_assert_equal_i(speaker_service_stream_write(bytes, 3), 2);
   cl_assert_equal_i(speaker_service_stream_write(bytes, 1), 0);
   speaker_service_stop();
@@ -405,12 +522,12 @@ void test_speaker_service__chime_preserves_entire_tail_and_drains(void) {
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
 }
 void test_speaker_service__chime_dnd_stops_without_reading_tail(void) {
-  s_dnd = true;
+  s_dnd_active = true;
   cl_assert(!speaker_service_play_chime_resource(123));
   cl_assert_equal_i(s_start_count, 0);
-  s_dnd = false;
+  s_dnd_active = false;
   cl_assert(speaker_service_play_chime_resource(123));
-  s_dnd = true;
+  s_dnd_active = true;
   prv_pump_until_idle();
   cl_assert(s_resource_read < s_resource_size);
   cl_assert_equal_i(s_stop_count, 1);
@@ -504,15 +621,15 @@ void test_speaker_service__ui_mute_dnd_and_volume(void) {
   cl_assert_equal_i(s_volume, 30);
   cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 60, true));
   cl_assert_equal_i(s_volume, 60);
-  s_dnd = true;
+  s_dnd_active = true;
   prv_pump_until_idle();
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
   cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 60, true));
-  s_dnd = false;
+  s_dnd_active = false;
   s_volume_writes = 0;
-  s_muted = true;
+  s_speaker_muted = true;
   cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 60, true));
-  s_muted = false;
+  s_speaker_muted = false;
   cl_assert(!speaker_service_play_ui_pcm(NULL, 2048, 60, false));
   cl_assert(!speaker_service_play_ui_pcm(pcm, 0, 60, false));
   cl_assert(!speaker_service_play_ui_pcm(pcm, 2048, 101, false));
@@ -540,16 +657,16 @@ void test_speaker_service__ui_pending_replacement_keeps_audible_predecessor(void
 void test_speaker_service__app_owner_survives_replacing_a_ui_sound(void) {
   static const int16_t pcm[2048];
   cl_assert(speaker_service_play_ui_pcm(pcm, 2048, 35, false));
-  speaker_service_set_owner_task(PebbleTask_App);
-  cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityApp, 100));
+  cl_assert(speaker_service_play_tone_owned(440, 1000, 0, 0, SpeakerPriorityApp, 100,
+                                            PebbleTask_App));
   speaker_service_stop_for_task(PebbleTask_App);
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStateIdle);
 }
 
 void test_speaker_service__rejected_app_sound_does_not_take_ownership(void) {
   cl_assert(speaker_service_play_tone(440, 1000, 0, 0, SpeakerPriorityNotification, 100));
-  speaker_service_set_owner_task(PebbleTask_App);
-  cl_assert(!speaker_service_play_tone(880, 1000, 0, 0, SpeakerPriorityApp, 100));
+  cl_assert(!speaker_service_play_tone_owned(880, 1000, 0, 0, SpeakerPriorityApp, 100,
+                                             PebbleTask_App));
   speaker_service_stop_for_task(PebbleTask_App);
   cl_assert_equal_i(speaker_service_get_state(), SpeakerStatePlaying);
   // The next kernel sound doesn't inherit the rejected request's owner either.
@@ -567,7 +684,7 @@ void test_speaker_service__app_sound_replaces_chime(void) {
 
 void test_speaker_service__refill_catches_up_to_driver_capacity(void) {
   cl_assert(speaker_service_stream_open(SpeakerPriorityApp, 50, SpeakerPcmFormat_16kHz_16bit));
-  int16_t input[1536] = {0};
+  int16_t input[1536] = {};
   cl_assert_equal_i(speaker_service_stream_write(input, sizeof(input)), sizeof(input));
 
   uint32_t space = 1024 * sizeof(int16_t);
@@ -581,4 +698,31 @@ void test_speaker_service__refill_catches_up_to_driver_capacity(void) {
   space = 1024 * sizeof(int16_t);
   s_trans_cb(&space);
   cl_assert_equal_i(s_samples_written, 1536);
+}
+
+void test_speaker_service__quiet_time_mutes_non_critical_sounds(void) {
+  s_dnd_mute_speaker = true;
+  s_dnd_active = true;
+
+  cl_assert(speaker_service_play_tone(1000, 500, 0, 0, SpeakerPriorityNotification, 80));
+  cl_assert_equal_i(s_volume, 0);
+  cl_assert(speaker_service_is_muted());
+}
+
+void test_speaker_service__quiet_time_does_not_mute_alarms(void) {
+  s_dnd_mute_speaker = true;
+  s_dnd_active = true;
+
+  cl_assert(speaker_service_play_tone(1000, 500, 0, 0, SpeakerPriorityCritical, 80));
+  cl_assert_equal_i(s_volume, 80);
+
+  speaker_service_handle_audio_prefs_changed();
+  cl_assert_equal_i(s_volume, 80);
+}
+
+void test_speaker_service__speaker_mute_still_mutes_alarms(void) {
+  s_speaker_muted = true;
+
+  cl_assert(speaker_service_play_tone(1000, 500, 0, 0, SpeakerPriorityCritical, 80));
+  cl_assert_equal_i(s_volume, 0);
 }

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "applib/graphics/graphics.h"
+#include <applib/graphics/graphics.h>
 
 /**
  * @addtogroup services_compositor
@@ -13,6 +13,15 @@
 void compositor_render_app(void);
 
 void compositor_render_modal(void);
+
+/**
+ * @brief Note that the system framebuffer no longer holds the last app frame as it was copied.
+ *
+ * Called whenever something is drawn into or flushed from the system framebuffer other than an
+ * app frame, so that the next app frame is composited in full rather than from the app
+ * framebuffer's dirty rectangle.
+ */
+void compositor_app_framebuffer_mirror_invalidate(void);
 
 /**
  * @brief GPathDrawFilledCallback filling a span with the app framebuffer.

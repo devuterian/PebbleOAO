@@ -2,21 +2,23 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "settings.h"
+
 #include "menu.h"
 
-#include "applib/app.h"
-#include "applib/event_service_client.h"
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/ui.h"
-#include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
-#include "system/passert.h"
-#include "shell/normal/app_idle_timeout.h"
-#include "shell/prefs.h"
-#include "shell/system_theme.h"
-#include "pbl/util/size.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/util/size.h>
+
+#include <applib/app.h>
+#include <applib/event_service_client.h>
+#include <applib/ui/app_window_stack.h>
+#include <applib/ui/ui.h>
+#include <kernel/events.h>
+#include <kernel/pbl_malloc.h>
+#include <resource/resource_ids.auto.h>
+#include <shell/normal/app_idle_timeout.h>
+#include <shell/prefs.h>
+#include <shell/system_theme.h>
 
 #define SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING 14
 
@@ -97,9 +99,9 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
 #ifdef CONFIG_SETTINGS_ICONS
   GBitmap *icon = data->icons[cell_index->row];
 #else
-  GBitmap *icon = NULL;
+  GBitmap *icon = nullptr;
 #endif
-  menu_cell_basic_draw(ctx, cell_layer, title, NULL, icon);
+  menu_cell_basic_draw(ctx, cell_layer, title, nullptr, icon);
 }
 
 static void prv_select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
@@ -137,7 +139,7 @@ static void prv_window_load(Window *window) {
     if (SETTINGS_MENU_ICON_RESOURCES[i] != RESOURCE_ID_INVALID) {
       data->icons[i] = gbitmap_create_with_resource(SETTINGS_MENU_ICON_RESOURCES[i]);
     } else {
-      data->icons[i] = NULL;
+      data->icons[i] = nullptr;
     }
   }
 #endif
@@ -150,13 +152,14 @@ static void prv_window_load(Window *window) {
 #endif
   MenuLayer *menu_layer = &data->menu_layer;
   menu_layer_init(menu_layer, &bounds);
-  menu_layer_set_callbacks(menu_layer, data, &(MenuLayerCallbacks) {
-    .get_num_rows = prv_get_num_rows_callback,
-    .get_cell_height = prv_get_cell_height_callback,
-    .draw_row = prv_draw_row_callback,
-    .select_click = prv_select_callback,
-    .get_separator_height = prv_get_separator_height_callback
-  });
+  menu_layer_set_callbacks(menu_layer, data,
+                           &(MenuLayerCallbacks){
+                             .get_num_rows = prv_get_num_rows_callback,
+                             .get_cell_height = prv_get_cell_height_callback,
+                             .draw_row = prv_draw_row_callback,
+                             .select_click = prv_select_callback,
+                             .get_separator_height = prv_get_separator_height_callback
+                           });
   GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
   menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
   GColor highlight_bg = shell_prefs_get_theme_highlight_color();
@@ -212,10 +215,10 @@ static void handle_init(void) {
   window_init(window, WINDOW_NAME("Settings"));
   window_set_user_data(window, data);
   window_set_window_handlers(window, &(WindowHandlers){
-    .load = prv_window_load,
-    .appear = prv_window_appear,
-    .unload = prv_window_unload,
-  });
+                                       .load = prv_window_load,
+                                       .appear = prv_window_appear,
+                                       .unload = prv_window_unload,
+                                     });
   window_set_background_color(window,
                               shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
   app_window_stack_push(window, true);

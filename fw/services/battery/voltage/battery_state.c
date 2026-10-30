@@ -1,24 +1,24 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/battery/battery_state.h"
+#include <pbl/services/battery/battery_state.h>
 
 #ifdef CONFIG_QEMU
-#include <pbl/drivers/qemu/qemu_battery.h>
+#include <pbl/drivers/battery/qemu.h>
 #endif
 
-#include "board/board.h"
 #include <pbl/drivers/battery.h>
-#include "kernel/events.h"
-#include "pbl/services/analytics/analytics.h"
-#include "pbl/services/battery/battery_curve.h"
-#include "pbl/services/new_timer/new_timer.h"
-#include "pbl/services/system_task.h"
-#include "syscall/syscall_internal.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/math.h"
-#include "pbl/util/ratio.h"
+#include <pbl/services/analytics/analytics.h>
+#include <pbl/services/battery/battery_curve.h>
+#include <pbl/services/new_timer/new_timer.h>
+#include <pbl/services/system_task.h>
+#include <pbl/util/math.h>
+#include <pbl/util/ratio.h>
+
+#include <kernel/events.h>
 
 PBL_LOG_MODULE_DECLARE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 
@@ -119,7 +119,7 @@ void battery_state_reset_filter(void) {
 }
 
 static uint32_t prv_filter_voltage(uint32_t avg_mv, uint32_t battery_mv) {
-  // Basic low-pass filter - See PBL-23637
+  // Basic low-pass filter
   const uint8_t VOLTAGE_FILTER_BETA = 2;
   uint32_t avg = (avg_mv << VOLTAGE_FILTER_BETA);
   avg -= avg_mv;
@@ -263,7 +263,7 @@ PreciseBatteryChargeState prv_get_precise_charge_state(const BatteryState *state
   return event_state;
 }
 
-DEFINE_SYSCALL(BatteryChargeState, sys_battery_get_charge_state, void) {
+PBL_SYSCALL(BatteryChargeState, sys_battery_get_charge_state) {
   return battery_get_charge_state();
 }
 
@@ -281,8 +281,8 @@ BatteryChargeState battery_get_charge_state(void) {
   int32_t percent = pbl_ratio32_to_percent(s_last_battery_state.percent);
 
   // subtract low power reserve, so developer will see 0% when we're approaching low power mode
-  int32_t percent_normalized = MAX((percent - BOARD_CONFIG_POWER.low_power_threshold +
-                                    percent / (100 / BOARD_CONFIG_POWER.low_power_threshold)),
+  int32_t percent_normalized = MAX((percent - CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT +
+                                    percent / (100 / CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT)),
                                    0);
 
   // massage rounding factor so that between 100% to 50% charge the SOC reported is biased to a
@@ -345,6 +345,7 @@ void pbl_analytics_external_collect_battery(void) {
 
 #ifdef CONFIG_SHELL
 #include <errno.h>
+
 #include <pbl/shell/shell.h>
 
 static int prv_cmd_status(const struct pbl_shell *sh, size_t argc, char **argv) {
@@ -374,7 +375,7 @@ static int prv_cmd_chargeopt(const struct pbl_shell *sh, size_t argc, char **arg
   return 0;
 }
 
-PBL_SHELL_SUBCMD_ADD(sub_battery, status, NULL, "Print the battery state", prv_cmd_status, 0, 0);
-PBL_SHELL_SUBCMD_ADD(sub_battery, chargeopt, NULL, "Force charging <enable|disable>",
+PBL_SHELL_SUBCMD_ADD(sub_battery, status, nullptr, "Print the battery state", prv_cmd_status, 0, 0);
+PBL_SHELL_SUBCMD_ADD(sub_battery, chargeopt, nullptr, "Force charging <enable|disable>",
                      prv_cmd_chargeopt, 2, 0);
 #endif

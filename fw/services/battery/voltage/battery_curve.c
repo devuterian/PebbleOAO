@@ -1,25 +1,17 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/battery/battery_curve.h"
-
-#include "board/board.h"
 #include <pbl/logging/logging.h>
-#include "pbl/util/math.h"
-#include "pbl/util/ratio.h"
-#include "pbl/util/size.h"
+#include <pbl/services/battery/battery_curve.h>
+#include <pbl/util/math.h>
+#include <pbl/util/ratio.h>
+#include <pbl/util/size.h>
 
 typedef struct VoltagePoint {
   uint8_t percent;
   uint16_t voltage;
 } VoltagePoint;
 
-// TODO: Move these curves somewhere else. Related: PBL-21049
-
-// TODO(ASTERIX,OBELIX): Needs customization for Asterix/Obelix
-#if defined(CONFIG_BOARD_ASTERIX) || defined(CONFIG_BOARD_OBELIX) ||        \
-    defined(CONFIG_BOARD_QEMU_EMERY) || defined(CONFIG_BOARD_QEMU_FLINT) || \
-    defined(CONFIG_BOARD_QEMU_GABBRO)
 // When the voltage drops below these (mV), the watch will start heading for standby (after delay)
 #define BATTERY_CRITICAL_VOLTAGE_CHARGING    3550
 #define BATTERY_CRITICAL_VOLTAGE_DISCHARGING 3300
@@ -55,10 +47,6 @@ static const VoltagePoint charge_curve[] = {
   {90, 4175},
   {100, 4260}
 };
-
-#else
-#error "No battery curve for platform!"
-#endif
 
 static const uint8_t NUM_DISCHARGE_POINTS = ARRAY_LENGTH(discharge_curve);
 static const uint8_t NUM_CHARGE_POINTS = ARRAY_LENGTH(charge_curve);
@@ -173,19 +161,19 @@ uint32_t battery_curve_lookup_voltage_by_percent(uint32_t percent, bool is_charg
 //! So must remove low_power_threshold to get correct remaining hours
 //! before low_power_mode is triggered
 uint32_t battery_curve_get_hours_remaining(uint32_t percent_remaining) {
-  if (percent_remaining <= BOARD_CONFIG_POWER.low_power_threshold) {
+  if (percent_remaining <= CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT) {
     return 0;
   }
-  percent_remaining -= BOARD_CONFIG_POWER.low_power_threshold;
-  return ((BOARD_CONFIG_POWER.battery_capacity_hours * percent_remaining) / 100);
+  percent_remaining -= CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT;
+  return ((CONFIG_SERVICE_BATTERY_CAPACITY_HOURS * percent_remaining) / 100);
 }
 
 //! This call is used internally with PreciseBatteryChargeState
 //! So must add low_power_threshold to get percentage in terms of
 //! PreciseBatteryChargeState (which includes low_power_mode)
 uint32_t battery_curve_get_percent_remaining(uint32_t hours) {
-  return ((hours * 100) / BOARD_CONFIG_POWER.battery_capacity_hours) +
-         BOARD_CONFIG_POWER.low_power_threshold;
+  return ((hours * 100) / CONFIG_SERVICE_BATTERY_CAPACITY_HOURS) +
+         CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT;
 }
 
 // for unit tests and analytics

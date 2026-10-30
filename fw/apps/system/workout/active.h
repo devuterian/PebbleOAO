@@ -6,19 +6,9 @@
 #include "controller.h"
 #include "metrics.h"
 
-#include "pbl/services/activity/activity.h"
+#include <pbl/services/activity/activity.h>
 
 typedef struct WorkoutActiveWindow WorkoutActiveWindow;
-
-WorkoutActiveWindow *workout_active_create_single_layout(WorkoutMetricType metric,
-                                                         void *workout_data,
-                                                         WorkoutController *workout_controller);
-
-WorkoutActiveWindow *workout_active_create_double_layout(WorkoutMetricType top_metric,
-                                                         int num_scrollable_metrics,
-                                                         WorkoutMetricType *scrollable_metrics,
-                                                         void *workout_data,
-                                                         WorkoutController *workout_controller);
 
 WorkoutActiveWindow *workout_active_create_triple_layout(WorkoutMetricType top_metric,
                                                          WorkoutMetricType middle_metric,

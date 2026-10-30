@@ -3,19 +3,21 @@
 
 #include "factory_reset.h"
 
-#include "applib/app_timer.h"
-#include "applib/fonts/fonts.h"
-#include "applib/ui/action_bar_layer.h"
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/ui.h"
-#include "apps/system/timeline/peek_layer.h"
-#include "kernel/pbl_malloc.h"
-#include "kernel/ui/kernel_ui.h"
-#include "kernel/ui/system_icons.h"
-#include "kernel/util/factory_reset.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
 #include "bluetooth.h"
+
+#include <pbl/services/i18n/i18n.h>
+
+#include <applib/app_timer.h>
+#include <applib/fonts/fonts.h>
+#include <applib/ui/action_bar_layer.h>
+#include <applib/ui/app_window_stack.h>
+#include <applib/ui/ui.h>
+#include <apps/system/timeline/peek_layer.h>
+#include <kernel/pbl_malloc.h>
+#include <kernel/ui/kernel_ui.h>
+#include <kernel/ui/system_icons.h>
+#include <kernel/util/factory_reset.h>
+#include <resource/resource_ids.auto.h>
 
 #define MESSAGE_BUF_SIZE 96
 
@@ -37,10 +39,11 @@ static void start_factory_reset(void *data) {
 
 static void prv_lockout_back_button(Window *window) {
   window_set_overrides_back_button(window, true);
-  window_set_click_config_provider(window, NULL);
+  window_set_click_config_provider(window, nullptr);
 }
 
-static void confirm_click_handler(ClickRecognizerRef recognizer, Window *window) {
+static void confirm_click_handler(ClickRecognizerRef recognizer, void *context) {
+  Window *window = context;
   ConfirmUIData *data = window_get_user_data(window);
 
   // Need to lock-out inputs after starting the factory reset.
@@ -61,29 +64,30 @@ static void confirm_click_handler(ClickRecognizerRef recognizer, Window *window)
   // give it a chance to animate
   const uint32_t factory_reset_start_delay = 100;
   app_timer_register(PEEK_LAYER_UNFOLD_DURATION + factory_reset_start_delay, start_factory_reset,
-                     NULL);
+                     nullptr);
 }
 
 //! Wipe registry + Enter Standby (for factory)
-static void confirm_long_click_handler(ClickRecognizerRef recognizer, Window *window) {
+static void confirm_long_click_handler(ClickRecognizerRef recognizer, void *context) {
+  Window *window = context;
   // Need to lock-out inputs after starting the factory reset.
   prv_lockout_back_button(window);
 
   factory_reset(true /* should_shutdown */);
 }
 
-static void decline_click_handler(ClickRecognizerRef recognizer, Window *window) {
+static void decline_click_handler(ClickRecognizerRef recognizer, void *context) {
   const bool animated = true;
   app_window_stack_pop(animated);
   (void)recognizer;
-  (void)window;
+  (void)context;
 }
 
-static void config_provider(Window *window) {
-  window_single_click_subscribe(BUTTON_ID_UP, (ClickHandler)confirm_click_handler);
-  window_long_click_subscribe(BUTTON_ID_UP, 1200, (ClickHandler)confirm_long_click_handler, NULL);
-  window_single_click_subscribe(BUTTON_ID_DOWN, (ClickHandler)decline_click_handler);
-  (void)window;
+static void config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_UP, confirm_click_handler);
+  window_long_click_subscribe(BUTTON_ID_UP, 1200, confirm_long_click_handler, nullptr);
+  window_single_click_subscribe(BUTTON_ID_DOWN, decline_click_handler);
+  (void)context;
 }
 
 static void prv_window_load(Window *window) {
@@ -138,7 +142,7 @@ static void prv_window_load(Window *window) {
   action_bar_layer_init(action_bar);
   action_bar_layer_set_context(action_bar, window);
   action_bar_layer_add_to_window(action_bar, window);
-  action_bar_layer_set_click_config_provider(action_bar, (ClickConfigProvider)config_provider);
+  action_bar_layer_set_click_config_provider(action_bar, config_provider);
   action_bar_layer_set_icon(action_bar, BUTTON_ID_UP, data->action_bar_icon_check);
   action_bar_layer_set_icon(action_bar, BUTTON_ID_DOWN, data->action_bar_icon_x);
 }

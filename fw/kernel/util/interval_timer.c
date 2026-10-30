@@ -1,11 +1,11 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "system/passert.h"
-#include "pbl/kernel/irq.h"
 #include "interval_timer.h"
 
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/irq.h>
 
 static uint64_t prv_get_curr_system_time_ms(void) {
   time_t time_s;

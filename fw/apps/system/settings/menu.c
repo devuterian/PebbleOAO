@@ -1,10 +1,11 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "menu.h"
+
 #include "activity_tracker.h"
 #include "bluetooth.h"
 #include "display.h"
-#include "menu.h"
 #include "notifications.h"
 #include "quick_launch.h"
 #include "quiet_time.h"
@@ -18,8 +19,9 @@
 #include "vibe_patterns.h"
 #include "charging.h"
 
-#include "applib/ui/app_window_stack.h"
-#include "system/passert.h"
+#include <pbl/kernel/assert.h>
+
+#include <applib/ui/app_window_stack.h>
 
 static const SettingsModuleGetMetadata s_submodule_registry[] = {
   [SettingsMenuItemBluetooth] = settings_bluetooth_get_info,

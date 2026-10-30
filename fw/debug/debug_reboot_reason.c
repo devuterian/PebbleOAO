@@ -3,12 +3,13 @@
 
 #include "debug.h"
 
-#include "comm/ble/gatt_service_changed.h"
-#include "kernel/core_dump.h"
-#include "kernel/event_loop.h"
-#include "popups/crashed_ui.h"
 #include <pbl/logging/logging.h>
-#include "system/reboot_reason.h"
+
+#include <comm/ble/gatt_service_changed.h>
+#include <kernel/core_dump.h>
+#include <kernel/event_loop.h>
+#include <popups/crashed_ui.h>
+#include <system/reboot_reason.h>
 
 static RebootReasonCode s_last_reboot_reason_code = RebootReasonCode_Unknown;
 RebootReasonCode reboot_reason_get_last_reboot_reason(void) {
@@ -29,7 +30,7 @@ void debug_reboot_reason_print(McuRebootReason mcu_reboot_reason) {
   }
 
   // Leave this NULL to do your own printing.
-  const char *reason_string = NULL;
+  const char *reason_string = nullptr;
   switch (reason.code) {
     // Normal stuff
     case RebootReasonCode_Unknown:
@@ -47,7 +48,7 @@ void debug_reboot_reason_print(McuRebootReason mcu_reboot_reason) {
       reason_string = "%s%sResetButtonsHeld";
       break;
     case RebootReasonCode_ShutdownMenuItem:
-      reason_string = "%s%sLowBattery";
+      reason_string = "%s%sShutdownMenuItem";
       break;
     case RebootReasonCode_FactoryResetReset:
       reason_string = "%s%sFactoryResetReset";
@@ -69,6 +70,12 @@ void debug_reboot_reason_print(McuRebootReason mcu_reboot_reason) {
       break;
     case RebootReasonCode_PrfIdle:
       reason_string = "%s%sIdle PRF";
+      break;
+    case RebootReasonCode_PrfReset:
+      reason_string = "%s%sPrfReset";
+      break;
+    case RebootReasonCode_PrfResetButtonsHeld:
+      reason_string = "%s%sPrfResetButtonsHeld";
       break;
     // Error occurred
     case RebootReasonCode_Assert:
@@ -92,6 +99,12 @@ void debug_reboot_reason_print(McuRebootReason mcu_reboot_reason) {
     case RebootReasonCode_BtCoredump:
       reason_string = "%s%sBT Coredump";
       break;
+    case RebootReasonCode_CoreDump:
+      reason_string = "%s%sCoredump";
+      break;
+    case RebootReasonCode_CoreDumpEntryFailed:
+      reason_string = "%s%sCoredump Entry Failed";
+      break;
     default:
       reason_string = "%s%sUnrecognized Reason";
       break;
@@ -109,10 +122,11 @@ void debug_reboot_reason_print(McuRebootReason mcu_reboot_reason) {
         }
       }
       break;
-    case RebootReasonCode_StackOverflow:
+    case RebootReasonCode_StackOverflow: {
       PebbleTask task = (PebbleTask)reason.data8[0];
       PBL_LOG_WRN("%s%sStackOverflow: Task #%d", restarted_safely_string, rebooted_due_to, task);
       break;
+    }
     case RebootReasonCode_EventQueueFull:
       PBL_LOG_WRN("%s%sEvent Queue Full", restarted_safely_string, rebooted_due_to);
       PBL_LOG_WRN("LR: 0x%" PRIx32 " Current: 0x%" PRIx32 " Dropped: 0x%" PRIx32,

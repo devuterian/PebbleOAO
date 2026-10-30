@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "pbl/kernel/compiler.h"
-#include <stdbool.h>
 #include <stdint.h>
+
+#include <pbl/kernel/compiler.h>
 
 /**
  * @defgroup services_comm_session_session_remote_version Remote version
@@ -77,6 +77,12 @@ typedef struct PBL_PACKED {
       bool weather_db_v4_support : 1;
       /** Watch skips timeline attributes with unknown IDs. */
       bool unknown_attributes_support : 1;
+      /** Notification window reports the notification it displays. */
+      bool notification_window_state_support : 1;
+      /** Watch supports app permission metadata. */
+      bool app_permissions_support : 1;
+      /** Multiple packs, phone management, and active-language selection. */
+      bool multiple_language_packs_support : 1;
     };
     /** All flags as a bitset. */
     uint64_t flags;

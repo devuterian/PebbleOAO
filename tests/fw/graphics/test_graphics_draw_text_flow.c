@@ -1,53 +1,33 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-#include "fixtures/load_test_resources.h"
+#include <pbl/util/size.h>
 
-#include "applib/fonts/fonts_private.h"
-#include "applib/graphics/framebuffer.h"
-#include "applib/graphics/graphics.h"
-#include "applib/graphics/gtypes.h"
-#include "applib/graphics/text.h"
-#include "applib/graphics/text_resources.h"
-#include "applib/ui/layer.h"
-#include "applib/ui/window_private.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/util/size.h"
+#include <applib/fonts/fonts_private.h>
+#include <applib/graphics/framebuffer.h>
+#include <applib/graphics/graphics.h>
+#include <applib/graphics/gtypes.h>
+#include <applib/graphics/text.h>
+#include <applib/graphics/text_resources.h>
+#include <applib/ui/layer.h>
+#include <applib/ui/window_private.h>
+#include <clar.h>
+#include <fixtures/load_test_resources.h>
+#include <resource/resource_ids.auto.h>
 
 // Helper Functions
 ////////////////////////////////////
-#include "test_graphics.h"
 #include "8bit/test_framebuffer.h"
+#include "test_graphics.h"
 #include "util.h"
 
 ///////////////////////////////////////////////////////////
 // Stubs
-#include "stubs_analytics.h"
-#include "stubs_app_state.h"
-#include "stubs_applib_resource.h"
-#include "stubs_bootbits.h"
-#include "stubs_heap.h"
-#include "stubs_logging.h"
-#include "stubs_memory_layout.h"
-#include "stubs_mutex.h"
-#include "stubs_passert.h"
-#include "stubs_pbl_malloc.h"
-#include "stubs_pebble_tasks.h"
-#include "stubs_print.h"
-#include "stubs_serial.h"
-#include "stubs_sleep.h"
-#include "stubs_syscall_internal.h"
-#include "stubs_syscalls.h"
-#include "stubs_system_reset.h"
-#include "stubs_task_wdt.h"
-#include "stubs_ui_window.h"
-#include "stubs_unobstructed_area.h"
 
 ///////////////////////////////////////////////////////////
 // Tests
 
-static FrameBuffer *fb = NULL;
+static FrameBuffer *fb = nullptr;
 static GContext ctx;
 
 #define NUM_STEPS (5)
@@ -64,10 +44,8 @@ void prv_prepare_fb_steps_xy(GSize size, int16_t steps_x, int16_t steps_y) {
   gbitmap_destroy(s_dest_bitmap);
   // These are off-screen, tiled scratch buffers for side-by-side comparison, not
   // the real display framebuffer. On a round platform GBITMAP_NATIVE_FORMAT is
-  // GBitmapFormat8BitCircular, whose data is addressed through a per-row offset
-  // table (g_gbitmap_data_row_infos) that is only attached to a full-screen
-  // (DISP_COLS x DISP_ROWS) bitmap. A non-full-screen circular bitmap has no row
-  // table, so reading a data row dereferences an unset pointer and segfaults.
+  // GBitmapFormat8BitCircular, whose rows are laid out as the display's, so it
+  // only exists in full-screen (DISP_COLS x DISP_ROWS) size.
   // Use a plain rectangular 8-bit format, which addresses rows by row_size_bytes.
   s_dest_bitmap =
       gbitmap_create_blank(GSize(size.w * steps_x, size.h * steps_y), GBitmapFormat8Bit);
@@ -111,7 +89,7 @@ void test_graphics_draw_text_flow__initialize(void) {
 void test_graphics_draw_text_flow__cleanup(void) {
   free(fb);
   gbitmap_destroy(s_dest_bitmap);
-  s_dest_bitmap = NULL;
+  s_dest_bitmap = nullptr;
 }
 
 #define RECT_TEXT_0_0 GRect(0, 0, DISP_COLS, DISP_ROWS)
@@ -178,7 +156,7 @@ void test_graphics_draw_text_flow__flow_no_paging(void) {
       .perimeter.inset = 8,
     },
   };
-  render_steps(&layout, RenderMoveTextBox, DELTA, DISP_ROWS, NULL);
+  render_steps(&layout, RenderMoveTextBox, DELTA, DISP_ROWS, nullptr);
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
 }
 
@@ -189,7 +167,7 @@ void test_graphics_draw_text_flow__flow_no_paging_draw_box(void) {
       .perimeter.inset = 8,
     },
   };
-  render_steps(&layout, RenderMoveDrawBox, DELTA, DISP_ROWS, NULL);
+  render_steps(&layout, RenderMoveDrawBox, DELTA, DISP_ROWS, nullptr);
   // should result in the very same output as if you did a placement via text box
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, "test_graphics_draw_text_flow__flow_no_paging.pbi"));
 }
@@ -203,7 +181,7 @@ void test_graphics_draw_text_flow__with_origin_zero(void) {
       .paging.origin_on_screen = {0, 0},
     },
   };
-  render_steps(&layout, RenderMoveTextBox, DELTA, DISP_ROWS, NULL);
+  render_steps(&layout, RenderMoveTextBox, DELTA, DISP_ROWS, nullptr);
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
 }
 
@@ -216,7 +194,7 @@ void test_graphics_draw_text_flow__with_origin_non_zero(void) {
       .paging.origin_on_screen = {DELTA, 2 * DELTA},
     },
   };
-  render_steps(&layout, RenderMoveTextBox, DELTA, DISP_ROWS, NULL);
+  render_steps(&layout, RenderMoveTextBox, DELTA, DISP_ROWS, nullptr);
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
 }
 
@@ -230,7 +208,7 @@ void test_graphics_draw_text_flow__with_paging(void) {
           {.origin_y = 25, .size_h = 100}, // setting a page height != enables positioning
     },
   };
-  render_steps(&layout, RenderMoveTextBox, DELTA, 1000, NULL);
+  render_steps(&layout, RenderMoveTextBox, DELTA, 1000, nullptr);
   cl_check(gbitmap_pbi_eq(s_dest_bitmap, TEST_PBI_FILE));
 }
 
@@ -384,8 +362,7 @@ void test_graphics_draw_text_flow__max_used_size_draw_text_doom(void) {
   const GSize size_with_orphan_avoidance = graphics_text_layout_get_max_used_size(
       &ctx, text, font, box, overflow_mode, text_alignment, layout_ref);
 
-  // TODO: PBL-34191 move .avoid_text_orphans from GContext to TextLayout so layout is invalidated
-  // Invalidate the layout so it will be recalculated for the next step
+  // avoid_text_orphans lives in GContext, so the layout has to be invalidated by hand
   layout.hash = 0;
 
   prv_prepare_fb_steps_xy(fb_size, steps_x, steps_y);
@@ -441,7 +418,7 @@ void test_graphics_draw_text_flow__no_infinite_loop(void) {
 }
 
 void test_graphics_draw_text_flow__no_infinite_loop2(void) {
-  // replicates the bug described in PBL-29267 noticed in the notification app
+  // replicates an infinite loop noticed in the notification app
   // the following values are those we measured in GDB when it entered the infinite loop
   cl_assert(text_resources_init_font(0, RESOURCE_ID_GOTHIC_24_BOLD, 0, &s_font_info));
   TextLayoutExtended layout = {

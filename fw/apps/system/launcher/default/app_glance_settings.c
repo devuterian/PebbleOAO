@@ -6,58 +6,44 @@
 #include "app_glance_structured.h"
 #include "menu_layer.h"
 
-#include "applib/battery_state_service.h"
-#include "applib/graphics/gpath.h"
-#include "apps/system/timeline/text_node.h"
-#include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
-#include "process_management/app_install_manager.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/battery/battery_state.h"
-#include "pbl/services/comm_session/session.h"
-#include "pbl/services/bluetooth/ble_hrm.h"
-#include "pbl/services/notifications/alerts_private.h"
-#include "pbl/services/notifications/do_not_disturb.h"
-#include "shell/system_theme.h"
-#include "system/passert.h"
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/math.h"
-#include "pbl/util/size.h"
-#include "pbl/util/struct.h"
-
 #include <stdio.h>
 
-typedef struct {
-  int16_t width;
-  int16_t height;
-} IconSize;
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/services/battery/battery_state.h>
+#include <pbl/services/bluetooth/ble_hrm.h>
+#include <pbl/services/comm_session/session.h>
+#include <pbl/services/notifications/alerts_private.h>
+#include <pbl/services/notifications/do_not_disturb.h>
+#include <pbl/util/size.h>
+#include <pbl/util/struct.h>
 
-static const IconSize s_battery_silhouette_icon_size[NumPreferredContentSizes] = {
-  [PreferredContentSizeSmall] = { .width = 12, .height = 7 },
-  [PreferredContentSizeMedium] = { .width = 16, .height = 9 },
-  [PreferredContentSizeLarge] = { .width = 16, .height = 9 },
-  [PreferredContentSizeExtraLarge] = { .width = 21, .height = 12 },
+#include <applib/battery_state_service.h>
+#include <applib/graphics/gpath.h>
+#include <applib/graphics/text_resources.h>
+#include <apps/system/timeline/text_node.h>
+#include <kernel/events.h>
+#include <kernel/pbl_malloc.h>
+#include <process_management/app_install_manager.h>
+#include <resource/resource_ids.auto.h>
+
+//! Horizontal span of one row of the charging bolt, top to bottom
+typedef struct ChargingIconRow {
+  uint8_t x;
+  uint8_t w;
+} ChargingIconRow;
+
+static const ChargingIconRow s_charging_icon_rows_small[] = {
+  {4, 1}, {3, 2}, {2, 2}, {1, 3}, {0, 7}, {3, 3}, {3, 2}, {2, 2}, {2, 1},
 };
 
-static PreferredContentSize prv_get_content_size(void) {
-  const PreferredContentSize size = system_theme_get_content_size();
-  return size < NumPreferredContentSizes ? size : PreferredContentSizeDefault;
-}
-
-static IconSize prv_get_battery_silhouette_icon_size(void) {
-  return s_battery_silhouette_icon_size[prv_get_content_size()];
-}
-
-static const IconSize s_charging_icon_size[NumPreferredContentSizes] = {
-  [PreferredContentSizeSmall] = { .width = 5, .height = 7 },
-  [PreferredContentSizeMedium] = { .width = 7, .height = 9 },
-  [PreferredContentSizeLarge] = { .width = 7, .height = 9 },
-  [PreferredContentSizeExtraLarge] = { .width = 9, .height = 12 },
+static const ChargingIconRow s_charging_icon_rows_large[] = {
+  {5, 1}, {4, 2}, {3, 3}, {2, 3}, {1, 3}, {0, 9}, {0, 9}, {4, 3}, {3, 3}, {3, 2}, {2, 2}, {2, 1},
 };
 
-static IconSize prv_get_charging_icon_size(void) {
-  return s_charging_icon_size[prv_get_content_size()];
-}
+#define CHARGING_ICON_SMALL_WIDTH 7
+#define CHARGING_ICON_LARGE_WIDTH 9
 
 typedef struct LauncherAppGlanceSettingsState {
   BatteryChargeState battery_charge_state;
@@ -88,99 +74,87 @@ typedef struct LauncherAppGlanceSettings {
 static KinoReel *prv_get_icon(LauncherAppGlanceStructured *structured_glance) {
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
-  return NULL_SAFE_FIELD_ACCESS(settings_glance, icon, NULL);
+  return NULL_SAFE_FIELD_ACCESS(settings_glance, icon, nullptr);
 }
 
 static const char *prv_get_title(LauncherAppGlanceStructured *structured_glance) {
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
-  return NULL_SAFE_FIELD_ACCESS(settings_glance, title, NULL);
+  return NULL_SAFE_FIELD_ACCESS(settings_glance, title, nullptr);
+}
+
+//! Returns where the subtitle font draws its digits, relative to the top of a subtitle line
+static GRect prv_get_digit_frame(GContext *ctx, LauncherAppGlanceStructured *structured_glance) {
+  GFont font = structured_glance->subtitle_font;
+  const GRect glyph = text_resources_get_glyph_frame(&ctx->font_cache, '0', font);
+  return GRect(0, glyph.origin.y - fonts_get_font_cap_offset(font), 0, glyph.size.h);
 }
 
 static void prv_charging_icon_node_draw_cb(GContext *ctx, const GRect *rect,
-                                           PBL_UNUSED const GTextNodeDrawConfig *config,
+                                           [[maybe_unused]] const GTextNodeDrawConfig *config,
                                            bool render, GSize *size_out, void *user_data) {
   LauncherAppGlanceStructured *structured_glance = user_data;
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
 
-  const IconSize icon_size = prv_get_charging_icon_size();
-  const int16_t w = icon_size.width;
-  const int16_t h = icon_size.height;
+  // Stretch the closest bolt to the digit height
+  const GRect digits = prv_get_digit_frame(ctx, structured_glance);
+  const int16_t h = digits.size.h;
+  const bool is_large = (h >= (int16_t)ARRAY_LENGTH(s_charging_icon_rows_large));
+  const ChargingIconRow *rows = is_large ? s_charging_icon_rows_large : s_charging_icon_rows_small;
+  const int16_t num_rows = is_large ? ARRAY_LENGTH(s_charging_icon_rows_large)
+                                    : ARRAY_LENGTH(s_charging_icon_rows_small);
+  const int16_t width =
+      (is_large ? CHARGING_ICON_LARGE_WIDTH : CHARGING_ICON_SMALL_WIDTH) * h / num_rows;
 
   if (render) {
-    const GColor bolt_color =
-        launcher_app_glance_structured_get_highlight_color(structured_glance);
-    graphics_context_set_fill_color(ctx, bolt_color);
-
-    const int16_t bar_height = MAX((int16_t)1, (int16_t)ROUND(h, 9));
-    const int16_t bar_top = (int16_t)ROUND(h * 4, 9);
-    const int16_t bar_bottom = bar_top + bar_height;
-
-    const int16_t apex_left = (int16_t)ROUND(w * 4, 7);
-    const int16_t apex_right = (int16_t)ROUND(w * 5, 7);
-    const int16_t upper_right_at_bar = apex_left;
-    for (int16_t y = 0; y < bar_top; y++) {
-      const int16_t x0 = (int16_t)ROUND(apex_left * (bar_top - y), bar_top);
-      const int16_t x1 =
-          MAX((int16_t)(x0 + 1),
-              (int16_t)ROUND(apex_right * (bar_top - y) + upper_right_at_bar * y, bar_top));
-      graphics_fill_rect(ctx, &GRect(rect->origin.x + x0, rect->origin.y + y, x1 - x0, 1));
-    }
-
-    graphics_fill_rect(ctx, &GRect(rect->origin.x, rect->origin.y + bar_top, w, bar_height));
-
-    const int16_t lower_left_at_bar = (int16_t)ROUND(w * 3, 7);
-    const int16_t lower_right_at_bar = (int16_t)ROUND(w * 6, 7);
-    const int16_t bottom_point = (int16_t)ROUND(w * 5, 14);
-    const int16_t rows_below = h - bar_bottom;
-    for (int16_t i = 0; i < rows_below; i++) {
-      int16_t x0, x1;
-      if (rows_below > 1) {
-        const int16_t denom = rows_below - 1;
-        x0 = (int16_t)ROUND(lower_left_at_bar * (denom - i) + bottom_point * i, denom);
-        x1 = MAX((int16_t)(x0 + 1),
-                 (int16_t)ROUND(lower_right_at_bar * (denom - i) + (bottom_point + 1) * i,
-                                denom));
-      } else {
-        x0 = bottom_point;
-        x1 = bottom_point + 1;
-      }
-      graphics_fill_rect(ctx, &GRect(rect->origin.x + x0, rect->origin.y + bar_bottom + i,
-                                     x1 - x0, 1));
+    // Follow the glance text color so the bolt stays visible on dark backgrounds
+    graphics_context_set_fill_color(
+        ctx, launcher_app_glance_structured_get_highlight_color(structured_glance));
+    for (int16_t y = 0; y < h; y++) {
+      const ChargingIconRow *row = &rows[y * num_rows / h];
+      const int16_t x = row->x * h / num_rows;
+      const int16_t w = MAX(1, (row->x + row->w) * h / num_rows - x);
+      graphics_fill_rect(ctx,
+                         &GRect(rect->origin.x + x, rect->origin.y + digits.origin.y + y, w, 1));
     }
   }
 
   if (size_out) {
-    *size_out = GSize(w, settings_glance->subtitle_font_height);
+    *size_out = GSize(width, settings_glance->subtitle_font_height);
   }
 }
 
 static void prv_battery_icon_node_draw_cb(GContext *ctx, const GRect *rect,
-                                          PBL_UNUSED const GTextNodeDrawConfig *config, bool render,
-                                          GSize *size_out, void *user_data) {
+                                          [[maybe_unused]] const GTextNodeDrawConfig *config,
+                                          bool render, GSize *size_out, void *user_data) {
   LauncherAppGlanceStructured *structured_glance = user_data;
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
 
-  const IconSize icon_size = prv_get_battery_silhouette_icon_size();
-  const GSize battery_silhouette_icon_size = GSize(icon_size.width, icon_size.height);
+  // Match the digit height, keeping the proportions of the original 16x9 battery
+  const GRect digits = prv_get_digit_frame(ctx, structured_glance);
+  const int16_t h = digits.size.h;
+  const int16_t w = h * 16 / 9;
+  const int16_t border = MAX(2, h * 2 / 9);
+  const int16_t tip_w = border;
 
   if (render) {
+    const GPoint origin = GPoint(rect->origin.x, rect->origin.y + digits.origin.y);
     const GPoint battery_silhouette_path_points[] = {
       {0, 0},
-      {icon_size.width - 1, 0},
-      {icon_size.width - 1, 1},
-      {icon_size.width + 1, 2},
-      {icon_size.width + 1, icon_size.height - 3},
-      {icon_size.width - 1, icon_size.height - 3},
-      {icon_size.width - 1, icon_size.height - 1},
-      {0, icon_size.height - 1},
+      {w - 1, 0},
+      {w - 1, border - 1},
+      {w - 1 + tip_w, border},
+      {w - 1 + tip_w, h - 1 - border},
+      {w - 1, h - 1 - border},
+      {w - 1, h - 1},
+      {0, h - 1},
     };
-    GPath battery_silhouette_path = (GPath) {
+    GPath battery_silhouette_path = (GPath){
       .num_points = ARRAY_LENGTH(battery_silhouette_path_points),
       .points = (GPoint *)battery_silhouette_path_points,
-      .offset = rect->origin,
+      .offset = origin,
     };
 
     const GColor battery_silhouette_color =
@@ -192,13 +166,13 @@ static void prv_battery_icon_node_draw_cb(GContext *ctx, const GRect *rect,
 
     // Draw the battery silhouette
     const GRect battery_silhouette_frame = (GRect){
-      .origin = rect->origin,
-      .size = battery_silhouette_icon_size,
+      .origin = origin,
+      .size = GSize(w, h),
     };
     gpath_draw_filled(ctx, &battery_silhouette_path);
 
     // Inset the filled area
-    GRect battery_fill_rect = grect_inset_internal(battery_silhouette_frame, 3, 2);
+    GRect battery_fill_rect = grect_inset_internal(battery_silhouette_frame, border + 1, border);
 #if !PBL_COLOR
     // Fill the battery silhouette all the way for B&W, in order to make the BG black always.
     graphics_context_set_fill_color(ctx, GColorBlack);
@@ -216,14 +190,14 @@ static void prv_battery_icon_node_draw_cb(GContext *ctx, const GRect *rect,
   }
 
   if (size_out) {
-    *size_out = GSize(battery_silhouette_icon_size.w, settings_glance->subtitle_font_height);
+    *size_out = GSize(w, settings_glance->subtitle_font_height);
   }
 }
 
 static void prv_battery_percent_dynamic_text_node_update(
-    PBL_UNUSED GContext *ctx, PBL_UNUSED GTextNode *node, PBL_UNUSED const GRect *box,
-    PBL_UNUSED const GTextNodeDrawConfig *config, PBL_UNUSED bool render, char *buffer,
-    size_t buffer_size, void *user_data) {
+    [[maybe_unused]] GContext *ctx, [[maybe_unused]] GTextNode *node,
+    [[maybe_unused]] const GRect *box, [[maybe_unused]] const GTextNodeDrawConfig *config,
+    [[maybe_unused]] bool render, char *buffer, size_t buffer_size, void *user_data) {
   LauncherAppGlanceStructured *structured_glance = user_data;
   LauncherAppGlanceSettings *settings_glance =
       launcher_app_glance_structured_get_data(structured_glance);
@@ -268,14 +242,8 @@ static GTextNode *prv_create_subtitle_node(LauncherAppGlanceStructured *structur
                                            vertically_centered_battery_percent_text_node);
   }
 
-  const IconSize battery_icon_size = prv_get_battery_silhouette_icon_size();
-  const int16_t battery_icon_offset_y =
-      (settings_glance->subtitle_font_height - battery_icon_size.height) / 2;
-
   GTextNodeCustom *battery_icon_node =
       graphics_text_node_create_custom(prv_battery_icon_node_draw_cb, structured_glance);
-  // Push the battery icon down to center it properly
-  battery_icon_node->node.offset.y += battery_icon_offset_y;
 
   // Achieves the design spec'd 6 px horizontal spacing b/w the battery icon and charging icon
   battery_icon_node->node.margin.w = 7;
@@ -285,12 +253,8 @@ static GTextNode *prv_create_subtitle_node(LauncherAppGlanceStructured *structur
                                          vertically_centered_battery_icon_node);
 
   if (settings_glance->glance_state.battery_charge_state.is_plugged) {
-    const int16_t charging_icon_offset_y =
-        (settings_glance->subtitle_font_height - prv_get_charging_icon_size().height) / 2;
     GTextNodeCustom *charging_icon_node =
         graphics_text_node_create_custom(prv_charging_icon_node_draw_cb, structured_glance);
-    // Push the charging icon down to center it properly
-    charging_icon_node->node.offset.y += charging_icon_offset_y;
     GTextNode *vertically_centered_charging_icon_node =
         prv_wrap_text_node_in_vertically_centered_container(&charging_icon_node->node);
     graphics_text_node_container_add_child(&horizontal_container_node->container,
@@ -354,7 +318,7 @@ static uint32_t prv_get_resource_id_for_connectivity_status(
   } else if (settings_glance->glance_state.is_pebble_app_connected) {
     return RESOURCE_ID_CONNECTIVITY_BLUETOOTH_CONNECTED;
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 
@@ -371,7 +335,7 @@ static void prv_refresh_glance_content(LauncherAppGlanceSettings *settings_glanc
 }
 
 static bool prv_is_pebble_app_connected(void) {
-  return (comm_session_get_system_session() != NULL);
+  return (comm_session_get_system_session() != nullptr);
 }
 
 static void prv_event_handler(PebbleEvent *event, void *context) {
@@ -410,7 +374,7 @@ static void prv_event_handler(PebbleEvent *event, void *context) {
     }
 #endif
     default:
-      WTF;
+      pbl_panic();
   }
 
   // Refresh the content in the glance

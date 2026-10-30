@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#include "pbl/kernel/thread.h"
+#include <pbl/kernel/thread.h>
 
 /**
  * @defgroup task_wdt Task watchdog
@@ -17,9 +17,9 @@
  * thread at the highest priority checks the channels every @c CONFIG_TASK_WDT_CHECK_PERIOD_MS and
  * feeds the hardware watchdog. A channel that expires is
  * logged and recorded in the reboot reason, and its callback gets a chance to recover the
- * thread; once it stays expired for @c CONFIG_TASK_WDT_GRACE_MS, the system resets with a core
- * dump (with @c CONFIG_WATCHDOG; otherwise it only logs). The pool holds
- * @c CONFIG_TASK_WDT_CHANNELS channels.
+ * thread; once it stays expired for @c CONFIG_TASK_WDT_GRACE_MS after the check that found it
+ * expired, the system resets with a core dump (with @c CONFIG_WATCHDOG; otherwise it only
+ * logs). The pool holds @c CONFIG_TASK_WDT_CHANNELS channels.
  *
  * @code{.c}
  * static void prv_worker(void *arg) {
@@ -113,7 +113,8 @@ void pbl_task_wdt_feed_all(void);
  *
  * A thread blocked waiting for work cannot be stuck, so its channels do not expire while it
  * waits; going back to busy restarts their timeouts. A thread that only blocks to wait for work
- * then needs no periodic feeding.
+ * then needs no periodic feeding. Once woken, a waiting thread that does not get to run is
+ * starved: its timeouts restart from the check that first finds it runnable.
  *
  * @code{.c}
  * while (running) {

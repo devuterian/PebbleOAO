@@ -3,9 +3,6 @@
 
 from .core import Runner, RunnerCaps, RunnerError
 
-# Flash offset where system resources are written.
-RESOURCES_OFFSET = 0x12620000
-
 
 class SfToolRunner(Runner):
     name = "sftool"
@@ -20,7 +17,9 @@ class SfToolRunner(Runner):
 
     @classmethod
     def do_add_parser(cls, parser):
-        parser.add_argument("--tty", help="Serial port for the sftool runner")
+        parser.add_argument(
+            "--tty", help="Serial port for the sftool and probe-rs runners"
+        )
 
     @classmethod
     def do_create(cls, cfg, args):
@@ -37,7 +36,10 @@ class SfToolRunner(Runner):
         if command == "flash":
             files = [self.cfg.hex_file]
             if self.cfg.resources_file:
-                files.append(f"{self.cfg.resources_file}@{RESOURCES_OFFSET:#x}")
+                files.append(
+                    f"{self.cfg.resources_file}@{self.cfg.resources_address:#x}"
+                )
             self._sftool("write_flash " + self.quote(*files))
         elif command == "erase":
-            self._sftool("erase_flash")
+            ranges = [f"{a:#x}:{s:#x}" for a, s in self.cfg.erase_ranges]
+            self._sftool("erase_region " + self.quote(*ranges))

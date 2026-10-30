@@ -2,21 +2,24 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "themes.h"
+
 #include "menu.h"
 #include "option_menu.h"
 #include "window.h"
 
 #include "kernel/pbl_malloc.h"
 
-#include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/graphics/gtypes.h"
-#include "applib/ui/menu_layer.h"
-#include "pbl/services/i18n/i18n.h"
-#include "shell/prefs.h"
-#include "system/passert.h"
-#include "applib/ui/time_range_selection_window.h"
-#include "pbl/services/clock.h"
-#include "pbl/util/size.h"
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/clock.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/util/size.h>
+
+#include <applib/graphics/gtypes.h>
+#include <applib/ui/dialogs/expandable_dialog.h>
+#include <applib/ui/menu_layer.h>
+#include <applib/ui/time_range_selection_window.h>
+#include <shell/prefs.h>
 
 #ifdef CONFIG_THEMING
 
@@ -122,9 +125,11 @@ static void prv_option_menu_selection_will_change(OptionMenu *option_menu, uint1
 
 static OptionMenu *prv_push_color_menu(void) {
   const char *title = i18n_noop("Accent Color");
-  int selected = shell_prefs_get_theme_highlight_inverted() ? INVERT_ENTRY_INDEX :
-      prv_color_to_index(shell_prefs_get_theme_highlight_color(), DEFAULT_THEME_HIGHLIGHT_COLOR);
-  const char** color_names = prv_get_color_names(false);
+  int selected = shell_prefs_get_theme_highlight_inverted()
+                     ? INVERT_ENTRY_INDEX
+                     : prv_color_to_index(shell_prefs_get_theme_highlight_color(),
+                                          DEFAULT_THEME_HIGHLIGHT_COLOR);
+  const char **color_names = prv_get_color_names(false);
   const OptionMenuCallbacks callbacks = {
     .select = prv_color_menu_select,
     .selection_will_change = prv_option_menu_selection_will_change,
@@ -135,9 +140,9 @@ static OptionMenu *prv_push_color_menu(void) {
     PBL_LOG_WRN("Invalid menu color, using default");
     selected = 0;
   }
-  OptionMenu * const option_menu = settings_option_menu_push(
+  OptionMenu *const option_menu = settings_option_menu_push(
       title, OptionMenuContentType_SingleLine, selected, &callbacks,
-      ARRAY_LENGTH(s_color_definitions), true /* icons_enabled */, color_names, NULL);
+      ARRAY_LENGTH(s_color_definitions), true /* icons_enabled */, color_names, nullptr);
 
   if (option_menu) {
     if (selected == INVERT_ENTRY_INDEX) {
@@ -306,8 +311,8 @@ static Window *prv_create_top_menu(void) {
   };
   return settings_window_create(SettingsMenuItemThemes, &data->callbacks);
 #else
-  WTF;
-  return NULL;
+  pbl_panic();
+  return nullptr;
 #endif
 }
 

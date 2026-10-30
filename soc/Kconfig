@@ -23,6 +23,13 @@ config SOC_SF32LB52
 config SOC_QEMU
     bool "QEMU emulated"
 
+config SOC_POSIX
+    bool "POSIX host"
+    select ARCH_POSIX
+    help
+      Run the firmware as a native application on a POSIX host
+      (Linux, macOS), with emulated peripherals.
+
 endchoice
 
 config SOC
@@ -31,7 +38,23 @@ config SOC
     default "SF32LB52" if SOC_SF32LB52
     help
       Stringified SoC name, for places that need the name as a token
-      (e.g. sftool -c). Empty on QEMU boards.
+      (e.g. sftool -c). Empty on QEMU and POSIX boards.
+
+config POSIX_EMSCRIPTEN
+    bool "Emscripten"
+    depends on SOC_POSIX
+    select ARCH_POSIX_FIBERS
+    help
+      The host is a browser, running the firmware as WebAssembly built
+      with Emscripten. Kernel threads are fibers on the browser's single
+      thread, and the browser's event loop drives the host side.
+
+config SDL
+    bool
+    depends on SOC_POSIX
+    help
+      SDL, for the host halves of the drivers of a native build that
+      need a window or its input. Selected by those drivers.
 
 config QEMU
     bool

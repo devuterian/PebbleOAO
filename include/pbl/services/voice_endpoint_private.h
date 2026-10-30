@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "pbl/services/audio_endpoint.h"
-#include "pbl/services/voice_endpoint.h"
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/generic_attr.h"
+#include <pbl/kernel/compiler.h>
+#include <pbl/services/audio_endpoint.h>
+#include <pbl/services/voice_endpoint.h>
+#include <pbl/util/generic_attr.h>
 
 /**
  * @addtogroup services_voice_endpoint
@@ -74,6 +74,13 @@ typedef struct PBL_PACKED {
   /** Setup result. */
   VoiceEndpointResult result : 8;
 } SessionSetupResultMsg;
+
+/** @brief Session setup result for #VoiceEndpointSessionTypeAudioStream, from the phone. */
+typedef struct PBL_PACKED {
+  SessionSetupResultMsg base;
+  /** Audio endpoint session the result is for, so a late answer can't start a newer stream. */
+  AudioEndpointSessionId session_id;
+} AudioStreamSetupResultMsg;
 
 /** @brief Dictation or NLP result, from the phone. */
 typedef struct PBL_PACKED {

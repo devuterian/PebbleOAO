@@ -2,31 +2,29 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "applib/accel_service.h"
-#include "pbl/services/hrm/hrm_manager_private.h"
-#include "pbl/services/activity/activity_algorithm.h"
-#include "pbl/services/activity/kraepelin/activity_algorithm_kraepelin.h"
-#include "pbl/services/activity/kraepelin/kraepelin_algorithm.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/list.h"
-#include "pbl/util/math.h"
-#include "pbl/util/size.h"
-#include "pbl/util/units.h"
+#include <pbl/services/activity/activity_algorithm.h>
+#include <pbl/services/activity/kraepelin/activity_algorithm_kraepelin.h>
+#include <pbl/services/activity/kraepelin/kraepelin_algorithm.h>
+#include <pbl/services/hrm/hrm_manager_private.h>
+#include <pbl/util/list.h>
+#include <pbl/util/math.h>
+#include <pbl/util/size.h>
+#include <pbl/util/units.h>
 
-#include "clar.h"
+#include <applib/accel_service.h>
+#include <clar.h>
+#include <kernel/pbl_malloc.h>
 
 // Stubs
-#include "stubs_hexdump.h"
-#include "stubs_logging.h"
-#include "stubs_passert.h"
-#include "stubs_pbl_malloc.h"
-#include "stubs_sleep.h"
 
 // Fakes
-#include "fake_rtc.h"
+#include <fake_rtc.h>
 
 HRMSessionRef s_hrm_next_session_ref = 1;
 int s_hrm_live_subscriptions = 0;
@@ -56,20 +54,23 @@ bool sys_hrm_manager_set_update_interval(HRMSessionRef session, uint32_t update_
   return true;
 }
 
+HRMActivityScene s_hrm_activity_scene = HRMActivityScene_Default;
+
 void hrm_manager_set_activity_scene(HRMActivityScene scene) {
-  (void)scene;
+  s_hrm_activity_scene = scene;
 }
 
 bool activity_prefs_hrm_activity_tracking_is_enabled(void) {
   return s_hrm_activity_tracking_enabled;
 }
 
-#include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#include <dirent.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <time.h>
 
 extern char *strdup(const char *s);
 
@@ -242,10 +243,10 @@ static void prv_assert_activity_present(KAlgTestActivitySession *sessions, int n
 
 // ==================================================================================
 // Functions used for collecting stats and writing them out to a csv
-static const int k_stats_max_columns = 32;
+#define STATS_MAX_COLUMNS 32
 typedef struct {
   ListNode node;
-  uint32_t values[k_stats_max_columns];
+  uint32_t values[STATS_MAX_COLUMNS];
 } StatsRow;
 typedef enum {
   StatsEpochTypeNonStepping = 0,
@@ -254,16 +255,16 @@ typedef enum {
 } StatsEpochType;
 
 static int s_stats_num_columns = 0;
-static char *s_stats_column_names[k_stats_max_columns];
+static char *s_stats_column_names[STATS_MAX_COLUMNS];
 static StatsRow *s_stat_rows;
 
 // ---------------------------------------------------------------------------------------
 static void prv_stats_reinit(void) {
   // Delete stuff from prior stats run
-  cl_assert(s_stats_num_columns < k_stats_max_columns);
+  cl_assert(s_stats_num_columns < STATS_MAX_COLUMNS);
   for (int i = 0; i < s_stats_num_columns; i++) {
     free(s_stats_column_names[i]);
-    s_stats_column_names[i] = NULL;
+    s_stats_column_names[i] = nullptr;
   }
 
   // Free the rows
@@ -273,7 +274,7 @@ static void prv_stats_reinit(void) {
     next = (StatsRow *)next->node.next;
     free(to_free);
   }
-  s_stat_rows = NULL;
+  s_stat_rows = nullptr;
   s_stats_num_columns = 0;
 }
 
@@ -309,25 +310,7 @@ static void prv_stats_cb(uint32_t num_stats, const char **names, int32_t *values
   }
 }
 
-// ---------------------------------------------------------------------------------------
-// Set a specific column in the last row by name
-static void prv_stats_set_last_row_value(const char *name, uint32_t value) {
-  if (s_stat_rows == NULL) {
-    return;
-  }
-  StatsRow *stats = (StatsRow *)list_get_tail(&s_stat_rows->node);
-  cl_assert(stats != NULL);
-  bool found = 0;
-  for (int i = 0; i < s_stats_num_columns; i++) {
-    if (strcmp(s_stats_column_names[i], name) == 0) {
-      found = true;
-      stats->values[i] = value;
-      break;
-    }
-  }
-  cl_assert(found);
-}
-
+#ifdef STATS_FILE_NAME
 // ---------------------------------------------------------------------------------------
 // Write out accumulated stats to a csv file
 static void prv_stats_write(const char *filename, bool create, const char *test_name,
@@ -336,7 +319,7 @@ static void prv_stats_write(const char *filename, bool create, const char *test_
     return;
   }
 
-  FILE *file = NULL;
+  FILE *file = nullptr;
   if (create) {
     // Write the column names when creating the file
     file = fopen(filename, "w");
@@ -355,7 +338,7 @@ static void prv_stats_write(const char *filename, bool create, const char *test_
   // Write out the column values for each row
   StatsRow *row = s_stat_rows;
   int row_idx = 0;
-  for (; row != NULL; row = (StatsRow *)row->node.next, row_idx++) {
+  for (; row != nullptr; row = (StatsRow *)row->node.next, row_idx++) {
     fprintf(file, "\"%s\"", test_name);
     StatsEpochType epoch_type;
     if (!is_stepping) {
@@ -376,6 +359,7 @@ static void prv_stats_write(const char *filename, bool create, const char *test_
   cl_assert_equal_i(0, fclose(file));
   printf("Stats written to file: %s", filename);
 }
+#endif
 
 // ---------------------------------------------------------------------------------------
 // Run samples through the algorithm integrated into the firmware
@@ -436,7 +420,7 @@ static uint32_t prv_feed_kalg_samples(AccelRawData *data, int num_samples,
   // ----------------------------------------------------
   // Free state
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 
   *minute_data_len = num_minutes_captured;
   return total_steps;
@@ -562,7 +546,7 @@ static bool prv_parse_accel_samples_file(AccelSampleDiscoveryState *state) {
     if (strcmp(token, "AccelRawData") == 0) {
       PBL_ASSERT(state->test_entry.name[0] == 0, "Unexpected start of new samples");
 
-      token = strtok(NULL, "(");
+      token = strtok(nullptr, "(");
       // Copy starting from token + 1 to skip the '*' at the front
       strncpy(state->test_entry.name, token + 1, sizeof(state->test_entry.name));
       printf("\nParsing function samples: %s", state->test_entry.name);
@@ -571,7 +555,7 @@ static bool prv_parse_accel_samples_file(AccelSampleDiscoveryState *state) {
 
     // Look for and parse the expected values
     if (strcmp(token, "//>") == 0) {
-      token = strtok(NULL, " \t\n");
+      token = strtok(nullptr, " \t\n");
       if (strcmp(token, "TEST_EXPECTED") == 0) {
         sscanf(token + strlen(token) + 1, "%d", &state->test_entry.exp_steps);
       } else if (strcmp(token, "TEST_EXPECTED_MIN") == 0) {
@@ -667,7 +651,7 @@ static bool prv_parse_sleep_samples_file(SleepSampleDiscoveryState *state) {
     if (strcmp(token, "AlgDlsMinuteData") == 0) {
       PBL_ASSERT(state->test_entry.name[0] == 0, "Unexpected start of new samples");
 
-      token = strtok(NULL, "(");
+      token = strtok(nullptr, "(");
       // Copy starting from token + 1 to skip the '*' at the front
       strncpy(state->test_entry.name, token + 1, sizeof(state->test_entry.name));
       printf("\nParsing function samples: %s", state->test_entry.name);
@@ -676,7 +660,7 @@ static bool prv_parse_sleep_samples_file(SleepSampleDiscoveryState *state) {
 
     // Look for and parse the expected values
     if (strcmp(token, "//>") == 0) {
-      token = strtok(NULL, " \t\n");
+      token = strtok(nullptr, " \t\n");
       if (strcmp(token, "TEST_VERSION") == 0) {
         sscanf(token + strlen(token) + 1, "%d", &state->test_entry.version);
 
@@ -834,7 +818,7 @@ static bool prv_parse_activity_samples_file(ActivitySampleDiscoveryState *state)
     if (strcmp(token, "AlgDlsMinuteData") == 0) {
       PBL_ASSERT(state->test_entry.name[0] == 0, "Unexpected start of new samples");
 
-      token = strtok(NULL, "(");
+      token = strtok(nullptr, "(");
       // Copy starting from token + 1 to skip the '*' at the front
       strncpy(state->test_entry.name, token + 1, sizeof(state->test_entry.name));
       printf("\nParsing function samples: %s", state->test_entry.name);
@@ -843,7 +827,7 @@ static bool prv_parse_activity_samples_file(ActivitySampleDiscoveryState *state)
 
     // Look for and parse the expected values
     if (strcmp(token, "//>") == 0) {
-      token = strtok(NULL, " \t\n");
+      token = strtok(nullptr, " \t\n");
       if (strcmp(token, "TEST_VERSION") == 0) {
         sscanf(token + strlen(token) + 1, "%d", &state->test_entry.version);
 
@@ -938,10 +922,10 @@ static bool prv_sample_discovery_init(SampleDiscoveryState *state, SampleFileTyp
   if (state->dp) {
     if (state->file) {
       fclose(state->file);
-      state->file = NULL;
+      state->file = nullptr;
     }
     closedir(state->dp);
-    state->dp = NULL;
+    state->dp = nullptr;
     free(state->res_path);
   }
 
@@ -950,7 +934,7 @@ static bool prv_sample_discovery_init(SampleDiscoveryState *state, SampleFileTyp
   sprintf(state->res_path, "%s/%s", CLAR_FIXTURE_PATH, test_files_path);
   state->dp = opendir(state->res_path);
 
-  if (state->dp == NULL) {
+  if (state->dp == nullptr) {
     printf("\nCould not open directory %s", state->res_path);
     return false;
   }
@@ -962,7 +946,7 @@ static bool prv_sample_discovery_init(SampleDiscoveryState *state, SampleFileTyp
 // ---------------------------------------------------------------------------------------
 // Advance to the next file in the directory. Return true if successful
 static bool prv_sample_discovery_next_file(SampleDiscoveryState *state) {
-  if (state->dp == NULL) {
+  if (state->dp == nullptr) {
     return false;
   }
 
@@ -1014,7 +998,7 @@ static bool prv_accel_sample_discovery_next(StepFileTestEntry *entry) {
     } else {
       // No more in this file
       fclose(state->common.file);
-      state->common.file = NULL;
+      state->common.file = nullptr;
     }
   }
 }
@@ -1040,7 +1024,7 @@ static bool prv_sleep_sample_discovery_next(SleepFileTestEntry *entry) {
     } else {
       // No more in this file
       fclose(state->common.file);
-      state->common.file = NULL;
+      state->common.file = nullptr;
     }
   }
 }
@@ -1066,7 +1050,7 @@ static bool prv_activity_sample_discovery_next(ActivityFileTestEntry *entry) {
     } else {
       // No more in this file
       fclose(state->common.file);
-      state->common.file = NULL;
+      state->common.file = nullptr;
     }
   }
 }
@@ -1272,7 +1256,6 @@ void test_kraepelin_algorithm__step_tests(void) {
       "-----------------------------");
 
   float weighted_sum = 0.0;
-  int pass_count = 0;
   int fail_count = 0;
   StepFileTestEntry *entry = &test_entry[0];
   StepTestResults *results;
@@ -1288,7 +1271,6 @@ void test_kraepelin_algorithm__step_tests(void) {
       fail_count++;
     } else {
       status = "pass";
-      pass_count++;
     }
     printf("\n%-40s %-10d %-10d %-10d %-10d %-10d %-10d %-10.2f %-10s", entry->name,
            entry->exp_steps, results->steps, error, entry->exp_steps_min, entry->exp_steps_max,
@@ -1410,7 +1392,7 @@ static void prv_get_sleep_summary(SleepTestResults *results, time_t test_start_u
   uint16_t last_session_len_m = 0;
   uint16_t last_deep_session_len_m = 0;
   bool first_container = true;
-  KAlgTestSleepSession *container_session = NULL;
+  KAlgTestSleepSession *container_session = nullptr;
   for (uint32_t i = 0; i < s_num_captured_sleep_sessions; i++, session++) {
     // Get info on this session
     time_t session_exit_utc = session->start_utc + session->len_m * PBL_SEC_PER_MIN;
@@ -1447,7 +1429,7 @@ static void prv_get_sleep_summary(SleepTestResults *results, time_t test_start_u
 
     } else {
       // Insure that restful sessions are inside the previous container
-      cl_assert(container_session != NULL);
+      cl_assert(container_session != nullptr);
       cl_assert(session->start_utc >= container_session->start_utc);
       cl_assert(session->start_utc <
                 container_session->start_utc + container_session->len_m * PBL_SEC_PER_MIN);
@@ -1568,7 +1550,7 @@ void test_kraepelin_algorithm__sleep_tests(void) {
                              entry->samples[i].v5_fields.orientation,
                              entry->samples[i].v5_fields.plugged_in, 0 /*rest_cals*/,
                              0 /*active_cals*/, 0 /*distance*/, shutting_down,
-                             prv_sleep_session_callback, NULL);
+                             prv_sleep_session_callback, nullptr);
       if (shutting_down) {
         break;
       }
@@ -1624,7 +1606,6 @@ void test_kraepelin_algorithm__sleep_tests(void) {
   }
 
   float weighted_sum = 0.0;
-  int pass_count = 0;
   int fail_count = 0;
   SleepFileTestEntry *entry = &test_entry[0];
   SleepTestResults *results;
@@ -1633,9 +1614,7 @@ void test_kraepelin_algorithm__sleep_tests(void) {
 
     // Generate the status string
     const char *status = prv_status_str(results->all_passed);
-    if (results->all_passed) {
-      pass_count++;
-    } else {
+    if (!results->all_passed) {
       fail_count++;
     }
 
@@ -1676,7 +1655,7 @@ void test_kraepelin_algorithm__sleep_tests(void) {
 
   cl_assert_equal_i(fail_count, 0);
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1727,7 +1706,7 @@ void test_kraepelin_algorithm__activity_tests(void) {
       kalg_activities_update(s_kalg_state, now, entry->samples[i].v5_fields.steps, 0 /*vmc*/,
                              0 /*orientation*/, false /*definitely_not_worn*/, 0 /*rest_cals*/,
                              0 /*active_cals*/, 0 /*distance*/, shutting_down,
-                             prv_activity_session_callback, NULL);
+                             prv_activity_session_callback, nullptr);
       if (shutting_down) {
         break;
       }
@@ -1754,7 +1733,7 @@ void test_kraepelin_algorithm__activity_tests(void) {
           desc = "run";
           break;
         case KAlgActivityTypeCount:
-          WTF;
+          pbl_panic();
           break;
       }
 
@@ -1811,7 +1790,6 @@ void test_kraepelin_algorithm__activity_tests(void) {
   }
 
   float weighted_sum = 0.0;
-  int pass_count = 0;
   int fail_count = 0;
   ActivityFileTestEntry *entry = &test_entry[0];
   ActivityTestResults *results;
@@ -1820,9 +1798,7 @@ void test_kraepelin_algorithm__activity_tests(void) {
 
     // Generate the status string
     const char *status = prv_status_str(results->all_passed);
-    if (results->all_passed) {
-      pass_count++;
-    } else {
+    if (!results->all_passed) {
       fail_count++;
     }
 
@@ -1863,7 +1839,7 @@ void test_kraepelin_algorithm__activity_tests(void) {
 
   cl_assert_equal_i(fail_count, 0);
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1951,7 +1927,7 @@ static void prv_feed_activity_minutes(KAlgTestActivityMinute *samples, int sampl
     kalg_activities_update(s_kalg_state, now, samples[i].steps, 7000 /*vmc*/, 0 /*orientation*/,
                            true /*definitely_not_worn*/, samples[i].resting_calories,
                            samples[i].active_calories, samples[i].distance_mm,
-                           false /* shutting_down */, prv_activity_session_callback, NULL);
+                           false /* shutting_down */, prv_activity_session_callback, nullptr);
     now += PBL_SEC_PER_MIN;
     rtc_set_time(now);
   }
@@ -2093,7 +2069,7 @@ void test_kraepelin_algorithm__walks_and_runs(void) {
   }
 
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -2121,7 +2097,7 @@ void test_kraepelin_algorithm__sleep_stats(void) {
     kalg_activities_update(s_kalg_state, now, samples[i].steps, vmc, samples[i].orientation,
                            samples[i].plugged_in, 0 /*rest_cals*/, 0 /*active_cals*/,
                            0 /*distance*/, false /* shutting_down */, prv_sleep_session_callback,
-                           NULL);
+                           nullptr);
 
     // This particular sample has sleep from minute 32 to 353
     const int k_sleep_start_m = 32;
@@ -2158,27 +2134,131 @@ void test_kraepelin_algorithm__sleep_stats(void) {
   }
 
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }
 
 // ---------------------------------------------------------------------------------------
 // Feed active walking minutes, leaving the walk activity in progress.
-static void prv_feed_walk_minutes(int num_minutes) {
+#define WALK_STEPS_PER_MIN 80
+
+// Fixed start time so the tests below don't depend on the order they run in
+#define WALK_TEST_START_UTC 1787618400
+
+static void prv_feed_minutes(int num_minutes, uint16_t steps) {
   time_t now = rtc_get_time();
   for (int i = 0; i < num_minutes; i++) {
-    kalg_activities_update(s_kalg_state, now, 80 /*steps*/, 7000 /*vmc*/, 0 /*orientation*/,
+    kalg_activities_update(s_kalg_state, now, steps, steps ? 7000 : 0 /*vmc*/, 0 /*orientation*/,
                            true /*definitely_not_worn*/, 100 /*resting_calories*/,
-                           200 /*active_calories*/, 1000 /*distance_mm*/, false /*shutting_down*/,
-                           prv_activity_session_callback, NULL);
+                           steps ? 200 : 0 /*active_calories*/, steps ? 1000 : 0 /*distance_mm*/,
+                           false /*shutting_down*/, prv_activity_session_callback, nullptr);
     now += PBL_SEC_PER_MIN;
     rtc_set_time(now);
   }
 }
 
 // ---------------------------------------------------------------------------------------
+// A walk in progress when a workout starts must not resume once it stops, or it gets logged
+// spanning the whole workout.
+void test_kraepelin_algorithm__walk_does_not_span_workout(void) {
+  s_kalg_state = kernel_zalloc(kalg_state_size());
+  kalg_init(s_kalg_state, prv_stats_cb);
+  s_num_captured_activity_sessions = 0;
+  rtc_set_time(WALK_TEST_START_UTC);
+
+  // Too short to be registered before the workout starts
+  prv_feed_minutes(6, WALK_STEPS_PER_MIN);
+  kalg_enable_activity_tracking(s_kalg_state, false, prv_activity_session_callback, nullptr);
+  prv_feed_minutes(35, WALK_STEPS_PER_MIN);
+  kalg_enable_activity_tracking(s_kalg_state, true, prv_activity_session_callback, nullptr);
+
+  // Too short to be registered on its own, but long enough if it bridged the workout
+  prv_feed_minutes(5, WALK_STEPS_PER_MIN);
+  prv_feed_minutes(8, 0);
+
+  cl_assert_equal_i(s_num_captured_activity_sessions, 0);
+
+  kalg_deinit(s_kalg_state);
+  kernel_free(s_kalg_state);
+  s_kalg_state = nullptr;
+}
+
+// ---------------------------------------------------------------------------------------
+// A registered walk in progress when a workout starts ends there, and a walk after the workout
+// is a new one.
+void test_kraepelin_algorithm__registered_walk_ends_with_workout(void) {
+  s_kalg_state = kernel_zalloc(kalg_state_size());
+  kalg_init(s_kalg_state, prv_stats_cb);
+  s_num_captured_activity_sessions = 0;
+  rtc_set_time(WALK_TEST_START_UTC);
+
+  prv_feed_minutes(12, WALK_STEPS_PER_MIN);
+  cl_assert_equal_i(s_num_captured_activity_sessions, 1);
+  cl_assert(s_captured_activity_sessions[0].ongoing);
+
+  kalg_enable_activity_tracking(s_kalg_state, false, prv_activity_session_callback, nullptr);
+  cl_assert_equal_i(s_num_captured_activity_sessions, 1);
+  cl_assert(!s_captured_activity_sessions[0].ongoing);
+  cl_assert_equal_i(s_captured_activity_sessions[0].len_minutes, 12);
+  const KAlgTestActivitySession ended = s_captured_activity_sessions[0];
+
+  prv_feed_minutes(35, WALK_STEPS_PER_MIN);
+  kalg_enable_activity_tracking(s_kalg_state, true, prv_activity_session_callback, nullptr);
+  prv_feed_minutes(12, WALK_STEPS_PER_MIN);
+
+  cl_assert_equal_i(s_num_captured_activity_sessions, 2);
+  cl_assert_equal_i(s_captured_activity_sessions[0].start_utc, ended.start_utc);
+  cl_assert_equal_i(s_captured_activity_sessions[0].len_minutes, ended.len_minutes);
+  cl_assert(!s_captured_activity_sessions[0].ongoing);
+  cl_assert(s_captured_activity_sessions[1].start_utc > ended.start_utc);
+
+  kalg_deinit(s_kalg_state);
+  kernel_free(s_kalg_state);
+  s_kalg_state = nullptr;
+}
+
+// ---------------------------------------------------------------------------------------
+// A walk in progress ends at the last minute before a time jump instead of carrying its stale
+// start time across it.
+static void prv_walk_ended_on_time_jump(int jump_secs) {
+  s_kalg_state = kernel_zalloc(kalg_state_size());
+  kalg_init(s_kalg_state, prv_stats_cb);
+  s_num_captured_activity_sessions = 0;
+  rtc_set_time(WALK_TEST_START_UTC);
+
+  prv_feed_minutes(12, WALK_STEPS_PER_MIN);
+  cl_assert_equal_i(s_num_captured_activity_sessions, 1);
+  cl_assert_equal_i(s_hrm_activity_scene, HRMActivityScene_Walk);
+
+  const time_t jumped_utc = rtc_get_time() + jump_secs;
+  rtc_set_time(jumped_utc);
+  prv_feed_minutes(1, 0);
+
+  cl_assert(!s_captured_activity_sessions[0].ongoing);
+  cl_assert_equal_i(s_captured_activity_sessions[0].len_minutes, 12);
+  cl_assert_equal_i(s_hrm_activity_scene, HRMActivityScene_Default);
+
+  prv_feed_minutes(12, WALK_STEPS_PER_MIN);
+
+  cl_assert_equal_i(s_num_captured_activity_sessions, 2);
+  cl_assert(s_captured_activity_sessions[1].start_utc >= jumped_utc);
+
+  kalg_deinit(s_kalg_state);
+  kernel_free(s_kalg_state);
+  s_kalg_state = nullptr;
+}
+
+void test_kraepelin_algorithm__walk_ended_on_backward_time_jump(void) {
+  prv_walk_ended_on_time_jump(-PBL_SEC_PER_HOUR);
+}
+
+void test_kraepelin_algorithm__walk_ended_on_forward_time_jump(void) {
+  prv_walk_ended_on_time_jump(PBL_SEC_PER_HOUR);
+}
+
+// ---------------------------------------------------------------------------------------
 // The HRM subscription taken by an auto-detected activity must be released when activity
-// tracking is disabled, even though the activity itself stays in progress. Otherwise starting a
-// workout leaves a never-expiring 1-second subscription behind that pins the sensor on.
+// tracking is disabled. Otherwise starting a workout leaves a never-expiring 1-second
+// subscription behind that pins the sensor on.
 void test_kraepelin_algorithm__hrm_released_when_tracking_disabled(void) {
   s_kalg_state = kernel_zalloc(kalg_state_size());
   kalg_init(s_kalg_state, prv_stats_cb);
@@ -2186,16 +2266,16 @@ void test_kraepelin_algorithm__hrm_released_when_tracking_disabled(void) {
   s_num_captured_activity_sessions = 0;
 
   // Walk long enough to pass the 3 minute threshold that arms the HRM
-  prv_feed_walk_minutes(5);
+  prv_feed_minutes(5, WALK_STEPS_PER_MIN);
   cl_assert_equal_i(s_hrm_live_subscriptions, 1);
 
   // Starting a workout disables activity tracking while the walk is still in progress
-  kalg_enable_activity_tracking(s_kalg_state, false);
+  kalg_enable_activity_tracking(s_kalg_state, false, prv_activity_session_callback, nullptr);
   cl_assert_equal_i(s_hrm_live_subscriptions, 0);
 
   kalg_deinit(s_kalg_state);
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -2207,14 +2287,14 @@ void test_kraepelin_algorithm__hrm_released_on_deinit(void) {
   s_hrm_live_subscriptions = 0;
   s_num_captured_activity_sessions = 0;
 
-  prv_feed_walk_minutes(5);
+  prv_feed_minutes(5, WALK_STEPS_PER_MIN);
   cl_assert_equal_i(s_hrm_live_subscriptions, 1);
 
   kalg_deinit(s_kalg_state);
   cl_assert_equal_i(s_hrm_live_subscriptions, 0);
 
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -2227,7 +2307,7 @@ void test_kraepelin_algorithm__hrm_subscription_is_bounded(void) {
   s_hrm_last_expire_s = 0;
   s_num_captured_activity_sessions = 0;
 
-  prv_feed_walk_minutes(5);
+  prv_feed_minutes(5, WALK_STEPS_PER_MIN);
   cl_assert_equal_i(s_hrm_live_subscriptions, 1);
 
   // The window has to outlast the inactive-minute grace period, or an ongoing activity would
@@ -2236,11 +2316,11 @@ void test_kraepelin_algorithm__hrm_subscription_is_bounded(void) {
 
   // Each further active minute re-arms it rather than subscribing again
   s_hrm_last_expire_s = 0;
-  prv_feed_walk_minutes(1);
+  prv_feed_minutes(1, WALK_STEPS_PER_MIN);
   cl_assert_equal_i(s_hrm_live_subscriptions, 1);
   cl_assert(s_hrm_last_expire_s > 7 * PBL_SEC_PER_MIN);
 
   kalg_deinit(s_kalg_state);
   kernel_free(s_kalg_state);
-  s_kalg_state = NULL;
+  s_kalg_state = nullptr;
 }

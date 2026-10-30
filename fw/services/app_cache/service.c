@@ -1,27 +1,28 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/app_cache.h"
-
-#include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
-#include "kernel/pebble_tasks.h"
-#include "pbl/services/process_management/app_storage.h"
-#include "pbl/services/system_task.h"
-#include "pbl/services/filesystem/app_file.h"
-#include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/settings/settings_file.h"
-#include "pbl/services/settings/settings_file.h"
-#include "shell/normal/quick_launch.h"
-#include "shell/normal/watchface.h"
-#include "shell/prefs.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/list.h"
-#include "pbl/util/math.h"
 #include <time.h>
-#include "pbl/util/units.h"
+
+#include <pbl/kernel/compiler.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/app_cache.h>
+#include <pbl/services/filesystem/app_file.h>
+#include <pbl/services/filesystem/pfs.h>
+#include <pbl/services/process_management/app_storage.h>
+#include <pbl/services/settings/settings_file.h>
+#include <pbl/services/system_task.h>
+#include <pbl/util/list.h>
+#include <pbl/util/math.h>
+#include <pbl/util/units.h>
+
+#include <kernel/events.h>
+#include <kernel/pbl_malloc.h>
+#include <kernel/pebble_tasks.h>
+#include <process_management/app_manager.h>
+#include <process_management/worker_manager.h>
+#include <shell/normal/quick_launch.h>
+#include <shell/normal/watchface.h>
+#include <shell/prefs.h>
 
 PBL_LOG_MODULE_DEFINE(service_app_cache, CONFIG_SERVICE_APP_CACHE_LOG_LEVEL);
 
@@ -32,7 +33,7 @@ PBL_LOG_MODULE_DEFINE(service_app_cache, CONFIG_SERVICE_APP_CACHE_LOG_LEVEL);
 //! application.
 //!
 //! A priority can also be calculated for each entry. It is calculated by a simple last used
-//! algorithm (TODO Improve: PBL-13209) which will help determine which application
+//! algorithm which will help determine which application
 //! needs to be evicted in order to free up more space for other application binaries.
 //!
 //! When an entry is added into the app cache, it means the binaries now reside on the watch. On
@@ -49,25 +50,27 @@ PBL_LOG_MODULE_DEFINE(service_app_cache, CONFIG_SERVICE_APP_CACHE_LOG_LEVEL);
 //! each cache entry is ~16 bytes, 4000 / 16 = 250 apps
 #define APP_CACHE_MAX_SIZE 4000
 
-//! Keep enough room for the maximum sized application based on platform, plus a little more room.
-//! Source: https://pebbletechnology.atlassian.net/wiki/display/DEV/PBW+3.0
-#if defined(CONFIG_BOARD_ASTERIX) || defined(CONFIG_BOARD_OBELIX) || defined(UNITTEST)
+//! Keep enough room for the maximum sized application, plus a little more room.
 #define APP_SPACE_BUFFER PBL_KIB(300)
-#else
-#define APP_SPACE_BUFFER PBL_MIB(4)
-#endif
 
 #define MAX_PRIORITY ((uint32_t)~0)
 
+//! Grace earned per launch, capped so a once-popular app cannot become unevictable.
+#define LAUNCH_BONUS_PER_LAUNCH_S (24 * 60 * 60)
+#define LAUNCH_BONUS_MAX_LAUNCHES (30)
+
 // 8 quick launch apps, 1 default watchface, 1 default worker
 #define DO_NOT_EVICT_LIST_SIZE (10)
+
+// the running app and worker
+#define NEVER_EVICT_LIST_SIZE (2)
 
 static PBL_MUTEX_DEFINE(s_app_cache_mutex);
 
 //! Actual data structure stored in flash about an app cache entry
 typedef struct PBL_PACKED {
-  time_t install_date;
-  time_t last_launch;
+  int32_t install_date;
+  int32_t last_launch;
   uint32_t total_size;
   uint16_t launch_count;
 } AppCacheEntry;
@@ -83,15 +86,22 @@ typedef struct {
   EvictListNode *list;
   uint32_t bytes_needed;
   uint32_t bytes_in_list;
+  //! Evicted only if nothing else can make room.
   const AppInstallId do_not_evict[DO_NOT_EVICT_LIST_SIZE];
+  //! Never evicted: their binaries are open, and pfs_remove croaks on an open file.
+  const AppInstallId never_evict[NEVER_EVICT_LIST_SIZE];
 } EachEvictData;
 
 //! Takes the information given in entry and calculates a new priority for the app.
 //!
 //! Policy rules:
-//! 1. App that has least recently launched or been installed app is evicted.
+//! 1. The least recently launched (or installed) app is evicted first.
+//! 2. Each launch earns the app a day of grace, up to LAUNCH_BONUS_MAX_LAUNCHES, so an app used
+//!    regularly outlives one installed more recently but never opened.
 static uint32_t prv_calculate_priority(AppCacheEntry *entry) {
-  return (uint32_t)MAX(entry->last_launch, entry->install_date);
+  const uint32_t last_used = (uint32_t)MAX(entry->last_launch, entry->install_date);
+  const uint32_t launches = MIN(entry->launch_count, LAUNCH_BONUS_MAX_LAUNCHES);
+  return last_used + (launches * LAUNCH_BONUS_PER_LAUNCH_S);
 }
 
 //! Comparator for EvictListNode
@@ -171,7 +181,7 @@ static bool prv_each_free_up_space(SettingsFile *file, SettingsRecordInfo *info,
   if ((info->key_len != sizeof(AppInstallId)) || (info->val_len != sizeof(AppCacheEntry))) {
     PBL_LOG_WRN("Invalid cache entry with key_len: %u and val_len: %u, flushing", info->key_len,
                 info->val_len);
-    system_task_add_callback(prv_delete_cache_callback, NULL);
+    system_task_add_callback(prv_delete_cache_callback, nullptr);
     return false; // stop iterating, delete the file and binaries
   }
 
@@ -182,6 +192,10 @@ static bool prv_each_free_up_space(SettingsFile *file, SettingsRecordInfo *info,
 
   info->get_key(file, (uint8_t *)&id, info->key_len);
   info->get_val(file, (uint8_t *)&entry, info->val_len);
+
+  if (prv_is_in_list(id, data->never_evict, NEVER_EVICT_LIST_SIZE)) {
+    return true; // continue iterating
+  }
 
   // create node
   EvictListNode *node = kernel_malloc_check(sizeof(EvictListNode));
@@ -227,7 +241,7 @@ status_t app_cache_app_launched(AppInstallId app_id) {
       goto unlock;
     }
 
-    AppCacheEntry entry = {0};
+    AppCacheEntry entry = {};
     rv = settings_file_get(&file, (uint8_t *)&app_id, sizeof(AppInstallId), (uint8_t *)&entry,
                            sizeof(AppCacheEntry));
 
@@ -268,19 +282,24 @@ status_t app_cache_free_up_space(uint32_t bytes_needed) {
     // we don't want to remove any default apps or quick launch apps, so keep them in a list.
     EachEvictData evict_data = (EachEvictData){
       .bytes_needed = bytes_needed,
-      .do_not_evict = {
+      .do_not_evict =
+          {
 #ifndef CONFIG_SHELL_SDK
-        quick_launch_get_app(BUTTON_ID_UP),
-        quick_launch_get_app(BUTTON_ID_SELECT),
-        quick_launch_get_app(BUTTON_ID_DOWN),
-        quick_launch_get_app(BUTTON_ID_BACK),
-        quick_launch_single_click_get_app(BUTTON_ID_UP),
-        quick_launch_single_click_get_app(BUTTON_ID_DOWN),
-        quick_launch_combo_back_up_get_app(),
-        quick_launch_combo_up_down_get_app(),
+            quick_launch_get_app(BUTTON_ID_UP),
+            quick_launch_get_app(BUTTON_ID_SELECT),
+            quick_launch_get_app(BUTTON_ID_DOWN),
+            quick_launch_get_app(BUTTON_ID_BACK),
+            quick_launch_single_click_get_app(BUTTON_ID_UP),
+            quick_launch_single_click_get_app(BUTTON_ID_DOWN),
+            quick_launch_combo_back_up_get_app(),
+            quick_launch_combo_up_down_get_app(),
 #endif
-        watchface_get_default_install_id(),
-        worker_preferences_get_default_worker(),
+            watchface_get_default_install_id(),
+            worker_preferences_get_default_worker(),
+          },
+      .never_evict = {
+        app_manager_get_current_app_id(),
+        worker_manager_get_current_worker_id(),
       },
     };
 
@@ -324,7 +343,7 @@ static bool prv_remove_matching_resource_file_callback(SettingsFile *file, Setti
       // the AppInstallId of the file matches the one in the cache so we can remove this
       // entry from the resource_list (since we don't want to delete it)
       // note: resource_list may be updated if we happen to remove the first entry in the list
-      list_remove(&(iter->list_node), (ListNode **)resource_list, NULL);
+      list_remove(&(iter->list_node), (ListNode **)resource_list, nullptr);
       kernel_free(iter); // free up the memory for the node we just removed
       break;             // we can quit now that we've found a match for this id
     }
@@ -363,10 +382,8 @@ static void prv_app_cache_find_and_delete_orphans(PFSFileListEntry **resource_li
   }
 }
 
-// The bug addressed in PBL-34010 caused resource files to remain in the filesystem even
-// after the associated application had been deleted.  This function attempts to find such
-// orphaned files and remove them.  Note: further to the bug in PBL-34010, this function will
-// remove any resource files that are not related to apps currently in the cache.
+// Remove any resource files that are not related to apps currently in the cache, e.g. left
+// behind after the associated application had been deleted.
 static void prv_purge_orphaned_resource_files(void) {
   // create a list of all app resource files in the filesystem
   PFSFileListEntry *resource_files = pfs_create_file_list(is_app_resource_file_name);
@@ -422,7 +439,7 @@ status_t app_cache_add_entry(AppInstallId app_id, uint32_t total_size) {
     settings_file_close(&file);
 
     // cleanup the cache if we need to
-    system_task_add_callback(prv_cleanup_app_cache_if_needed, NULL);
+    system_task_add_callback(prv_cleanup_app_cache_if_needed, nullptr);
   }
 unlock:
   pbl_mutex_unlock(&s_app_cache_mutex);

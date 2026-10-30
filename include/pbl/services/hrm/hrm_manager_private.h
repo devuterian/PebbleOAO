@@ -3,20 +3,21 @@
 
 #pragma once
 
-#include "pbl/kernel/msgq.h"
 #include "hrm_manager.h"
 
-#include "applib/event_service_client.h"
-#include "pbl/services/hrm/hrm_activity_scene.h"
-#include <pbl/drivers/rtc.h>
-#include "kernel/events.h"
-#include "pbl/kernel/mutex.h"
-#include "process_management/app_install_types.h"
-#include "pbl/services/new_timer/new_timer.h"
-#include "pbl/util/list.h"
-#include "pbl/util/circular_buffer.h"
-
 #include <stdint.h>
+
+#include <pbl/drivers/rtc.h>
+#include <pbl/kernel/msgq.h>
+#include <pbl/kernel/mutex.h>
+#include <pbl/services/hrm/hrm_activity_scene.h>
+#include <pbl/services/new_timer/new_timer.h>
+#include <pbl/util/circular_buffer.h>
+#include <pbl/util/list.h>
+
+#include <applib/event_service_client.h>
+#include <kernel/events.h>
+#include <process_management/app_install_types.h>
 
 /**
  * @defgroup services_hrm_hrm_manager_private HRM manager internals
@@ -88,6 +89,10 @@ typedef struct HRMSubscriberState {
 
   /** Tick count of the last usable reading this subscriber received. */
   RtcTicks last_valid_bpm_ticks;
+  /** Waiting for a usable reading since @ref due_since_ticks. */
+  bool is_due;
+  /** Tick count at which this subscriber became due, valid while @ref is_due. */
+  RtcTicks due_since_ticks;
 } HRMSubscriberState;
 
 /**
@@ -140,9 +145,11 @@ struct HRMManagerState {
 
   /** Accelerometer manager subscription, while the sensor is on. */
   AccelManagerState *accel_state;
+  /** Number of the current subscription, passed as its data events' context. */
+  uint32_t accel_subscription;
   /** Accelerometer manager sample buffer. */
   AccelRawData accel_manager_buffer[HRM_MANAGER_ACCEL_MANAGER_SAMPLES_PER_UPDATE];
-  /** Lock protecting @ref accel_data. */
+  /** Lock protecting @ref accel_data and the accelerometer subscription. */
   struct pbl_mutex accel_data_lock;
   /** Accelerometer samples for the driver. */
   HRMAccelData accel_data;
@@ -150,7 +157,7 @@ struct HRMManagerState {
   /** Battery state subscription, to track the charger. */
   EventServiceInfo charger_subscription;
 
-  /** Timer turning the sensor back on. */
+  /** Timer checking due, expired, and unserved subscriptions. */
   TimerID update_enable_timer_id;
 
   /** Driver reports since the last turn-off check, up to @ref HRM_CHECK_SENSOR_DISABLE_COUNT. */

@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/listify.h"
+#include <pbl/kernel/compiler.h>
+#include <pbl/util/listify.h>
 
-#include "kernel.h"
+#include <kernel.h>
 
 extern uint8_t _estack[];
 
@@ -15,7 +15,7 @@ void Reset_Handler(void);
 void arch_irq_spurious(void);
 void arch_irq_spurious(void) {
   // An exception or IRQ with no handler; IPSR holds its number.
-  KERNEL_ASSERT(false);
+  PBL_ASSERTN(false);
 }
 
 PBL_WEAK PBL_ALIAS("arch_irq_spurious") void NMI_Handler(void);

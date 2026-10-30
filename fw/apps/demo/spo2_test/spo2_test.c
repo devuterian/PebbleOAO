@@ -3,16 +3,17 @@
 
 #include <stdio.h>
 
-#include "applib/app.h"
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/text_layer.h"
-#include "applib/ui/window.h"
-#include "apps/system_app_ids.h"
-#include "kernel/pbl_malloc.h"
-#include "process_state/app_state/app_state.h"
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/hrm/hrm_manager.h"
-#include "pbl/util/units.h"
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/hrm/hrm_manager.h>
+#include <pbl/util/units.h>
+
+#include <applib/app.h>
+#include <applib/ui/app_window_stack.h>
+#include <applib/ui/text_layer.h>
+#include <applib/ui/window.h>
+#include <apps/system_app_ids.h>
+#include <kernel/pbl_malloc.h>
+#include <process_state/app_state/app_state.h>
 
 #define SPO2_TEST_PERCENT_LEN 12
 #define SPO2_TEST_DETAIL_LEN  160
@@ -112,7 +113,7 @@ static void prv_disable_spo2(AppData *app_data) {
 
 static void prv_init(void) {
   AppData *app_data = app_malloc_check(sizeof(*app_data));
-  *app_data = (AppData){0};
+  *app_data = (AppData){};
   app_state_set_user_data(app_data);
 
   Window *window = &app_data->window;
@@ -153,11 +154,11 @@ static void prv_init(void) {
 
   if (!sys_hrm_manager_is_hrm_present()) {
     text_layer_set_text(detail_tl, "No HRM present");
-  } else if (!activity_prefs_heart_rate_is_enabled() && !activity_prefs_blood_oxygen_is_enabled() &&
-             !activity_prefs_blood_oxygen_activity_tracking_is_enabled()) {
+  } else if (!activity_prefs_heart_rate_is_enabled() && !activity_prefs_spo2_is_enabled() &&
+             !activity_prefs_spo2_activity_tracking_is_enabled()) {
     // A foreground app's subscription bypasses the per-feature pref mask, but the HRM manager
     // still won't power the sensor on at all with every monitoring pref off.
-    text_layer_set_text(detail_tl, "Enable heart rate or\nblood oxygen monitoring");
+    text_layer_set_text(detail_tl, "Enable heart rate or\nSpO2 monitoring");
   } else {
     text_layer_set_text(detail_tl, "Measuring...\nKeep watch on wrist");
     prv_enable_spo2(app_data);
@@ -189,5 +190,6 @@ const PebbleProcessMd *spo2_test_get_app_info(void) {
     // so it sits behind the developer prompt and stays out of the way for normal users.
     .common.visibility = ProcessVisibilityHidden,
   };
-  return (sys_hrm_manager_is_hrm_present()) ? (const PebbleProcessMd *)&s_spo2_test_app_info : NULL;
+  return (sys_hrm_manager_is_hrm_present()) ? (const PebbleProcessMd *)&s_spo2_test_app_info
+                                            : nullptr;
 }

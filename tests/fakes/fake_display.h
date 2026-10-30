@@ -4,7 +4,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <stdbool.h>
 
 #define DISP_BYTES_LINE DISP_COLS / 8
 // Bytes_per_line + 1 byte for the line address + 1 byte for a null trailer + 1 optional byte for a
@@ -17,7 +16,7 @@ typedef struct {
 } DisplayRow;
 
 typedef bool (*NextRowCallback)(DisplayRow *row);
-typedef void (*UpdateCompleteCallback)(void);
+typedef void (*UpdateCompleteCallback)(bool success);
 
 typedef enum {
   DISPLAY_STATE_IDLE,

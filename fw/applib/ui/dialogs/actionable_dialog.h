@@ -5,10 +5,10 @@
 
 #include "actionable_dialog_private.h"
 
-#include "applib/ui/action_bar_layer.h"
-#include "applib/ui/click.h"
-#include "applib/ui/dialogs/dialog.h"
-#include "applib/ui/window_stack.h"
+#include <applib/ui/action_bar_layer.h>
+#include <applib/ui/click.h>
+#include <applib/ui/dialogs/dialog.h>
+#include <applib/ui/window_stack.h>
 
 //! Creates a new ActionableDialog on the heap.
 //! @param dialog_name The debug name to give the \ref ActionableDialog
@@ -59,6 +59,9 @@ void app_actionable_dialog_push(ActionableDialog *actionable_dialog);
 //! Pops the given \ref ActionableDialog from the window stack it was pushed to.
 //! @param actionable_dialog Pointer to a \ref ActionableDialog to pop
 void actionable_dialog_pop(ActionableDialog *actionable_dialog);
+
+//! Overrides the font of the dialog text. Must be called before the dialog is pushed.
+void actionable_dialog_set_text_font(ActionableDialog *actionable_dialog, GFont font);
 
 //! Attaches user data to an \ref ActionableDialog, since the \ref
 //! ActionableDialog already uses the \ref Window 's user_data field.

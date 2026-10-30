@@ -1,22 +1,23 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "applib/app.h"
-#include "applib/app_comm.h"
-#include "applib/app_sync/app_sync.h"
-#include "kernel/pbl_malloc.h"
-#include "process_state/app_state/app_state.h"
-#include "pbl/services/activity/activity_algorithm.h"
-#include "pbl/services/activity/activity_private.h"
-#include "pbl/services/i18n/i18n.h"
-#include <pbl/logging/logging.h>
-#include "pbl/util/size.h"
-
 #include "active.h"
 #include "controller.h"
 #include "metrics.h"
 
 #include <stdio.h>
+
+#include <pbl/logging/logging.h>
+#include <pbl/services/activity/activity_algorithm.h>
+#include <pbl/services/activity/activity_private.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/util/size.h>
+
+#include <applib/app.h>
+#include <applib/app_comm.h>
+#include <applib/app_sync/app_sync.h>
+#include <kernel/pbl_malloc.h>
+#include <process_state/app_state/app_state.h>
 
 enum {
   SPORTS_TIME_KEY = 0x0,           // TUPLE_CSTRING
@@ -193,8 +194,8 @@ static bool prv_pause(bool should_be_paused) {
   return true;
 }
 
-static void prv_update_data(void *unused) {
-  // Nothing to do here.
+static bool prv_update_data(void *unused) {
+  return true;
 }
 
 static void prv_metric_to_string(WorkoutMetricType type, char *buffer, size_t buffer_size,
@@ -227,6 +228,16 @@ static void prv_metric_to_string(WorkoutMetricType type, char *buffer, size_t bu
     // Not supported by the sports API
     case WorkoutMetricType_Steps:
     case WorkoutMetricType_AvgPace:
+    case WorkoutMetricType_AvgSpeed:
+    case WorkoutMetricType_AvgCadence:
+    case WorkoutMetricType_ActiveCalories:
+    case WorkoutMetricType_AvgHr:
+    case WorkoutMetricType_SpO2:
+    case WorkoutMetricType_SpO2Min:
+    case WorkoutMetricType_HrZone0Time:
+    case WorkoutMetricType_HrZone1Time:
+    case WorkoutMetricType_HrZone2Time:
+    case WorkoutMetricType_HrZone3Time:
     case WorkoutMetricType_None:
     case WorkoutMetricTypeCount:
       break;
@@ -249,7 +260,7 @@ static const char *prv_get_distance_string(const char *miles_string, const char 
 
   const Tuple *metric_tuple = app_sync_get(&data->sync, SPORTS_UNITS_KEY);
   uint8_t is_metric = 1;
-  if (metric_tuple != NULL) {
+  if (metric_tuple != nullptr) {
     is_metric = MIN(metric_tuple->value->uint8, 1);
   }
 
@@ -289,7 +300,7 @@ static void prv_init(void) {
   data->workout_controller = (WorkoutController){
     .is_paused = prv_is_paused,
     .pause = prv_pause,
-    .stop = NULL,
+    .stop = nullptr,
     .update_data = prv_update_data,
     .metric_to_string = prv_metric_to_string,
     .get_metric_value = prv_get_metric_value,
@@ -299,7 +310,7 @@ static void prv_init(void) {
 
   data->active_window =
       workout_active_create_triple_layout(WorkoutMetricType_Duration, WorkoutMetricType_Distance, 0,
-                                          NULL, NULL, &data->workout_controller);
+                                          nullptr, nullptr, &data->workout_controller);
   data->pace_speed_metric = DEFAULT_PACE_SPEED_METRIC;
   prv_update_scrollable_metrics(data);
   workout_active_window_push(data->active_window);

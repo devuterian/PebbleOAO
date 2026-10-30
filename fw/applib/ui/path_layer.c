@@ -2,9 +2,11 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "path_layer.h"
-#include "applib/graphics/graphics.h"
 
-void path_layer_update_proc(PathLayer *path_layer, GContext *ctx) {
+#include <applib/graphics/graphics.h>
+
+void path_layer_update_proc(Layer *layer, GContext *ctx) {
+  PathLayer *path_layer = (PathLayer *)layer;
   if (!gcolor_is_transparent(path_layer->fill_color)) {
     graphics_context_set_fill_color(ctx, path_layer->fill_color);
     gpath_draw_filled(ctx, &path_layer->path);
@@ -21,7 +23,7 @@ void path_layer_init(PathLayer *path_layer, const GPathInfo *path_info) {
   layer_init(&path_layer->layer, &outer_rect);
   path_layer->stroke_color = GColorWhite;
   path_layer->fill_color = GColorBlack;
-  path_layer->layer.update_proc = (LayerUpdateProc)path_layer_update_proc;
+  path_layer->layer.update_proc = path_layer_update_proc;
 }
 
 void path_layer_deinit(PathLayer *path_layer, const GPathInfo *path_info) {

@@ -5,10 +5,9 @@
 
 #include "gdraw_command.h"
 
-#include "applib/graphics/gtypes.h"
-
 #include <stdint.h>
-#include <stdbool.h>
+
+#include <applib/graphics/gtypes.h>
 
 //! @file graphics/gdraw_command_list.h
 //! Defines the functions to manipulate \ref GDrawCommandList objects
@@ -39,7 +38,6 @@ typedef void (*GDrawCommandProcessCommand)(GDrawCommandProcessor *processor,
 //! @internal
 //! Data used by the processor
 typedef struct GDrawCommandProcessor {
-  // TODO: PBL-23778 processors for image, sequence, frame
   GDrawCommandProcessCommand command;
 } GDrawCommandProcessor;
 

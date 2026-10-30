@@ -1,28 +1,32 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/voice/voice.h"
-
-#include "pbl/bluetooth/responsiveness.h"
-#include "board/board.h"
-#include <pbl/drivers/mic.h>
-#include "kernel/events.h"
-#include "kernel/pbl_malloc.h"
-#include "pbl/kernel/mutex.h"
-#include "process_management/app_manager.h"
-#include "pbl/services/comm_session/session.h"
-#include "pbl/services/new_timer/new_timer.h"
-#include "pbl/services/audio_endpoint.h"
-#include "pbl/services/voice/transcription.h"
-#include "pbl/services/voice/voice_speex.h"
-#include "pbl/services/voice_endpoint.h"
-#include "syscall/syscall_internal.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/uuid.h"
-
 #include <string.h>
+
+#include <pbl/bluetooth/responsiveness.h>
+#include <pbl/drivers/mic.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/compiler.h>
+#include <pbl/kernel/mutex.h>
+#include <pbl/kernel/syscall.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/audio_endpoint.h>
+#include <pbl/services/comm_session/session.h>
+#include <pbl/services/mic_manager.h>
+#ifdef CONFIG_SERVICE_MIC_STREAM
+#include <pbl/services/mic_stream.h>
+#endif
+#include <pbl/services/new_timer/new_timer.h>
+#include <pbl/services/voice/transcription.h>
+#include <pbl/services/voice/voice.h>
+#include <pbl/services/voice/voice_speex.h>
+#include <pbl/services/voice_endpoint.h>
+#include <pbl/util/uuid.h>
+
+#include <board/board.h>
+#include <kernel/events.h>
+#include <kernel/pbl_malloc.h>
+#include <process_management/app_manager.h>
 
 PBL_LOG_MODULE_DEFINE(service_voice, CONFIG_SERVICE_VOICE_LOG_LEVEL);
 
@@ -49,6 +53,7 @@ static PBL_MUTEX_DEFINE(s_lock);
 
 // Handle requests from apps
 static bool s_from_app;
+static VoiceEndpointSessionType s_session_type;
 static Uuid s_app_uuid;
 
 static AudioEndpointSessionId s_session_id = AUDIO_ENDPOINT_SESSION_INVALID_ID;
@@ -119,7 +124,7 @@ static void prv_stop_recording(void) {
   // This prevents new frames from being added while the endpoint shuts down
   audio_endpoint_stop_transfer(s_session_id);
 
-  mic_stop(MIC);
+  mic_manager_release(MicClientVoiceDictation);
 
   prv_teardown_session();
 
@@ -128,7 +133,7 @@ static void prv_stop_recording(void) {
 
 static void prv_cancel_recording(void) {
   PBL_LOG_DBG("prv_cancel_recording called - cancelling mic and audio endpoint transfer");
-  mic_stop(MIC);
+  mic_manager_release(MicClientVoiceDictation);
 
   audio_endpoint_cancel_transfer(s_session_id);
   prv_teardown_session();
@@ -144,6 +149,7 @@ static void prv_cancel_early_session(void) {
 static void prv_reset(void) {
   s_state = SessionState_Idle;
   s_session_id = AUDIO_ENDPOINT_SESSION_INVALID_ID;
+  mic_manager_set_dictation_active(false);
 }
 
 static void prv_cancel_session(void) {
@@ -152,7 +158,7 @@ static void prv_cancel_session(void) {
 }
 
 static void prv_start_result_timeout(void) {
-  new_timer_start(s_timeout, TIMEOUT_SESSION_RESULT, prv_session_result_timeout, NULL, 0);
+  new_timer_start(s_timeout, TIMEOUT_SESSION_RESULT, prv_session_result_timeout, nullptr, 0);
 }
 
 static void prv_audio_transfer_stopped_handler(AudioEndpointSessionId session_id) {
@@ -197,7 +203,8 @@ static bool prv_start_recording(void) {
 
   if (frame_buffer && frame_size_samples > 0) {
     PBL_LOG_DBG("Starting microphone with frame buffer");
-    if (!mic_start(MIC, &prv_audio_data_handler, NULL, frame_buffer, frame_size_samples)) {
+    if (!mic_manager_acquire(MicClientVoiceDictation, &prv_audio_data_handler, nullptr,
+                             frame_buffer, frame_size_samples, nullptr, nullptr)) {
       PBL_LOG_ERR("Failed to start microphone for voice session");
       return false;
     }
@@ -254,12 +261,12 @@ static void prv_handle_subsystem_started(SessionState transition_to_state) {
     if (!prv_start_recording()) {
       PBL_LOG_ERR("Voice session setup failed while starting recording");
       prv_cancel_session();
-      prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusErrorGeneric, NULL);
+      prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusErrorGeneric, nullptr);
       return;
     }
 
     // Indicate to the UI that we have started recording
-    prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusSuccess, NULL);
+    prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusSuccess, nullptr);
   }
 }
 
@@ -279,7 +286,7 @@ static void prv_session_result_timeout(void *data) {
   prv_reset();
   PBL_LOG_WRN("Timeout waiting for session result");
 
-  prv_send_event(VoiceEventTypeSessionResult, VoiceStatusTimeout, NULL);
+  prv_send_event(VoiceEventTypeSessionResult, VoiceStatusTimeout, nullptr);
 
   pbl_mutex_unlock(&s_lock);
 }
@@ -301,7 +308,7 @@ static void prv_session_setup_timeout(void *data) {
   prv_cancel_session();
   PBL_LOG_WRN("Timeout waiting for session setup result ");
 
-  prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusTimeout, NULL);
+  prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusTimeout, nullptr);
 
   pbl_mutex_unlock(&s_lock);
 }
@@ -338,21 +345,42 @@ void voice_init(void) {
 // prv_session_setup_timeout)
 VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
   PBL_LOG_DBG("voice_start_dictation called with session_type: %d", session_type);
+  if ((session_type >= VoiceEndpointSessionTypeCount) ||
+      (session_type == VoiceEndpointSessionTypeAudioStream)) {
+    // App audio streams go through mic_stream, which gates them
+    return VOICE_SESSION_ID_INVALID;
+  }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (s_state != SessionState_Idle) {
+    PBL_LOG_DBG("Voice service not idle (state: %d), returning invalid session", s_state);
+    pbl_mutex_unlock(&s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+  // Keeps apps off the mic and the audio endpoint until prv_reset()
+  mic_manager_set_dictation_active(true);
+  pbl_mutex_unlock(&s_lock);
+
+#ifdef CONFIG_SERVICE_MIC_STREAM
+  // Dictation takes the mic, the encoder and the phone-side audio session away from an app
+  mic_stream_service_handle_system_preempt();
+#endif
+  pbl_mutex_lock(&s_lock, PBL_FOREVER);
+  if (s_state != SessionState_Idle) {
+    // Another start won the race; the hold is now its
+    PBL_LOG_DBG("Voice service not idle (state: %d), returning invalid session", s_state);
+    pbl_mutex_unlock(&s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
+  mic_manager_set_dictation_active(true);
 
   // Lazily initialize Speex encoder to avoid baseline memory usage when voice not used
   if (!voice_speex_is_initialized()) {
     if (!voice_speex_init()) {
       PBL_LOG_ERR("Failed to initialize Speex encoder");
+      prv_reset();
       pbl_mutex_unlock(&s_lock);
       return VOICE_SESSION_ID_INVALID;
     }
-  }
-
-  if (s_state != SessionState_Idle) {
-    PBL_LOG_DBG("Voice service not idle (state: %d), returning invalid session", s_state);
-    pbl_mutex_unlock(&s_lock);
-    return VOICE_SESSION_ID_INVALID;
   }
 
   // Start new session generation and clear teardown guard
@@ -363,6 +391,7 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
   s_teardown_in_progress = false;
   PBL_LOG_DBG("Setting state to StartSession");
   s_state = SessionState_StartSession;
+  s_session_type = session_type;
 
   // check if we're being started from an app so we know to send the UUID when setting up a session
   s_from_app = ((pebble_task_get_current() == PebbleTask_App) &&
@@ -393,19 +422,25 @@ VoiceSessionId voice_start_dictation(VoiceEndpointSessionType session_type) {
 
   PBL_LOG_DBG("Setting up audio endpoint transfer");
   s_session_id = audio_endpoint_setup_transfer(prv_audio_transfer_stopped_handler);
-  PBL_ASSERTN(s_session_id != AUDIO_ENDPOINT_SESSION_INVALID_ID);
+  if (s_session_id == AUDIO_ENDPOINT_SESSION_INVALID_ID) {
+    PBL_LOG_WRN("Audio endpoint busy, not starting dictation");
+    prv_teardown_session();
+    prv_reset();
+    pbl_mutex_unlock(&s_lock);
+    return VOICE_SESSION_ID_INVALID;
+  }
   PBL_LOG_DBG("Audio endpoint transfer setup complete with session_id=%d", s_session_id);
 
   PBL_LOG_INFO("Send session setup message. Session type: %d", session_type);
   PBL_LOG_DBG("Calling voice_endpoint_setup_session");
   voice_endpoint_setup_session(session_type, s_session_id, &transfer_info,
-                               s_from_app ? &s_app_uuid : NULL);
+                               s_from_app ? &s_app_uuid : nullptr);
 
   if (s_timeout == TIMER_INVALID_ID) {
     s_timeout = new_timer_create();
   }
   s_timeout_generation = s_session_generation;
-  new_timer_start(s_timeout, TIMEOUT_SESSION_SETUP, prv_session_setup_timeout, NULL, 0);
+  new_timer_start(s_timeout, TIMEOUT_SESSION_SETUP, prv_session_setup_timeout, nullptr, 0);
 
   PBL_LOG_DBG("Audio transfer setup complete, handling subsystem started");
   prv_handle_subsystem_started(SessionState_AudioEndpointSetupReceived);
@@ -491,7 +526,7 @@ void voice_handle_session_setup_result(VoiceEndpointResult result,
     VoiceEventType event_type = (s_state <= SessionState_StartSession)
                                     ? VoiceEventTypeSessionSetup
                                     : VoiceEventTypeSessionResult;
-    prv_send_event(event_type, VoiceStatusErrorGeneric, NULL);
+    prv_send_event(event_type, VoiceStatusErrorGeneric, nullptr);
     goto done;
   }
 
@@ -502,8 +537,11 @@ void voice_handle_session_setup_result(VoiceEndpointResult result,
     goto unlock;
   }
 
-  if (session_type >= VoiceEndpointSessionTypeCount) {
-    PBL_LOG_WRN("Session setup result for invalid session type received");
+  if (session_type != s_session_type) {
+    PBL_LOG_WRN("Session setup result for session type %d, requested %d", session_type,
+                s_session_type);
+    prv_cancel_session();
+    prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusErrorGeneric, nullptr);
     goto done;
   }
 
@@ -512,7 +550,7 @@ void voice_handle_session_setup_result(VoiceEndpointResult result,
     prv_cancel_session();
     VoiceStatus status = prv_get_status_from_result(result);
     PBL_LOG_WRN("Error occurred setting up session: %d", result);
-    prv_send_event(VoiceEventTypeSessionSetup, status, NULL);
+    prv_send_event(VoiceEventTypeSessionSetup, status, nullptr);
     goto done;
   }
 
@@ -528,7 +566,7 @@ void voice_handle_session_setup_result(VoiceEndpointResult result,
           "Received session setup result for non-app session when an app "
           "session result was expected");
     }
-    prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusErrorGeneric, NULL);
+    prv_send_event(VoiceEventTypeSessionSetup, VoiceStatusErrorGeneric, nullptr);
     goto done;
   }
 
@@ -596,7 +634,7 @@ static bool prv_handle_dictation_nlp_result_common(VoiceEndpointResult result,
     VoiceEventType event_type = (s_state <= SessionState_StartSession)
                                     ? VoiceEventTypeSessionSetup
                                     : VoiceEventTypeSessionResult;
-    prv_send_event(event_type, VoiceStatusErrorGeneric, NULL);
+    prv_send_event(event_type, VoiceStatusErrorGeneric, nullptr);
     return false;
   }
 
@@ -605,14 +643,14 @@ static bool prv_handle_dictation_nlp_result_common(VoiceEndpointResult result,
         "Received session result for wrong session (Expected: "
         "%" PRIu16 "; Received: %" PRIu16,
         s_session_id, session_id);
-    prv_send_event(VoiceEventTypeSessionResult, VoiceStatusErrorGeneric, NULL);
+    prv_send_event(VoiceEventTypeSessionResult, VoiceStatusErrorGeneric, nullptr);
     return false;
   }
 
   if (result != VoiceEndpointResultSuccess) {
     VoiceStatus status = prv_get_status_from_result(result);
     PBL_LOG_WRN("Error occurred processing result: %d", result);
-    prv_send_event(VoiceEventTypeSessionResult, status, NULL);
+    prv_send_event(VoiceEventTypeSessionResult, status, nullptr);
     return false;
   }
 
@@ -629,7 +667,7 @@ static bool prv_handle_dictation_nlp_result_common(VoiceEndpointResult result,
           "Received session result for non-app session when an app "
           "session result was expected");
     }
-    prv_send_event(VoiceEventTypeSessionResult, VoiceStatusErrorGeneric, NULL);
+    prv_send_event(VoiceEventTypeSessionResult, VoiceStatusErrorGeneric, nullptr);
     return false;
   }
 
@@ -684,7 +722,7 @@ void voice_handle_nlp_result(VoiceEndpointResult result, AudioEndpointSessionId 
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
 
   const bool app_initiated = false;
-  Uuid *app_uuid = NULL;
+  Uuid *app_uuid = nullptr;
   if (!prv_handle_dictation_nlp_result_common(result, session_id, app_initiated, app_uuid)) {
     goto unlock;
   }
@@ -704,18 +742,20 @@ unlock:
   pbl_mutex_unlock(&s_lock);
 }
 
-DEFINE_SYSCALL(VoiceSessionId, sys_voice_start_dictation, VoiceEndpointSessionType session_type) {
-  if (session_type >= VoiceEndpointSessionTypeCount) {
+PBL_SYSCALL(VoiceSessionId, sys_voice_start_dictation,
+            (VAL, VoiceEndpointSessionType, session_type)) {
+  if ((session_type >= VoiceEndpointSessionTypeCount) ||
+      (session_type == VoiceEndpointSessionTypeAudioStream)) {
     return AUDIO_ENDPOINT_SESSION_INVALID_ID;
   }
   return voice_start_dictation(session_type);
 }
 
-DEFINE_SYSCALL(void, sys_voice_stop_dictation, VoiceSessionId session_id) {
+PBL_SYSCALL(void, sys_voice_stop_dictation, (VAL, VoiceSessionId, session_id)) {
   voice_stop_dictation(session_id);
 }
 
-DEFINE_SYSCALL(void, sys_voice_cancel_dictation, VoiceSessionId session_id) {
+PBL_SYSCALL(void, sys_voice_cancel_dictation, (VAL, VoiceSessionId, session_id)) {
   voice_cancel_dictation(session_id);
 }
 

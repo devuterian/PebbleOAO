@@ -1,23 +1,25 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/stationary.h"
-
-#include "applib/accel_service_private.h"
-#include <pbl/drivers/battery.h>
-#include "kernel/event_loop.h"
-#include "kernel/ui/modals/modal_manager.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/accel_manager.h"
-#include "pbl/services/analytics/analytics.h"
-#include "pbl/services/regular_timer.h"
-#include "pbl/services/runlevel.h"
-#include "shell/prefs.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/size.h"
-
 #include <stdlib.h>
+
+#include <pbl/drivers/battery.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/accel_manager.h>
+#include <pbl/services/analytics/analytics.h>
+#include <pbl/services/regular_timer.h>
+#include <pbl/services/runlevel.h>
+#include <pbl/services/stationary.h>
+#include <pbl/util/size.h>
+
+#include <applib/accel_service_private.h>
+#include <kernel/event_loop.h>
+#include <kernel/pebble_tasks.h>
+#include <kernel/ui/modals/modal_manager.h>
+#include <resource/resource_ids.auto.h>
+#include <shell/prefs.h>
 
 PBL_LOG_MODULE_DEFINE(service_stationary, CONFIG_SERVICE_STATIONARY_LOG_LEVEL);
 
@@ -98,7 +100,7 @@ void stationary_handle_battery_connection_change_event(void) {
   if (battery_is_usb_connected()) {
   } else {
   }
-  prv_update_stationary_enabled(NULL);
+  prv_update_stationary_enabled(nullptr);
 }
 
 //! A movement of the watch will make the watch wake up. In this state, the watch
@@ -141,7 +143,7 @@ static void prv_stationary_check_launcher_task_cb(void *unused_data) {
 //! the call was made. The current position is updated at this time
 static void prv_stationary_check_timer_cb(void *unused_data) {
   //! All stationary events need to be handled by kernel main
-  launcher_task_add_callback(prv_stationary_check_launcher_task_cb, NULL);
+  launcher_task_add_callback(prv_stationary_check_launcher_task_cb, nullptr);
 }
 
 bool stationary_get_enabled(void) {
@@ -149,16 +151,11 @@ bool stationary_get_enabled(void) {
 }
 
 void stationary_set_enabled(bool enabled) {
-  if (enabled == stationary_get_enabled()) {
-    return;
-  }
   shell_prefs_set_stationary_enabled(enabled);
+}
 
-  if (enabled) {
-  } else {
-  }
-
-  launcher_task_add_callback(prv_update_stationary_enabled, NULL);
+void stationary_handle_prefs_changed(void) {
+  launcher_task_add_callback(prv_update_stationary_enabled, nullptr);
 }
 
 void stationary_run_level_enable(bool enable) {
@@ -171,7 +168,7 @@ void stationary_run_level_enable(bool enable) {
     return;
   }
   s_stationary_mode_inhibit = inhibit;
-  launcher_task_add_callback(prv_update_stationary_enabled, NULL);
+  launcher_task_add_callback(prv_update_stationary_enabled, nullptr);
 }
 
 void stationary_wake_up(void) {
@@ -258,7 +255,7 @@ static void prv_handle_awake_action(StationaryAction action) {
       prv_enter_disabled_state();
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -276,7 +273,7 @@ static void prv_handle_stationary_action(StationaryAction action) {
       prv_enter_disabled_state();
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -294,7 +291,7 @@ static void prv_handle_peeking_action(StationaryAction action) {
       prv_enter_disabled_state();
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -313,7 +310,7 @@ static void prv_handle_disabled_action(StationaryAction action) {
     case StationaryActionDisableStationary:
       break;
     default:
-      WTF;
+      pbl_panic();
   }
 }
 

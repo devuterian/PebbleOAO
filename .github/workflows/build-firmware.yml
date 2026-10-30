@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main, '*-branch']
   workflow_call:
+    inputs:
+      sbom:
+        description: Also generate the software bill of materials
+        type: boolean
+        default: false
 
 jobs:
   changes-firmware:
@@ -24,18 +29,25 @@ jobs:
             src:
               - '.github/actions/**'
               - '.github/workflows/build-firmware.yml'
+              - 'apps/**'
               - 'boards/**'
-              - 'platform/**'
+              - 'cmake/**'
+              - 'drivers/**'
+              - 'fw/**'
+              - 'include/**'
+              - 'kernel/**'
+              - 'lib/**'
               - 'resources/**'
               - 'sdk/**'
               - 'soc/**'
-              - 'fw/**'
-              - 'stored_apps/**'
-              - 'tools/**'
+              - 'subsys/**'
               - 'third_party/**'
-              - 'cmake/**'
+              - 'tools/**'
               - 'CMakeLists.txt'
               - 'Kconfig'
+              - 'SDK_VERSION'
+              - 'pbl.yml'
+              - 'requirements.txt'
 
   build-firmware:
     needs: changes-firmware
@@ -43,7 +55,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     container:
-      image: ghcr.io/coredevices/pebbleos-docker:v8
+      image: ghcr.io/coredevices/pebbleos-docker:v10
 
     strategy:
       matrix:
@@ -115,6 +127,10 @@ jobs:
       - name: Bundle
         run: pbl bundle
 
+      - name: SBOM
+        if: inputs.sbom
+        run: pbl build sbom
+
       - name: Copy artifacts
         env:
           BOARD: ${{ steps.artifact_board.outputs.NAME }}
@@ -130,6 +146,9 @@ jobs:
           cp build/pebbleos.elf "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}.elf"
           cp build/pebbleos_loghash_dict.json \
             "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}_loghash_dict.json"
+          if [ -f build/pebbleos.cdx.json ]; then
+            cp build/pebbleos.cdx.json "artifacts/firmware_${BOARD}_${version}${SLOT_SUFFIX}.cdx.json"
+          fi
 
       - name: Copy translation source
         if: matrix.board == 'asterix'
@@ -157,6 +176,72 @@ jobs:
           aws s3 cp build/pebbleos_loghash_dict.json \
             "s3://${{ vars.LOG_HASH_BUCKET_NAME }}/${{ steps.build_id.outputs.BUILD_ID }}-${{ github.sha }}-normal.json" \
             --endpoint-url "${{ vars.LOG_HASH_BUCKET_ENDPOINT }}"
+
+  build-itest:
+    needs: changes-firmware
+    if: needs.changes-firmware.outputs.should-build == 'true'
+    runs-on: ubuntu-24.04
+
+    container:
+      image: ghcr.io/coredevices/pebbleos-docker:v10
+
+    strategy:
+      matrix:
+        board:
+          - getafix@dvt2
+
+    steps:
+      - name: Mark Github workspace as safe
+        run: git config --system --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Fetch tags
+        run: git fetch --tags --force
+
+      - name: Rebase onto target branch
+        uses: ./.github/actions/rebase
+        with:
+          submodules: true
+
+      - name: Install Python dependencies
+        run: |
+          pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Set artifact board name
+        id: artifact_board
+        run: echo "NAME=$(printf '%s' "$BOARD" | tr @ _)" >> "$GITHUB_OUTPUT"
+        env:
+          BOARD: ${{ matrix.board }}
+
+      - name: Configure
+        run: pbl configure --board '${{ matrix.board }}'
+
+      - name: Build
+        run: pbl build
+
+      - name: Bundle
+        run: pbl bundle
+
+      - name: Store
+        uses: actions/upload-artifact@v7
+        with:
+          name: itest-build-${{ steps.artifact_board.outputs.NAME }}
+          include-hidden-files: true
+          retention-days: 30
+          path: |
+            build/CMakeCache.txt
+            build/.config
+            build/pebbleos.elf
+            build/pebbleos.hex
+            build/system_resources.pbpack
+            build/fw/loghash_dict.json
+            build/normal_*.pbz
 
   upload-translation-source:
     needs: build-firmware
@@ -229,13 +314,15 @@ jobs:
           path: merged
 
   build-firmware-status:
-    needs: [changes-firmware, build-firmware, merge-firmware]
+    needs: [changes-firmware, build-firmware, build-itest, merge-firmware]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       - if: >-
           needs.build-firmware.result == 'failure' ||
           needs.build-firmware.result == 'cancelled' ||
+          needs.build-itest.result == 'failure' ||
+          needs.build-itest.result == 'cancelled' ||
           needs.merge-firmware.result == 'failure' ||
           needs.merge-firmware.result == 'cancelled'
         run: exit 1

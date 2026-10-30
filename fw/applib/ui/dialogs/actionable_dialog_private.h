@@ -7,10 +7,11 @@
 //! into the default \ref ActionBarLayer provided by the dialog.
 #pragma once
 
-#include "applib/graphics/gtypes.h"
-#include "applib/ui/action_bar_layer.h"
-#include "applib/ui/click.h"
-#include "applib/ui/dialogs/dialog.h"
+#include <applib/fonts/fonts.h>
+#include <applib/graphics/gtypes.h>
+#include <applib/ui/action_bar_layer.h>
+#include <applib/ui/click.h>
+#include <applib/ui/dialogs/dialog.h>
 
 //! Different types of action bar. Two commonly used types are built in:
 //! Confirm and Decline.  Alternatively, the user can supply their own
@@ -40,5 +41,6 @@ typedef struct ActionableDialog {
   };
   ActionBarLayer *action_bar;
   ClickConfigProvider config_provider;
+  GFont text_font;
   void *user_data;
 } ActionableDialog;

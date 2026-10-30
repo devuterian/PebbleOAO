@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "pbl/kernel/compiler.h"
-#include "pbl/kernel/thread.h"
+#include <pbl/kernel/compiler.h>
+#include <pbl/kernel/thread.h>
 
 /**
  * @defgroup kernel_debug Introspection
@@ -172,14 +172,14 @@ size_t pbl_thread_stats_snapshot(struct pbl_thread_stats *out, size_t max,
  */
 size_t pbl_thread_count(void);
 
+#ifdef CONFIG_ARCH_HAS_DEBUGGER_DETECT
 /**
- * @brief Handle a failed kernel assertion.
+ * @brief Check whether a debugger is attached.
  *
- * Implemented by the platform.
- *
- * @param filename Source file name of the assertion.
- * @param line Line of the assertion.
+ * @return true from the moment a debugger enables halting debug until it
+ *         detaches.
  */
-PBL_NORETURN void pbl_kernel_assert_failed(const char *filename, int line);
+bool pbl_debugger_attached(void);
+#endif
 
 /** @} */

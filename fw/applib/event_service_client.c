@@ -1,18 +1,18 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/util/list.h"
-#include "pbl/services/event_service.h"
-#include "kernel/kernel_applib_state.h"
-
 #include "event_service_client.h"
-#include "pbl/util/list.h"
-#include "process_state/app_state/app_state.h"
-#include "process_state/worker_state/worker_state.h"
 
-#include "syscall/syscall.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
+#include <pbl/services/event_service.h>
+#include <pbl/util/list.h>
+
+#include <kernel/kernel_applib_state.h>
+#include <process_state/app_state/app_state.h>
+#include <process_state/worker_state/worker_state.h>
+#include <syscall/syscall.h>
 
 static EventServiceInfo *prv_get_state(void) {
   PebbleTask task = pebble_task_get_current();
@@ -23,22 +23,23 @@ static EventServiceInfo *prv_get_state(void) {
   } else if (task == PebbleTask_KernelMain) {
     return kernel_applib_get_event_service_state();
   } else {
-    WTF;
+    pbl_panic();
   }
 }
 
-static int event_service_comparator(EventServiceInfo *a, EventServiceInfo *b) {
+static int event_service_comparator(void *a_data, void *b_data) {
+  EventServiceInfo *a = a_data;
+  EventServiceInfo *b = b_data;
   return (b->type - a->type);
 }
 
 bool event_service_filter(ListNode *node, void *tp) {
   EventServiceInfo *info = (EventServiceInfo *)node;
-  uint32_t type = (uint32_t)tp;
-  return (info->type == type);
+  return (info->type == (uintptr_t)tp);
 }
 
 static void do_handle(EventServiceInfo *info, PebbleEvent *e) {
-  PBL_ASSERTN(info->handler != NULL);
+  PBL_ASSERTN(info->handler != nullptr);
   info->handler(e, info->context);
 }
 
@@ -50,7 +51,7 @@ void event_service_client_subscribe(EventServiceInfo *handler) {
     return;
   }
   // Add to handlers list
-  list_sorted_add(list, &handler->list_node, (Comparator)event_service_comparator, true);
+  list_sorted_add(list, &handler->list_node, event_service_comparator, true);
 
   sys_event_service_client_subscribe(handler);
 }

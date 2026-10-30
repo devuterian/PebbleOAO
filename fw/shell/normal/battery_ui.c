@@ -8,24 +8,31 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "applib/ui/dialogs/dialog_private.h"
-#include "applib/ui/dialogs/simple_dialog.h"
-#include "applib/ui/ui.h"
-#include "kernel/event_loop.h"
-#include "kernel/ui/kernel_ui.h"
-#include "kernel/ui/modals/modal_manager.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/battery/battery_curve.h"
-#include "pbl/services/clock.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/battery/battery_charge_limit.h"
-#include "shell/prefs.h"
-#include "shell/charging_preferences.h"
+#include <pbl/services/battery/battery_curve.h>
+#include <pbl/services/clock.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/util/math.h>
+
+#include <applib/graphics/gdraw_command.h>
+#include <applib/graphics/gdraw_command_list.h>
+#include <applib/ui/dialogs/dialog_private.h>
+#include <applib/ui/dialogs/simple_dialog.h>
+#include <applib/ui/ui.h>
+#include <kernel/ui/kernel_ui.h>
+#include <kernel/ui/modals/modal_manager.h>
+#include <resource/resource_ids.auto.h>
 #include <string.h>
-#include "applib/fonts/fonts.h"
-#include "applib/ui/kino/kino_reel_pdci.h"
-#include "applib/ui/kino/kino_reel_pdcs.h"
-#include "applib/graphics/gdraw_command_transforms.h"
+#include <kernel/event_loop.h>
+#include <pbl/services/battery/battery_charge_limit.h>
+#include <pbl/services/battery/battery_state.h>
+#include <pbl/services/new_timer/new_timer.h>
+#include <shell/system_theme.h>
+#include <shell/prefs.h>
+#include <shell/charging_preferences.h>
+#include <applib/fonts/fonts.h>
+#include <applib/ui/kino/kino_reel_pdci.h>
+#include <applib/ui/kino/kino_reel_pdcs.h>
+#include <applib/graphics/gdraw_command_transforms.h>
 
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)
 #define CHARGE_DETAILS 1
@@ -155,7 +162,19 @@ static void prv_charge_refresh(void *unused);
 
 typedef void (*DialogUpdateFn)(Dialog *, void *);
 
-static Dialog *s_dialog = NULL;
+static Dialog *s_dialog = nullptr;
+
+// Liquid polygon in the charging icon: bottom-left, top-left, top-right, bottom-right at 100%
+#define LIQUID_COMMAND_IDX 2
+#define LIQUID_RISE_MS     2500
+#define LIQUID_CYCLE_MS    3200
+
+typedef struct {
+  GDrawCommandProcessor processor;
+  Animation *animation;
+  uint8_t percent;
+  uint8_t level;
+} LiquidProcessor;
 
 typedef struct {
   uint32_t percent;
@@ -175,6 +194,89 @@ static const ResourceId s_warning_icon[] = {
   RESOURCE_ID_BATTERY_ICON_LOW_LARGE, RESOURCE_ID_BATTERY_ICON_VERY_LOW_LARGE
 };
 
+static GPoint prv_lerp_point(GPoint from, GPoint to, uint8_t percent) {
+  return GPoint(from.x + (to.x - from.x) * percent / 100, from.y + (to.y - from.y) * percent / 100);
+}
+
+static void prv_fill_liquid(GDrawCommandProcessor *processor, GDrawCommand *processed_command,
+                            size_t processed_command_max_size, const GDrawCommandList *list,
+                            const GDrawCommand *command) {
+  if (command != gdraw_command_list_get_command((GDrawCommandList *)list, LIQUID_COMMAND_IDX)) {
+    return;
+  }
+
+  const LiquidProcessor *liquid = (LiquidProcessor *)processor;
+  const GPoint bottom_left = gdraw_command_get_point(processed_command, 0);
+  const GPoint top_left = gdraw_command_get_point(processed_command, 1);
+  const GPoint top_right = gdraw_command_get_point(processed_command, 2);
+  const GPoint bottom_right = gdraw_command_get_point(processed_command, 3);
+
+  gdraw_command_set_point(processed_command, 1,
+                          prv_lerp_point(bottom_left, top_left, liquid->level));
+  gdraw_command_set_point(processed_command, 2,
+                          prv_lerp_point(bottom_right, top_right, liquid->level));
+  gdraw_command_set_fill_color(processed_command,
+                               PBL_IF_COLOR_ELSE(GColorWindsorTan, GColorLightGray));
+  gdraw_command_set_hidden(processed_command, false);
+}
+
+static LiquidProcessor s_liquid = {
+  .processor.command = prv_fill_liquid,
+};
+
+static void prv_liquid_animation_update(Animation *animation, const AnimationProgress progress) {
+  const uint32_t elapsed_ms = (uint32_t)progress * LIQUID_CYCLE_MS / ANIMATION_NORMALIZED_MAX;
+  const uint32_t rise_ms = MIN(elapsed_ms, LIQUID_RISE_MS);
+  const uint8_t level = s_liquid.percent + (100 - s_liquid.percent) * rise_ms / LIQUID_RISE_MS;
+
+  if (level != s_liquid.level && s_dialog) {
+    s_liquid.level = level;
+    layer_mark_dirty(&s_dialog->icon_layer.layer);
+  }
+}
+
+static const AnimationImplementation s_liquid_animation_impl = {
+  .update = prv_liquid_animation_update,
+};
+
+static void prv_liquid_animation_start(void) {
+  if (s_liquid.animation) {
+    return;
+  }
+
+  s_liquid.level = s_liquid.percent;
+  Animation *animation = animation_create();
+  animation_set_implementation(animation, &s_liquid_animation_impl);
+  animation_set_duration(animation, LIQUID_CYCLE_MS);
+  animation_set_curve(animation, AnimationCurveLinear);
+  animation_set_play_count(animation, ANIMATION_PLAY_COUNT_INFINITE);
+  animation_schedule(animation);
+  s_liquid.animation = animation;
+}
+
+static void prv_liquid_animation_stop(void) {
+  if (s_liquid.animation) {
+    animation_destroy(s_liquid.animation);
+    s_liquid.animation = nullptr;
+  }
+}
+
+static void prv_set_liquid_processor(Dialog *dialog) {
+  if (dialog->icon_id == RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE) {
+    kino_layer_set_draw_command_processor(&dialog->icon_layer, &s_liquid.processor);
+    prv_liquid_animation_start();
+  } else {
+    kino_layer_set_draw_command_processor(&dialog->icon_layer, nullptr);
+    prv_liquid_animation_stop();
+  }
+}
+
+static void prv_update_liquid(Dialog *dialog) {
+  if (window_is_loaded(&dialog->window)) {
+    prv_set_liquid_processor(dialog);
+  }
+}
+
 static void prv_update_ui_fully_charged(Dialog *dialog, void *ignored) {
 #if CHARGE_DETAILS
   if (shell_prefs_get_charging_display().flags != ChargingDisplayStock) {
@@ -185,6 +287,7 @@ static void prv_update_ui_fully_charged(Dialog *dialog, void *ignored) {
   dialog_set_text(dialog, i18n_get("Fully Charged", dialog));
   dialog_set_background_color(dialog, GColorKellyGreen);
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_FULL_LARGE);
+  prv_update_liquid(dialog);
 }
 
 static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
@@ -262,6 +365,7 @@ static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
 #endif
   dialog_set_background_color(dialog, GColorLightGray);
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE);
+  prv_update_liquid(dialog);
 }
 
 static void prv_update_ui_warning(Dialog *dialog, void *context) {
@@ -280,6 +384,14 @@ static void prv_update_ui_warning(Dialog *dialog, void *context) {
   }
 
   dialog_set_icon(dialog, data->warning_icon);
+  prv_update_liquid(dialog);
+}
+
+static void prv_dialog_on_load(void *context) {
+  prv_set_liquid_processor(context);
+#if CHARGE_DETAILS
+  prv_charge_load(context);
+#endif
 }
 
 #if CHARGE_DETAILS
@@ -312,7 +424,8 @@ static void prv_dialog_on_unload(void *context) {
   Dialog *dialog = context;
   i18n_free_all(dialog);
   if (dialog == s_dialog) {
-    s_dialog = NULL;
+    prv_liquid_animation_stop();
+    s_dialog = nullptr;
 #if CHARGE_DETAILS
     s_charge_dialog = false;
     if (s_charge_timer != TIMER_INVALID_ID) {
@@ -337,12 +450,12 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
   }
 #endif
   Dialog *new_dialog = simple_dialog_get_dialog(new_simple_dialog);
-  dialog_set_callbacks(new_dialog, &(DialogCallbacks) {
-    .unload = prv_dialog_on_unload,
-#if CHARGE_DETAILS
-    .load = prv_charge_load,
-#endif
-  }, new_dialog);
+  dialog_set_callbacks(new_dialog,
+                       &(DialogCallbacks){
+                         .load = prv_dialog_on_load,
+                         .unload = prv_dialog_on_unload,
+                       },
+                       new_dialog);
   update_fn(new_dialog, data);
 
   Dialog *old_dialog = s_dialog;
@@ -382,7 +495,8 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
 // Public API
 ////////////////////
 
-void battery_ui_display_plugged(void) {
+void battery_ui_display_plugged(uint8_t percent) {
+  s_liquid.percent = percent;
 #if CHARGE_DETAILS
   bool custom = shell_prefs_get_charging_display().flags != ChargingDisplayStock;
   if (s_dialog && s_charge_dialog != custom) {
@@ -394,7 +508,7 @@ void battery_ui_display_plugged(void) {
   // but we don't want to overlay ourselves over anything they may have
   // on the screen at the moment.
   WindowStack *stack = modal_manager_get_window_stack(ModalPriorityGeneric);
-  prv_display_modal(stack, prv_update_ui_charging, NULL);
+  prv_display_modal(stack, prv_update_ui_charging, nullptr);
 #if CHARGE_DETAILS
   if (!custom) {
     return;
@@ -410,10 +524,14 @@ void battery_ui_display_plugged(void) {
 #endif
 }
 
+void battery_ui_update_charge_level(uint8_t percent) {
+  s_liquid.percent = percent;
+}
+
 void battery_ui_display_fully_charged(void) {
 #if CHARGE_DETAILS
   if (shell_prefs_get_charging_display().flags != ChargingDisplayStock) {
-    battery_ui_display_plugged();
+    battery_ui_display_plugged(s_liquid.percent);
     return;
   }
 #endif
@@ -421,7 +539,7 @@ void battery_ui_display_fully_charged(void) {
   // but we don't want to overlay ourselves over anything they may have
   // on the screen at the moment.
   WindowStack *stack = modal_manager_get_window_stack(ModalPriorityGeneric);
-  prv_display_modal(stack, prv_update_ui_fully_charged, NULL);
+  prv_display_modal(stack, prv_update_ui_fully_charged, nullptr);
 }
 
 void battery_ui_display_warning(uint32_t percent, BatteryUIWarningLevel warning_level) {
@@ -453,6 +571,6 @@ void battery_ui_dismiss_modal(void) {
 #endif
   if (s_dialog) {
     dialog_pop(s_dialog);
-    s_dialog = NULL;
+    s_dialog = nullptr;
   }
 }

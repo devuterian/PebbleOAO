@@ -3,6 +3,8 @@
 
 config CPU_CORTEX_M
 	bool
+	select ARCH_HAS_DEBUGGER_DETECT
+	select ARCH_HAS_USERSPACE
 	help
 	  ARM Cortex-M core. Selected through the CPU the SoC selects.
 
@@ -49,11 +51,3 @@ config CPU_HAS_FPU
 	bool
 	help
 	  Single-precision FPU: FPv4-SP on ARMv7-M, FPv5-SP on ARMv8-M.
-
-config MPU_TYPE_ARMV8M
-	bool
-	default y if ARMV8_M_MAINLINE
-
-config MPU_TYPE_ARMV7M
-	bool
-	default y if ARMV7_M

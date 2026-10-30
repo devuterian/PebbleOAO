@@ -3,9 +3,7 @@
 
 #pragma once
 
-#include "applib/graphics/text.h"
-
-// TODO: PBL-22261 Rename GTextNode et. al. with a proper Prefix, e.g. TimelineTextNode
+#include <applib/graphics/text.h>
 
 //! GTextNode implements a stacking layout primarily for displaying complex compositions of text.
 //!

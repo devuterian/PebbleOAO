@@ -10,14 +10,30 @@ from sdk_helpers import (
     append_to_attr,
     find_sdk_component,
     get_node_from_abspath,
+    warn_undeclared_microphone,
     wrap_task_name_with_platform,
 )
-from waflib import Logs
+from waflib import Logs, Utils
 from waflib.Configure import conf
 from waflib.Errors import WafError
 from waflib.Task import Task
 from waflib.TaskGen import after_method, before_method, feature
 from waflib.Tools import c, c_preproc
+
+INIT_ARRAYS = """
+        . = ALIGN(4);
+        PROVIDE_HIDDEN(__preinit_array_start = .);
+        KEEP(*(.preinit_array))
+        PROVIDE_HIDDEN(__preinit_array_end = .);
+        PROVIDE_HIDDEN(__init_array_start = .);
+        KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*)))
+        KEEP(*(.init_array))
+        PROVIDE_HIDDEN(__init_array_end = .);
+        PROVIDE_HIDDEN(__fini_array_start = .);
+        KEEP(*(SORT_BY_INIT_PRIORITY(.fini_array.*)))
+        KEEP(*(.fini_array))
+        PROVIDE_HIDDEN(__fini_array_end = .);
+"""
 
 # Override the default waf task __str__ method to include display of the HW platform being targeted
 Task.__str__ = wrap_task_name_with_platform
@@ -31,6 +47,7 @@ def options(opt):
     :return: N/A
     """
     opt.load("gcc")
+    opt.load("pebble_sdk_clangdb")
     opt.add_option(
         "-d",
         "--debug",
@@ -129,6 +146,7 @@ def build(bld):
             features="subst",
             source=find_sdk_component(bld, bld.env, "pebble_app.ld.template"),
             target=build_node.make_node("pebble_app.ld.auto"),
+            INIT_ARRAYS="" if "FROZEN_AT_REVISION" in bld.env.PLATFORM else INIT_ARRAYS,
             **bld.env.PLATFORM,
         )
 
@@ -415,6 +433,15 @@ def pbl_build(self, *k, **kw):
             "The pbl_build method requires that a valid bin_type attribute be specified. "
             f"Valid options are {valid_bin_types}"
         )
+
+    if bin_type == "app" and not getattr(self, "microphone_checked", False):
+        # Once per build, not per platform.
+        self.microphone_checked = True
+        sources = [
+            s if hasattr(s, "read") else self.path.find_resource(s)
+            for s in Utils.to_list(kw.get("source", []))
+        ]
+        warn_undeclared_microphone(self.env.PROJECT_INFO, [s for s in sources if s])
 
     if bin_type in ("app", "worker"):
         kw["features"] = "c cprogram pebble_cprogram memory_usage"

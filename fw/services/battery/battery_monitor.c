@@ -1,20 +1,19 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/battery/battery_monitor.h"
-
-#include "board/board.h"
-#include "pbl/services/battery/battery_charge_limit.h"
-#include "kernel/low_power.h"
-#include "kernel/util/standby.h"
-#include "pbl/services/firmware_update.h"
-#include "pbl/services/new_timer/new_timer.h"
-#include "pbl/services/system_task.h"
-#include <pbl/logging/logging.h>
-#include "pbl/util/ratio.h"
-
+#include <pbl/services/battery/battery_charge_limit.h>
 #include <stdint.h>
-#include "pbl/util/testing.h"
+
+#include <pbl/logging/logging.h>
+#include <pbl/services/battery/battery_monitor.h>
+#include <pbl/services/firmware_update.h>
+#include <pbl/services/new_timer/new_timer.h>
+#include <pbl/services/system_task.h>
+#include <pbl/util/ratio.h>
+#include <pbl/util/testing.h>
+
+#include <kernel/low_power.h>
+#include <kernel/util/standby.h>
 
 PBL_LOG_MODULE_DEFINE(service_battery, CONFIG_SERVICE_BATTERY_LOG_LEVEL);
 
@@ -42,10 +41,10 @@ static void prv_enter_standby(void);
 static void prv_exit_critical(void);
 
 static const PowerState power_states[] = {
-  [PowerStateGood] = {0},
+  [PowerStateGood] = {},
   [PowerStateLowPower] = {.enter = prv_enter_lpm, .exit = prv_exit_lpm},
   [PowerStateCritical] = {.enter = prv_begin_standby_timer, .exit = prv_exit_critical},
-  [PowerStatePluggedIn] = {0},
+  [PowerStatePluggedIn] = {},
   [PowerStateStandby] = {.enter = prv_enter_standby}
 };
 
@@ -119,7 +118,7 @@ static void prv_begin_standby_timer(void) {
   PBL_LOG_INFO("Battery critical: begin standby timer");
   // If the watch was already running, give them 30s, otherwise just 2s.
   uint32_t standby_timeout = (s_first_run) ? 2000 : 30000;
-  new_timer_start(s_standby_timer_id, standby_timeout, prv_standby_timer_callback, NULL,
+  new_timer_start(s_standby_timer_id, standby_timeout, prv_standby_timer_callback, nullptr,
                   0 /*flags*/);
 }
 
@@ -133,7 +132,7 @@ static void system_task_handle_battery_critical(void *data) {
 }
 
 static void prv_enter_standby(void) {
-  system_task_add_callback(system_task_handle_battery_critical, NULL);
+  system_task_add_callback(system_task_handle_battery_critical, nullptr);
 }
 
 static void prv_log_battery_state(PreciseBatteryChargeState state) {
@@ -156,7 +155,7 @@ static void prv_log_battery_state(PreciseBatteryChargeState state) {
     .is_plugged = state.is_plugged,
   };
 
-  if ((percent < BOARD_CONFIG_POWER.low_power_threshold) ||
+  if ((percent < CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT) ||
       (s_prev_batt_state.all != new_batt_state.all) || s_first_run) {
     s_prev_batt_state.all = new_batt_state.all;
   }
@@ -186,7 +185,7 @@ void battery_monitor_handle_state_change_event(PreciseBatteryChargeState state) 
 
 #ifndef CONFIG_RECOVERY_FW
   const uint32_t LOW_POWER_PERCENT =
-      pbl_ratio32_from_percent(BOARD_CONFIG_POWER.low_power_threshold);
+      pbl_ratio32_from_percent(CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT);
 
   bool low_power = !state.is_charging && (state.charge_percent <= LOW_POWER_PERCENT);
   if (low_power && s_first_run && !state.is_plugged) {
@@ -250,5 +249,5 @@ TimerID battery_monitor_get_standby_timer_id(void) {
 #include <pbl/shell/shell.h>
 
 PBL_SHELL_SUBCMD_SET_CREATE(sub_battery);
-PBL_SHELL_CMD_REGISTER(battery, sub_battery, "Battery", NULL);
+PBL_SHELL_CMD_REGISTER(battery, sub_battery, "Battery", nullptr);
 #endif

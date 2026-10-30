@@ -6,21 +6,22 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "applib/app.h"
-#include "applib/fonts/fonts.h"
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/progress_window.h"
-#include "applib/ui/ui.h"
 #include <pbl/drivers/battery.h>
-#include "kernel/pbl_malloc.h"
-#include "process_management/app_install_manager.h"
-#include "process_management/worker_manager.h"
-#include "process_state/app_state/app_state.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/app_fetch_endpoint.h"
-#include "shell/normal/watchface.h"
-#include "pbl/services/compositor/compositor_transitions.h"
 #include <pbl/logging/logging.h>
+#include <pbl/services/app_fetch_endpoint.h>
+#include <pbl/services/compositor/compositor_transitions.h>
+#include <pbl/services/i18n/i18n.h>
+
+#include <applib/app.h>
+#include <applib/fonts/fonts.h>
+#include <applib/ui/app_window_stack.h>
+#include <applib/ui/progress_window.h>
+#include <applib/ui/ui.h>
+#include <kernel/pbl_malloc.h>
+#include <process_management/app_install_manager.h>
+#include <process_management/worker_manager.h>
+#include <process_state/app_state/app_state.h>
+#include <shell/normal/watchface.h>
 
 #define FAIL_PAUSE_MS         1000
 #define SCROLL_OUT_MS         250
@@ -76,7 +77,7 @@ static void prv_app_fetch_launch_app(AppFetchUIData *data) {
   };
   ext->common.transition = compositor_dot_transition_app_fetch_get();
   if ((data->next_app_args.common.reason == APP_LAUNCH_WAKEUP) &&
-      (data->next_app_args.common.args != NULL)) {
+      (data->next_app_args.common.args != nullptr)) {
     ext->common.args = &data->next_app_args.wakeup_info;
   }
 
@@ -117,14 +118,13 @@ static void prv_set_progress_failure(AppFetchUIData *data) {
     case AppFetchResultNoData:
       icon = TIMELINE_RESOURCE_CHECK_INTERNET_CONNECTION;
 #if PBL_ROUND
-      // TODO PBL-28730: Fix peek layer so it does its own line wrapping
+      // TODO: peek layer should do its own line wrapping
       message = i18n_get("No internet\nconnection", data);
 #else
       message = i18n_get("No internet connection", data);
 #endif
       break;
     case AppFetchResultIncompatibleJSFailure:
-      // TODO: PBL-39752 make this a more expressive error message with a call to action
       icon = TIMELINE_RESOURCE_GENERIC_WARNING;
       message = i18n_get("Incompatible JS", data);
       break;
@@ -229,7 +229,7 @@ static void prv_app_fetch_event_handler(PebbleEvent *event, void *context) {
 }
 
 // TODO: Use appropriate transitions to and from watchfaces or apps
-static void prv_click_handler(ClickRecognizerRef recognizer, Window *window) {
+static void prv_click_handler(ClickRecognizerRef recognizer, void *context) {
   AppFetchUIData *data = app_state_get_user_data();
   if (data->done) {
     app_window_stack_pop(true);
@@ -239,10 +239,10 @@ static void prv_click_handler(ClickRecognizerRef recognizer, Window *window) {
 }
 
 static void config_provider(void *context) {
-  window_single_click_subscribe(BUTTON_ID_BACK, (ClickHandler)prv_click_handler);
-  window_single_click_subscribe(BUTTON_ID_UP, (ClickHandler)prv_click_handler);
-  window_single_click_subscribe(BUTTON_ID_SELECT, (ClickHandler)prv_click_handler);
-  window_single_click_subscribe(BUTTON_ID_BACK, (ClickHandler)prv_click_handler);
+  window_single_click_subscribe(BUTTON_ID_BACK, prv_click_handler);
+  window_single_click_subscribe(BUTTON_ID_UP, prv_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, prv_click_handler);
+  window_single_click_subscribe(BUTTON_ID_BACK, prv_click_handler);
 }
 
 static void handle_init(void) {

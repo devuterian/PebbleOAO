@@ -7,26 +7,31 @@ import warnings
 import pytest
 from harness.fixtures import dut_scope_within
 
-pytestmark = [pytest.mark.power, pytest.mark.slow, pytest.mark.device_types("hardware")]
+pytestmark = pytest.mark.device_types("hardware")
 
 # How long a watch with no bonding advertises fast (20 ms) for discovery,
-# before slowing down to 1022.5 ms (comm/ble/gap_le_slave_discovery.c).
+# before slowing down to 1022.5 ms (comm/ble/gap_le_slave_discovery.c), which
+# the slow test skips to.
 FAST_DISCOVERY_S = 5 * 60
-SLOW_MARGIN_S = 30
 
 # Mean current on TicToc (uA), per board, at NOMINAL_VOLTAGE_MV, over five
 # runs; a measurement fails outside IDLE_TOLERANCE of it.
 NOMINAL_VOLTAGE_MV = 3800
 IDLE_NOMINAL_UA = {
     "obelix": {
-        "advertising_fast": 300,
-        "advertising_slow": 152,
-        "airplane_mode": 146,
+        "advertising_fast": 954,
+        "advertising_slow": 130,
+        "airplane_mode": 97,
     },
     "getafix": {
-        "advertising_fast": 893,
-        "advertising_slow": 141,
-        "airplane_mode": 125,
+        "advertising_fast": 953,
+        "advertising_slow": 128,
+        "airplane_mode": 93,
+    },
+    "asterix": {
+        "advertising_fast": 655,
+        "advertising_slow": 84,
+        "airplane_mode": 64,
     },
 }
 IDLE_TOLERANCE = 0.10
@@ -80,8 +85,8 @@ def test_advertising_fast(fresh_boot, build, ui, power, record_property):
     _check(build, power, record_property, m)
 
 
-def test_advertising_slow(fresh_boot, build, ui, power, record_property):
-    time.sleep(max(fresh_boot + FAST_DISCOVERY_S + SLOW_MARGIN_S - time.monotonic(), 0))
+def test_advertising_slow(fresh_boot, dut, build, ui, power, record_property):
+    dut.prompt(dut.command("bt_adv_slow"))
     ui.go_home()
     m = power.measure_idle("advertising_slow")
     _check_below(m, _measured.get("advertising_fast"))

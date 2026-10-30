@@ -12,6 +12,7 @@
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/system_task.h"
+#include "pbl/services/time.h"
 #include "resource/resource_ids.auto.h"
 
 static PBL_MUTEX_DEFINE(s_lock);
@@ -68,8 +69,8 @@ static bool prv_due(time_t now) {
   if (!settings.enabled) {
     return false;
   }
-  struct tm local;
-  localtime_r(&now, &local);
+  struct pbl_tm local;
+  pbl_localtime_r(&now, &local);
   const int minute = local.tm_hour * 60 + local.tm_min;
   if (local.tm_sec >= 5 || minute % settings.interval_minutes != 0) {
     return false;

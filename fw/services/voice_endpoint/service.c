@@ -1,20 +1,22 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/voice_endpoint.h"
-
-#include "kernel/pbl_malloc.h"
-#include "pbl/services/comm_session/session.h"
-#include "pbl/services/audio_endpoint.h"
-#include "pbl/services/voice/voice.h"
+#include <pbl/kernel/assert.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/generic_attr.h"
-#include "pbl/util/uuid.h"
+#include <pbl/services/audio_endpoint.h>
+#include <pbl/services/comm_session/session.h>
+#include <pbl/services/voice/voice.h>
+#include <pbl/services/voice_endpoint.h>
+#include <pbl/services/voice_endpoint_private.h>
+#include <pbl/util/generic_attr.h>
+#include <pbl/util/uuid.h>
 
+#include <kernel/pbl_malloc.h>
 #include <sys/types.h>
 
-#include "pbl/services/voice_endpoint_private.h"
+#ifdef CONFIG_SERVICE_MIC_STREAM
+#include <pbl/services/mic_stream.h>
+#endif
 
 PBL_LOG_MODULE_DEFINE(service_voice_endpoint, CONFIG_SERVICE_VOICE_ENDPOINT_LOG_LEVEL);
 
@@ -31,21 +33,21 @@ static bool prv_handle_result_common(VoiceEndpointResult result, bool app_initia
     PBL_LOG_WRN(
         "No app UUID found for dictation response from app-initiated "
         "session");
-    voice_handle_dictation_result(VoiceEndpointResultFailInvalidMessage, session_id, NULL,
-                                  app_initiated, NULL);
+    voice_handle_dictation_result(VoiceEndpointResultFailInvalidMessage, session_id, nullptr,
+                                  app_initiated, nullptr);
     return false;
   }
 
-  Uuid *app_uuid = uuid_attr ? (Uuid *)uuid_attr->data : NULL;
+  Uuid *app_uuid = uuid_attr ? (Uuid *)uuid_attr->data : nullptr;
 
   if (result != VoiceEndpointResultSuccess) {
-    voice_handle_dictation_result(result, session_id, NULL, app_initiated, app_uuid);
+    voice_handle_dictation_result(result, session_id, nullptr, app_initiated, app_uuid);
     return false;
   }
 
   if (attr_list->num_attributes == 0) {
     PBL_LOG_WRN("No attributes in message");
-    voice_handle_dictation_result(VoiceEndpointResultFailInvalidMessage, session_id, NULL,
+    voice_handle_dictation_result(VoiceEndpointResultFailInvalidMessage, session_id, nullptr,
                                   app_initiated, app_uuid);
     return false;
   }
@@ -66,7 +68,7 @@ static void prv_handle_dictation_result(VoiceSessionResultMsg *msg, size_t size)
   const size_t attr_list_size =
       size - sizeof(VoiceSessionResultMsg) + sizeof(struct pbl_generic_attr_list);
   const bool app_initiated = (msg->flags.app_initiated == 1);
-  Uuid *app_uuid = NULL;
+  Uuid *app_uuid = nullptr;
 
   if (!prv_handle_result_common(msg->result, app_initiated, msg->session_id, &msg->attr_list,
                                 attr_list_size, &app_uuid)) {
@@ -78,7 +80,7 @@ static void prv_handle_dictation_result(VoiceSessionResultMsg *msg, size_t size)
 
   if (!transcription_attr || transcription_attr->length == 0) {
     PBL_LOG_WRN("No transcription attribute found");
-    voice_handle_dictation_result(VoiceEndpointResultFailInvalidMessage, msg->session_id, NULL,
+    voice_handle_dictation_result(VoiceEndpointResultFailInvalidMessage, msg->session_id, nullptr,
                                   app_initiated, app_uuid);
     return;
   }
@@ -87,7 +89,7 @@ static void prv_handle_dictation_result(VoiceSessionResultMsg *msg, size_t size)
   if (prv_is_empty_transcription(transcription, transcription_attr->length)) {
     PBL_LOG_DBG("Empty transcription, no speech recognized");
     voice_handle_dictation_result(VoiceEndpointResultFailInvalidRecognizerResponse, msg->session_id,
-                                  NULL, app_initiated, app_uuid);
+                                  nullptr, app_initiated, app_uuid);
     return;
   }
 
@@ -96,7 +98,7 @@ static void prv_handle_dictation_result(VoiceSessionResultMsg *msg, size_t size)
   if (!valid) {
     PBL_LOG_WRN("Unrecognized transcription format received");
     voice_handle_dictation_result(VoiceEndpointResultFailInvalidRecognizerResponse, msg->session_id,
-                                  NULL, app_initiated, app_uuid);
+                                  nullptr, app_initiated, app_uuid);
     return;
   }
   voice_handle_dictation_result(msg->result, msg->session_id, transcription, app_initiated,
@@ -107,7 +109,7 @@ static void prv_handle_nlp_result(VoiceSessionResultMsg *msg, size_t size) {
   const size_t attr_list_size =
       size - sizeof(VoiceSessionResultMsg) + sizeof(struct pbl_generic_attr_list);
   const bool app_initiated = (msg->flags.app_initiated == 1);
-  Uuid *app_uuid = NULL;
+  Uuid *app_uuid = nullptr;
 
   if (!prv_handle_result_common(msg->result, app_initiated, msg->session_id, &msg->attr_list,
                                 attr_list_size, &app_uuid)) {
@@ -131,7 +133,7 @@ static void prv_handle_nlp_result(VoiceSessionResultMsg *msg, size_t size) {
 
   if (!reminder_attr || reminder_attr->length == 0) {
     PBL_LOG_WRN("No reminder attribute found");
-    voice_handle_nlp_result(VoiceEndpointResultFailInvalidMessage, msg->session_id, NULL, 0);
+    voice_handle_nlp_result(VoiceEndpointResultFailInvalidMessage, msg->session_id, nullptr, 0);
     return;
   }
   char *reminder_str = kernel_zalloc_check(reminder_attr->length + 1);
@@ -160,6 +162,17 @@ void voice_endpoint_protocol_msg_callback(CommSession *session, const uint8_t *d
         }
 
         bool app_initiated = (msg->flags.app_initiated == 1);
+#ifdef CONFIG_SERVICE_MIC_STREAM
+        if (msg->session_type == VoiceEndpointSessionTypeAudioStream) {
+          if (size >= sizeof(AudioStreamSetupResultMsg)) {
+            const AudioStreamSetupResultMsg *stream_msg = (const AudioStreamSetupResultMsg *)data;
+            mic_stream_service_handle_setup_result(stream_msg->session_id, result);
+          } else {
+            PBL_LOG_WRN("Audio stream setup result without a session id");
+          }
+          break;
+        }
+#endif
         voice_handle_session_setup_result(result, msg->session_type, app_initiated);
       } else {
         PBL_LOG_WRN("Invalid size for session setup result message");

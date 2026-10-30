@@ -6,17 +6,17 @@
 
 #pragma once
 
-#include <pbl/drivers/display/display.h> // FIXME: Need display dimensions
-#include "resource/resource.h"
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/math.h"
-#include "pbl/util/math_fixed.h"
+#include <pbl/kernel/compiler.h>
+#include <pbl/util/math.h>
+#include <pbl/util/math_fixed.h>
+
+#include <board/display.h>
+#include <resource/resource.h>
 
 #if !(defined(SDK) || defined(UNITTEST))
 #endif
 
 #include <stdint.h>
-#include <stdbool.h>
 
 //! @addtogroup Graphics
 //! @{
@@ -144,7 +144,6 @@ GColor8Component gcolor_component_multiply(GColor8Component a, GColor8Component 
 // Define to describe the proper display format
 // as we don't share platform defines between SDK (e.g. snowy vs. basalt)
 // and display_snowy.h is not included in SDK generator this looks a bit ugly here
-// TODO: PBL-21978 remove redundant comments as a workaround around for SDK generator
 #if PBL_RECT && PBL_BW
 #define GBITMAP_NATIVE_FORMAT GBitmapFormat1Bit
 #elif PBL_RECT && PBL_COLOR
@@ -156,7 +155,6 @@ GColor8Component gcolor_component_multiply(GColor8Component a, GColor8Component 
 #endif
 
 // convenient macros to distinguish between rect and round
-// TODO: PBL-21978 remove redundant comments as a workaround around for SDK generator
 #if PBL_RECT
 
 //! Convenience macro to switch between two expression depending on the screen of the platform.
@@ -177,7 +175,7 @@ GColor8Component gcolor_component_multiply(GColor8Component a, GColor8Component 
 //! On platforms with round screen, the first expression will be chosen, the second otherwise.
 #define PBL_IF_ROUND_ELSE(if_true, if_false) (if_true)
 
-#elif !defined(UNITTEST)
+#elifndef UNITTEST
 #warning "Unknown screen shape"
 #endif
 
@@ -187,7 +185,6 @@ GColor8Component gcolor_component_multiply(GColor8Component a, GColor8Component 
 #define PBL_IF_MASK_ELSE(if_true, if_false) (if_false)
 
 // convenient macros to distinguish between bw and color
-// TODO: PBL-21978 remove redundant comments as a workaround around for SDK generator
 #if PBL_BW
 
 //! Convenience macro to switch between two expression depending on the screen of the platform.
@@ -214,7 +211,7 @@ GColor8Component gcolor_component_multiply(GColor8Component a, GColor8Component 
 //! On color platforms, the first expression will be chosen, the second otherwise.
 #define COLOR_FALLBACK(color, bw)            (color)
 
-#elif !defined(UNITTEST)
+#elifndef UNITTEST
 #warning "Unknown color depth"
 #endif
 
@@ -788,7 +785,7 @@ typedef struct BitmapInfo {
   uint8_t version : 4;
 } BitmapInfo;
 
-typedef struct PBL_PACKED GBitmap {
+typedef struct GBitmap {
   //! Pointer to the address where the image data lives
   void *addr;
   //! @note The number of bytes per row may have restrictions depending on the format:
@@ -819,7 +816,8 @@ typedef struct PBL_PACKED GBitmap {
     GColor *palette;
 
     //! On GBitmapFormat8BitCircular, this points to a circular_map that's addressed according to
-    //! .bounds (so it must consist of at least .bounds.origin.y + .bounds.size.h entries)
+    //! .bounds (so it must consist of at least .bounds.origin.y + .bounds.size.h entries), or is
+    //! nullptr for rows laid out as the display's.
     const GBitmapDataRowInfoInternal *data_row_infos;
   };
 
@@ -1195,7 +1193,6 @@ typedef enum {
   //!   mode is that for the parts where the source image is black, the destination image will be
   //!   painted white. Other parts will be left untouched.
   GCompOpSet,
-  // TODO PBL-37523: Rename GCompOpTint to GCompOpTintAlpha
   //! Sets the bits in the destination image to the tint color using the source image for
   //! transparency. For GBitmapFormat1Bit, the visual result of this compositing mode is that for
   //! the parts where the source image is black, the destination image will be painted the tint
@@ -1282,7 +1279,7 @@ typedef struct GDrawMask GDrawMask;
 //! @internal
 //! Data structure that contains all kinds of drawing parameters, like the clipping box,
 //! the drawing box, stroke, fill and text colors and bitmap compositing mode.
-typedef struct PBL_PACKED {
+typedef struct {
   //! The box relative to bitmap's bounds, that graphics functions MUST use to clip what they draw
   GRect clip_box;
   //! The box relative to bitmap's bounds, that graphics functions MUST use as their coordinate

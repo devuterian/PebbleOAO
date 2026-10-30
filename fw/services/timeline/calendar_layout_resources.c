@@ -1,11 +1,17 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/timeline/calendar_layout_resources.h"
+#include <stddef.h>
 
-#include "pbl/util/size.h"
+#include <pbl/services/timeline/calendar_layout_resources.h>
+#include <pbl/util/size.h>
 
-// FIXME: PBL-28898 GPath algorithm requires strange coordinates for pixel perfection
+static_assert(offsetof(CalendarIconImage, size) == offsetof(GDrawCommandImage, size), "");
+static_assert(sizeof(CalendarIconImage) == offsetof(GDrawCommandImage, command_list.commands), "");
+static_assert(offsetof(CalendarIconPath, fill_color) == offsetof(GDrawCommand, fill_color), "");
+static_assert(offsetof(CalendarIconPath, radius) == offsetof(GDrawCommand, radius), "");
+static_assert(sizeof(CalendarIconPath) == offsetof(GDrawCommand, points), "");
+
 // The paths here result in pixel perfect icons with the current gpath filled algorithm,
 // but when gpath filled is fixed to correctly match its coordinates, these MUST be updated.
 
@@ -14,10 +20,7 @@ CalendarStartIcon g_calendar_start_icon = {
       {
         .version = 1,
         .size = {9, 9},
-        .command_list =
-            {
-              .num_commands = 1,
-            },
+        .num_commands = 1,
       },
   .command =
       {
@@ -33,10 +36,7 @@ CalendarEndIcon g_calendar_end_icon = {
       {
         .version = 1,
         .size = {9, 9},
-        .command_list =
-            {
-              .num_commands = 1,
-            },
+        .num_commands = 1,
       },
   .command =
       {

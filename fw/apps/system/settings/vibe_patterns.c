@@ -2,27 +2,29 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "vibe_patterns.h"
+
 #include "speaker_volume_window.h"
 #include "window.h"
 #include "option_menu.h"
 #include "pbl/services/speaker/key_sounds.h"
 
-#include "applib/ui/ui.h"
-#include "kernel/pbl_malloc.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/notifications/alerts_preferences.h"
-#include "pbl/services/notifications/alerts_preferences_private.h"
-#include "pbl/services/speaker/speaker_service.h"
-#include "pbl/services/vibes/vibe_client.h"
-#include "pbl/services/vibes/vibe_intensity.h"
-#include "pbl/services/vibes/vibe_score.h"
-#include "pbl/services/vibes/vibe_score_info.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/string.h"
-
 #include <stdio.h>
 #include <string.h>
+
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/services/notifications/alerts_preferences.h>
+#include <pbl/services/notifications/alerts_preferences_private.h>
+#include <pbl/services/speaker/speaker_service.h>
+#include <pbl/services/vibes/vibe_client.h>
+#include <pbl/services/vibes/vibe_intensity.h>
+#include <pbl/services/vibes/vibe_score.h>
+#include <pbl/services/vibes/vibe_score_info.h>
+#include <pbl/util/string.h>
+
+#include <applib/ui/ui.h>
+#include <kernel/pbl_malloc.h>
 
 typedef enum VibeSettingsRow {
 #ifdef CONFIG_SPEAKER
@@ -150,8 +152,8 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
                             uint16_t row, bool selected) {
   SettingsVibePatternsData *data = (SettingsVibePatternsData *)context;
 
-  const char *title = NULL;
-  const char *subtitle = NULL;
+  const char *title = nullptr;
+  const char *subtitle = nullptr;
 
   VibeClient client = VibeClient_Notifications;
   switch (row) {
@@ -159,14 +161,15 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
     case VibeSettingsRow_MuteSpeaker: {
       title = i18n_noop("Mute Speaker");
       subtitle = alerts_preferences_get_speaker_muted() ? i18n_noop("On") : i18n_noop("Off");
-      menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data), NULL);
+      menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data),
+                           nullptr);
       return;
     }
     case VibeSettingsRow_SpeakerVolume: {
       title = i18n_noop("Volume");
       snprintf(data->volume_subtitle, sizeof(data->volume_subtitle), "%u%%",
                alerts_preferences_get_speaker_volume());
-      menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), data->volume_subtitle, NULL);
+      menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), data->volume_subtitle, nullptr);
       return;
     }
 #endif
@@ -216,7 +219,7 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
       break;
     }
     default: {
-      WTF;
+      pbl_panic();
     }
   }
 
@@ -224,10 +227,10 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
   if (!subtitle) {
     subtitle = vibe_score_info_get_name(alerts_preferences_get_vibe_score_for_client(client));
     if (subtitle && IS_EMPTY_STRING(subtitle)) {
-      subtitle = NULL;
+      subtitle = nullptr;
     }
   }
-  menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data), NULL);
+  menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, data), i18n_get(subtitle, data), nullptr);
 }
 
 static void prv_selection_changed_cb(SettingsCallbacks *context, uint16_t new_row,
@@ -273,7 +276,7 @@ static void prv_selection_changed_cb(SettingsCallbacks *context, uint16_t new_ro
       return;
     }
     default:
-      WTF;
+      pbl_panic();
   }
   if (!score) {
     PBL_LOG_ERR("Null VibeScore!");
@@ -345,7 +348,7 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
       return;
     }
     default:
-      WTF;
+      pbl_panic();
   }
 
   VibeScoreId current_vibe_score = alerts_preferences_get_vibe_score_for_client(client);

@@ -3,11 +3,12 @@
 
 #pragma once
 
-#include "applib/ui/action_menu_window.h"
-#include "applib/ui/status_bar_layer.h"
-#include "apps/system/timeline/peek_layer.h"
-#include "pbl/services/evented_timer.h"
-#include "pbl/services/timeline/swap_layer.h"
+#include <pbl/services/evented_timer.h>
+#include <pbl/services/timeline/swap_layer.h>
+
+#include <applib/ui/action_menu_window.h>
+#include <applib/ui/status_bar_layer.h>
+#include <apps/system/timeline/peek_layer.h>
 
 typedef struct NotificationWindowData {
   Window window;
@@ -42,10 +43,7 @@ typedef struct NotificationWindowData {
   ActionMenu *action_menu;
 
   // Icon in status bar if in DND.
-  // This should really be part of the status bar but support hasn't been
-  // implemented yet. This also won't work well with round displays.
-  // Remove this once the status bar layer supports icons
-  // PBL-22859
+  // TODO: move into StatusBarLayer once it supports icons
   Layer dnd_icon_layer;
   GBitmap dnd_icon;
   bool dnd_icon_visible;

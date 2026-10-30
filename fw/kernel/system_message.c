@@ -1,25 +1,26 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "kernel/system_message.h"
-
-#include "flash_region/filesystem_regions.h"
-#include "kernel/events.h"
-#include "pbl/services/comm_session/protocol.h"
-#include "pbl/services/comm_session/session.h"
-#include "pbl/services/firmware_update.h"
-#include "pbl/services/put_bytes/put_bytes.h"
-#include "pbl/services/system_task.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "system/reboot_reason.h"
-#include "system/reset.h"
-#include "pbl/kernel/compiler.h"
-
-#include <stdbool.h>
 #include <inttypes.h>
 
-static const uint16_t ENDPOINT_ID = 0x12;
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/compiler.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/comm_session/protocol.h>
+#include <pbl/services/comm_session/session.h>
+#include <pbl/services/firmware_update.h>
+#include <pbl/services/put_bytes/put_bytes.h>
+#include <pbl/services/system_task.h>
+
+#include <flash_region/filesystem_regions.h>
+#include <kernel/events.h>
+#include <kernel/language_pack_protocol.h>
+#include <kernel/pebble_tasks.h>
+#include <kernel/system_message.h>
+#include <system/reboot_reason.h>
+#include <system/reset.h>
+
+static const uint16_t ENDPOINT_ID = SYS_MSG_ENDPOINT_ID;
 
 void system_message_send(SystemMessageType type) {
   uint8_t buffer[2] = {0x00, type};
@@ -37,7 +38,7 @@ static void prv_reset_kernel_bg_cb(void *unused) {
 }
 
 static void prv_ui_update_reset_delay_timer_callback(void *unused) {
-  system_task_add_callback(prv_reset_kernel_bg_cb, NULL);
+  system_task_add_callback(prv_reset_kernel_bg_cb, nullptr);
 }
 
 static void prv_handle_firmware_complete_msg(void) {
@@ -47,7 +48,7 @@ static void prv_handle_firmware_complete_msg(void) {
   PBL_LOG_ALWAYS("Delaying reset by 3s so the UI can update...");
   TimerID timer = new_timer_create(); // Don't bother cleaning up this timer, we're going to reset
   PBL_ASSERTN(timer != TIMER_INVALID_ID);
-  new_timer_start(timer, timeout, prv_ui_update_reset_delay_timer_callback, NULL, 0);
+  new_timer_start(timer, timeout, prv_ui_update_reset_delay_timer_callback, nullptr, 0);
 }
 
 //! Note: For now we just call into storage directly for the status of FW installs. Someday,
@@ -163,6 +164,20 @@ void sys_msg_protocol_msg_callback(CommSession *session, const uint8_t *data, si
       event_put(&e);
       break;
     }
+
+#ifndef CONFIG_RECOVERY_FW
+    case SysMsgLanguagePacks:
+      language_pack_protocol_handle_list(session, data, length);
+      break;
+
+    case SysMsgLanguagePackRemove:
+      language_pack_protocol_handle_remove(session, data, length);
+      break;
+
+    case SysMsgLanguageSelect:
+      language_pack_protocol_handle_select(session, data, length);
+      break;
+#endif
 
     default:
       PBL_LOG_ERR("Invalid message received, type is %u", data[1]);

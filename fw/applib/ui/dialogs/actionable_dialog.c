@@ -3,16 +3,17 @@
 
 #include "actionable_dialog.h"
 
-#include "applib/applib_malloc.auto.h"
-#include "applib/fonts/fonts.h"
-#include "applib/ui/dialogs/dialog.h"
-#include "applib/ui/dialogs/dialog_private.h"
-#include "applib/ui/layer.h"
-#include "applib/ui/text_layer.h"
-#include "applib/ui/window.h"
-#include "kernel/ui/kernel_ui.h"
-#include "resource/resource_ids.auto.h"
-#include "system/passert.h"
+#include <pbl/kernel/assert.h>
+
+#include <applib/applib_malloc.auto.h>
+#include <applib/fonts/fonts.h>
+#include <applib/ui/dialogs/dialog.h>
+#include <applib/ui/dialogs/dialog_private.h>
+#include <applib/ui/layer.h>
+#include <applib/ui/text_layer.h>
+#include <applib/ui/window.h>
+#include <kernel/ui/kernel_ui.h>
+#include <resource/resource_ids.auto.h>
 
 static void prv_actionable_dialog_load(Window *window) {
   ActionableDialog *actionable_dialog = window_get_user_data(window);
@@ -27,7 +28,9 @@ static void prv_actionable_dialog_load(Window *window) {
   const uint16_t left_margin_px = PBL_IF_RECT_ELSE(5, 0);
   const uint16_t content_and_action_bar_horizontal_spacing = PBL_IF_RECT_ELSE(5, 7);
   const uint16_t right_margin_px = ACTION_BAR_WIDTH + content_and_action_bar_horizontal_spacing;
-  const GFont dialog_text_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  const GFont dialog_text_font = actionable_dialog->text_font
+                                     ? actionable_dialog->text_font
+                                     : fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   const int max_text_line_height_px = 2 * fonts_get_font_height(dialog_text_font) + 8;
   const uint16_t icon_text_spacing_px = 4;
 
@@ -43,7 +46,7 @@ static void prv_actionable_dialog_load(Window *window) {
   x = left_margin_px;
   w = bounds->size.w - left_margin_px - right_margin_px;
 
-  GTextAttributes *text_attributes = NULL;
+  GTextAttributes *text_attributes = nullptr;
 #if PBL_ROUND
   // Create a GTextAttributes for the TextLayer. Note that the matching
   // graphics_text_attributes_destroy() will not need to be called here, as the ownership
@@ -210,7 +213,7 @@ void actionable_dialog_set_action_bar_type(ActionableDialog *actionable_dialog,
     PBL_ASSERTN(action_bar); // Action bar must not be NULL if it is a custom type.
     actionable_dialog->action_bar = action_bar;
   } else {
-    actionable_dialog->action_bar = NULL;
+    actionable_dialog->action_bar = nullptr;
   }
   actionable_dialog->action_bar_type = action_bar_type;
 }
@@ -218,6 +221,10 @@ void actionable_dialog_set_action_bar_type(ActionableDialog *actionable_dialog,
 void actionable_dialog_set_click_config_provider(ActionableDialog *actionable_dialog,
                                                  ClickConfigProvider click_config_provider) {
   actionable_dialog->config_provider = click_config_provider;
+}
+
+void actionable_dialog_set_text_font(ActionableDialog *actionable_dialog, GFont font) {
+  actionable_dialog->text_font = font;
 }
 
 void actionable_dialog_set_user_data(ActionableDialog *actionable_dialog, void *user_data) {

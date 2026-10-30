@@ -7,7 +7,6 @@
 #include "kernel/ui/modals/modal_manager.h"
 #include "process_management/app_manager.h"
 #include "stubs_logging.h"
-#include "stubs_passert.h"
 
 #include <string.h>
 

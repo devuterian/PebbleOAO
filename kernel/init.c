@@ -1,12 +1,12 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include "kernel.h"
+
 #include <stdint.h>
 #include <string.h>
 
-#include "pbl/kernel/init.h"
-
-#include "kernel.h"
+#include <pbl/kernel/init.h>
 
 extern uint8_t __data_load_start[];
 extern uint8_t __data_start[];
@@ -33,5 +33,5 @@ void kernel_prep_c(void) {
 
   main();
 
-  KERNEL_ASSERT(false);
+  PBL_ASSERTN(false);
 }

@@ -5,15 +5,15 @@
 #include "pbl/services/settings/settings_file.h"
 #include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/system_task.h"
-#include "stubs_mutex.h"
+#include "pbl/services/time.h"
 #include <string.h>
 #include <stdlib.h>
 
 static time_t s_now;
 static int s_timezone_hours;
-struct tm *localtime_r(const time_t *epoch, struct tm *result) {
+struct pbl_tm *pbl_localtime_r(const time_t *epoch, struct pbl_tm *result) {
   const time_t local = *epoch + s_timezone_hours * 3600;
-  *result = (struct tm){
+  *result = (struct pbl_tm){
       .tm_hour = (local / 3600) % 24, .tm_min = (local / 60) % 60, .tm_sec = local % 60};
   return result;
 }

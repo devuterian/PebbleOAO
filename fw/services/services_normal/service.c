@@ -1,45 +1,47 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/services_normal.h"
-
 #include <string.h>
 
-#include "applib/event_service_client.h"
 #include <pbl/drivers/rtc.h>
-#include "kernel/events.h"
-#include "process_management/app_install_manager.h" // FIXME: This should really be in services/
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/alarms/alarm.h"
-#include "pbl/services/app_cache.h"
-#include "pbl/services/app_glances/app_glance_service.h"
-#include "pbl/services/blob_db/api.h"
-#include "pbl/services/blob_db/endpoint_private.h"
-#include "pbl/services/data_logging/data_logging_service.h"
-#include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/protobuf_log/protobuf_log.h"
-#include "pbl/services/music_internal.h"
-#include "pbl/services/notifications/alerts_private.h"
-#include "pbl/services/notifications/notifications.h"
-#include "pbl/services/persist.h"
-#include "pbl/services/phone_call.h"
-#include "pbl/services/process_management/app_order_storage.h"
-#include "pbl/services/send_text_service.h"
-#include "pbl/services/speaker/speaker_service.h"
-#include "pbl/services/stationary.h"
-#include "pbl/services/timeline/event.h"
-#include "pbl/services/wakeup.h"
-#include "pbl/services/weather/weather_service.h"
-#include "pbl/services/runlevel_impl.h"
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/alarms/alarm.h>
+#include <pbl/services/app_cache.h>
+#include <pbl/services/app_glances/app_glance_service.h>
+#include <pbl/services/blob_db/api.h>
+#include <pbl/services/blob_db/endpoint_private.h>
+#include <pbl/services/data_logging/data_logging_service.h>
+#include <pbl/services/filesystem/pfs.h>
+#include <pbl/services/mic_capture.h>
+#include <pbl/services/mic_manager.h>
+#include <pbl/services/mic_stream.h>
+#include <pbl/services/music_internal.h>
+#include <pbl/services/notifications/alerts_private.h>
+#include <pbl/services/notifications/notifications.h>
+#include <pbl/services/persist.h>
+#include <pbl/services/phone_call.h>
+#include <pbl/services/process_management/app_order_storage.h>
+#include <pbl/services/protobuf_log/protobuf_log.h>
+#include <pbl/services/runlevel_impl.h>
+#include <pbl/services/send_text_service.h>
+#include <pbl/services/services_normal.h>
+#include <pbl/services/speaker/speaker_service.h>
+#include <pbl/services/stationary.h>
+#include <pbl/services/timeline/event.h>
+#include <pbl/services/wakeup.h>
+#include <pbl/services/weather/weather_service.h>
+
+#include <applib/event_service_client.h>
+#include <kernel/events.h>
+#include <process_management/app_install_manager.h> // FIXME: This should really be in services/
 
 #ifdef CONFIG_ORIENTATION_MANAGER
-#include "pbl/services/orientation_manager.h"
+#include <pbl/services/orientation_manager.h>
 #endif
 
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/voice/voice.h"
-
-#include "pbl/util/size.h"
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/voice/voice.h>
+#include <pbl/util/size.h>
 
 // Minimum valid time: January 1, 2020 00:00:00 UTC (timestamp: 1577836800)
 // This represents the minimum time we consider valid for activity initialization
@@ -120,6 +122,15 @@ void services_normal_init(void) {
 
   speaker_service_init();
 
+#ifdef CONFIG_SERVICE_MIC_MANAGER
+  mic_manager_init();
+#endif
+#ifdef CONFIG_SERVICE_MIC_STREAM
+  mic_stream_service_init();
+#endif
+#ifdef CONFIG_SERVICE_MIC_CAPTURE
+  mic_capture_service_init();
+#endif
 #ifdef CONFIG_MIC
   voice_init();
 #endif

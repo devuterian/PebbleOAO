@@ -3,32 +3,41 @@
 
 #include "modal_manager.h"
 
-#include "applib/ui/app_window_click_glue.h"
-#include "applib/ui/click_internal.h"
-#include "applib/ui/recognizer/recognizer_list.h"
-#include "applib/ui/recognizer/recognizer_manager.h"
-#include "applib/ui/recognizer/touch_nav.h"
-#include "applib/touch_service.h"
-#include "applib/touch_service_private.h"
-#include "applib/ui/window.h"
-#include "applib/ui/window_private.h"
-#include "applib/ui/window_stack.h"
-#include "applib/ui/window_stack_animation.h"
-#include "applib/ui/window_stack_private.h"
-#include "kernel/events.h"
-#include "kernel/event_loop.h"
-#include "kernel/pbl_malloc.h"
-#include "process_state/app_state/app_state.h"
-#include "pbl/services/compositor/compositor_transitions.h"
-#include "shell/normal/app_idle_timeout.h"
-#include "shell/normal/watchface.h"
-#include "system/passert.h"
-#include "system/profiler.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/kernel/sem.h>
+#include <pbl/services/compositor/compositor_transitions.h>
 
-#include "pbl/kernel/sem.h"
+#include <applib/touch_service.h>
+#include <applib/touch_service_private.h>
+#include <applib/ui/app_window_click_glue.h>
+#include <applib/ui/click_internal.h>
+#include <applib/ui/recognizer/recognizer_list.h>
+#include <applib/ui/recognizer/recognizer_manager.h>
+#include <applib/ui/recognizer/touch_nav.h>
+#include <applib/ui/window.h>
+#include <applib/ui/window_private.h>
+#include <applib/ui/window_stack.h>
+#include <applib/ui/window_stack_animation.h>
+#include <applib/ui/window_stack_private.h>
+#include <kernel/event_loop.h>
+#include <kernel/events.h>
+#include <kernel/pbl_malloc.h>
+#include <process_state/app_state/app_state.h>
+#include <shell/normal/app_idle_timeout.h>
+#include <shell/normal/watchface.h>
+#include <system/profiler.h>
 
 #ifdef CONFIG_SHELL
 #include <pbl/shell/shell.h>
+#endif
+
+#ifdef CONFIG_SERVICE_MIC_STREAM
+#include <pbl/services/mic_stream.h>
+#endif
+
+#ifdef CONFIG_SERVICE_MIC_CAPTURE
+#include <pbl/services/mic_capture.h>
 #endif
 
 typedef struct ModalContext {
@@ -67,7 +76,7 @@ static ModalPriority s_last_highest_modal_priority = ModalPriorityInvalid;
 // Private API
 ////////////////////
 static bool prv_has_visible_window(ModalContext *context, void *unused) {
-  const bool empty = (context->window_stack.list_head == NULL);
+  const bool empty = (context->window_stack.list_head == nullptr);
   const bool filtered_out = (context < &s_modal_window_stacks[s_modal_min_priority]);
   return (!empty && !filtered_out);
 }
@@ -88,7 +97,7 @@ static bool prv_has_focusable_window(ModalContext *context) {
 }
 
 static bool prv_has_visible_focusable_window(ModalContext *context, void *unused) {
-  return (prv_has_visible_window(context, NULL) && prv_has_focusable_window(context));
+  return (prv_has_visible_window(context, nullptr) && prv_has_focusable_window(context));
 }
 
 static void prv_send_will_focus_event(bool in_focus) {
@@ -207,7 +216,7 @@ void modal_touch_nav_subscribe(void) {
 
 void modal_touch_nav_unsubscribe(void) {
   recognizer_manager_cancel_and_reset(&s_modal_recognizer_manager);
-  touch_service_set_system_handler(NULL, NULL);
+  touch_service_set_system_handler(nullptr, nullptr);
 }
 #endif
 
@@ -253,7 +262,7 @@ static WindowStack *prv_find_window_stack(ModalContextFilterCallback callback, v
       return &s_modal_window_stacks[idx].window_stack;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 WindowStack *modal_manager_find_window_stack(ModalContextFilterCallback filter_cb, void *ctx) {
@@ -267,7 +276,7 @@ WindowStack *modal_manager_get_window_stack(ModalPriority priority) {
 }
 
 Window *modal_manager_get_top_window(void) {
-  WindowStack *stack = prv_find_window_stack(prv_has_visible_window, NULL);
+  WindowStack *stack = prv_find_window_stack(prv_has_visible_window, nullptr);
   return window_stack_get_top_window(stack);
 }
 
@@ -297,7 +306,7 @@ static const CompositorTransition *prv_get_compositor_transition(bool modal_is_d
   } else {
     is_top_discreet = (s_last_highest_modal_priority == ModalPriorityDiscreet);
   }
-  return is_top_discreet ? NULL : compositor_modal_transition_to_modal_get(modal_is_destination);
+  return is_top_discreet ? nullptr : compositor_modal_transition_to_modal_get(modal_is_destination);
 }
 
 static void prv_handle_app_to_modal_transition_visible(void) {
@@ -330,6 +339,14 @@ static void prv_handle_app_to_modal_transition_focus(void) {
   // Let the underlying window know it has lost focus if this is the first modal
   // window to show up.
   prv_send_will_focus_event(false /* in_focus */);
+
+#ifdef CONFIG_SERVICE_MIC_STREAM
+  // The OS mic banner is no longer guaranteed visible, so the stream must end
+  mic_stream_service_handle_app_focus_lost();
+#endif
+#ifdef CONFIG_SERVICE_MIC_CAPTURE
+  mic_capture_service_handle_focus_lost();
+#endif
 }
 
 static void prv_handle_modal_to_app_transition_focus(void) {
@@ -339,7 +356,7 @@ static void prv_handle_modal_to_app_transition_focus(void) {
 #ifdef CONFIG_TOUCH
   // The last focusable modal is gone; unbind the kernel recognizer manager so no gesture state or
   // active window survives into the app-focused period.
-  prv_modal_recognizer_focus(NULL);
+  prv_modal_recognizer_focus(nullptr);
 #endif
 
   prv_send_will_focus_event(true /* in_focus */);
@@ -417,7 +434,7 @@ static void prv_each_modal_stack(ModalContextIterCallback callback, void *data) 
   };
   for (ModalPriority idx = NumModalPriorities - 1; idx >= ModalPriorityMin; idx--) {
     ModalContext *context = &s_modal_window_stacks[idx];
-    if (!prv_has_visible_window(context, NULL)) {
+    if (!prv_has_visible_window(context, nullptr)) {
       continue;
     } else if (iter.first_visible_idx == ModalPriorityInvalid) {
       iter.first_visible_idx = idx;
@@ -479,7 +496,7 @@ static bool prv_update_modal_stack_callback(ModalContext *modal, IterContext *it
 #ifdef CONFIG_TOUCH
     // This modal just lost focus to a higher priority one; unbind the kernel manager so its active
     // layer and any in-flight gesture do not leak into the newly focused modal.
-    prv_modal_recognizer_focus(NULL);
+    prv_modal_recognizer_focus(nullptr);
 #endif
   }
 
@@ -594,7 +611,7 @@ bool modal_manager_is_window_focused(Window *window) {
 }
 
 static Window *prv_get_visible_focused_window(void) {
-  WindowStack *stack = prv_find_window_stack(prv_has_visible_focusable_window, NULL);
+  WindowStack *stack = prv_find_window_stack(prv_has_visible_focusable_window, nullptr);
   return window_stack_get_top_window(stack);
 }
 
@@ -621,7 +638,7 @@ void modal_manager_handle_button_event(PebbleEvent *event) {
       break;
     }
     default:
-      PBL_CROAK("Invalid event type: %u", event->type);
+      pbl_panic("Invalid event type: %u", event->type);
   }
 }
 
@@ -664,7 +681,7 @@ static void prv_modal_window_stack_info_cb(void *ctx) {
 }
 
 static int prv_cmd_modals(const struct pbl_shell *sh, size_t argc, char **argv) {
-  WindowStackInfoContext info = {0};
+  WindowStackInfoContext info = {};
   pbl_sem_init(&info.interlock, 0, 1);
 
   launcher_task_add_callback(prv_modal_window_stack_info_cb, &info);
@@ -689,5 +706,5 @@ static int prv_cmd_modals(const struct pbl_shell *sh, size_t argc, char **argv) 
   return 0;
 }
 
-PBL_SHELL_SUBCMD_ADD(sub_ui, modals, NULL, "Show the modal window stacks", prv_cmd_modals, 0, 0);
+PBL_SHELL_SUBCMD_ADD(sub_ui, modals, nullptr, "Show the modal window stacks", prv_cmd_modals, 0, 0);
 #endif

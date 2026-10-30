@@ -2,19 +2,21 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "health.h"
+
 #include "card_view.h"
 #include "data.h"
 
-#include "applib/app.h"
-#include "applib/ui/dialogs/expandable_dialog.h"
-#include "kernel/pbl_malloc.h"
-#include "popups/health_tracking_ui.h"
-#include "process_state/app_state/app_state.h"
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/timeline/timeline.h"
-#include "resource/resource_ids.auto.h"
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/timeline/timeline.h>
+
+#include <applib/app.h>
+#include <applib/ui/dialogs/expandable_dialog.h>
+#include <kernel/pbl_malloc.h>
+#include <popups/health_tracking_ui.h>
+#include <process_state/app_state/app_state.h>
+#include <resource/resource_ids.auto.h>
 #include <pbl/logging/logging.h>
-#include "shell/system_theme.h"
+#include <shell/system_theme.h>
 
 // Health app versions
 // 0: Invalid (app was never opened)
@@ -41,7 +43,7 @@ typedef struct HealthAppData {
 //! Tick timer service callback
 //! @param tick_time Pointer to time structure
 //! @param units_changed The time units changed
-static void prv_tick_timer_handler(struct tm *tick_time, TimeUnits units_changed) {
+static void prv_tick_timer_handler(struct pbl_tm *tick_time, TimeUnits units_changed) {
   HealthAppData *health_app_data = app_state_get_user_data();
   health_data_update_step_derived_metrics(health_app_data->health_data);
   health_card_view_mark_dirty(health_app_data->health_card_view);
@@ -78,13 +80,8 @@ static void prv_show_insights_onboarding_dialog(void) {
       "Psst! Want smart tips about your activity and sleep? "
       "You can enable Insights in the mobile app.");
   ExpandableDialog *dialog = expandable_dialog_create_with_params(
-      "Insights Onboarding",
-      RESOURCE_ID_HEALTH_ICON_MOON,
-      text,
-      system_theme_get_fg_color(),
-      system_theme_get_bg_color(),
-      NULL,
-      RESOURCE_ID_ACTION_BAR_ICON_CHECK,
+      "Insights Onboarding", RESOURCE_ID_HEALTH_ICON_MOON, text, system_theme_get_fg_color(),
+      system_theme_get_bg_color(), nullptr, RESOURCE_ID_ACTION_BAR_ICON_CHECK,
       expandable_dialog_close_cb);
   app_expandable_dialog_push(dialog);
 }

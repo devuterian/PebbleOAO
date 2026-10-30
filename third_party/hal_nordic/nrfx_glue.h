@@ -57,6 +57,8 @@ extern "C" {
 // at linking time.
 // #include <soc/nrfx_irqs.h>
 
+#include <pbl/kernel/assert.h>
+
 //------------------------------------------------------------------------------
 
 /**
@@ -64,8 +66,7 @@ extern "C" {
  *
  * @param expression Expression to be evaluated.
  */
-#define NRFX_ASSERT(expr) ((expr) ? (void)0 : assert_failed((uint8_t *)__FILE__, __LINE__))
-void assert_failed(uint8_t *file, uint32_t line);
+#define NRFX_ASSERT(expr) PBL_ASSERTN(expr)
 
 /**
  * @brief Macro for placing a compile time assertion.
@@ -293,33 +294,45 @@ void assert_failed(uint8_t *file, uint32_t line);
 /**
  * @brief Macro for writing back cache lines associated with the specified buffer.
  *
- * @note Macro should be empty if data cache is disabled or not present.
+ * @note Macro should be a no-op if data cache is disabled or not present.
  *
  * @param[in] p_buffer Pointer to the buffer.
  * @param[in] size     Size of the buffer.
  */
-#define NRFY_CACHE_WB(p_buffer, size)
+#define NRFY_CACHE_WB(p_buffer, size) \
+  do {                                \
+    (void)(p_buffer);                 \
+    (void)(size);                     \
+  } while (0)
 
 /**
  * @brief Macro for invalidating cache lines associated with the specified buffer.
  *
- * @note Macro should be empty if data cache is disabled or not present.
+ * @note Macro should be a no-op if data cache is disabled or not present.
  *
  * @param[in] p_buffer Pointer to the buffer.
  * @param[in] size     Size of the buffer.
  */
-#define NRFY_CACHE_INV(p_buffer, size)
+#define NRFY_CACHE_INV(p_buffer, size) \
+  do {                                 \
+    (void)(p_buffer);                  \
+    (void)(size);                      \
+  } while (0)
 
 /**
  * @brief Macro for writing back and invalidating cache lines associated with
  *        the specified buffer.
  *
- * @note Macro should be empty if data cache is disabled or not present.
+ * @note Macro should be a no-op if data cache is disabled or not present.
  *
  * @param[in] p_buffer Pointer to the buffer.
  * @param[in] size     Size of the buffer.
  */
-#define NRFY_CACHE_WBINV(p_buffer, size)
+#define NRFY_CACHE_WBINV(p_buffer, size) \
+  do {                                   \
+    (void)(p_buffer);                    \
+    (void)(size);                        \
+  } while (0)
 
 //------------------------------------------------------------------------------
 

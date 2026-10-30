@@ -3,9 +3,9 @@
 
 #include "codepoint.h"
 
-#include "pbl/util/size.h"
-
 #include <stddef.h>
+
+#include <pbl/util/size.h>
 
 #define MAX_LATIN_CODEPOINT              0x02AF
 #define MIN_ARABIC_CODEPOINT             0x0600
@@ -160,7 +160,7 @@ bool codepoint_should_skip(const Codepoint codepoint) {
           (codepoint >= 0x2061 && codepoint <= 0x206F) ||
           (codepoint >= 0xFFF9 && codepoint <= 0xFFFB) ||
           (codepoint >= 0xE0000 && codepoint <= 0xE007F) ||
-          (codepoint >= 0xF0000 && codepoint <= 0x10FFFD) ||
+          (codepoint >= 0x100000 && codepoint <= 0x10FFFD) ||
           (codepoint_is_skin_tone_modifier(codepoint)));
 }
 

@@ -1,16 +1,16 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/timeline/generic_layout.h"
-#include "pbl/services/timeline/timeline_layout.h"
-
-#include "applib/graphics/gtypes.h"
-#include "applib/ui/ui.h"
-#include "font_resource_keys.auto.h"
-#include "kernel/pbl_malloc.h"
-#include "pbl/services/clock.h"
 #include <pbl/logging/logging.h>
-#include "pbl/util/size.h"
+#include <pbl/services/clock.h>
+#include <pbl/services/timeline/generic_layout.h>
+#include <pbl/services/timeline/timeline_layout.h>
+#include <pbl/util/size.h>
+
+#include <applib/graphics/gtypes.h>
+#include <applib/ui/ui.h>
+#include <font_resource_keys.auto.h>
+#include <kernel/pbl_malloc.h>
 
 //////////////////////////////////////////
 //  Card Mode
@@ -59,7 +59,7 @@ static GTextNode *prv_horizontal_rule_constructor(const LayoutLayer *layout_ref,
     custom_node->node.margin.h = 12;
     return &custom_node->node;
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 #endif // PBL_RECT
@@ -77,34 +77,34 @@ static GTextNode *prv_card_view_constructor(TimelineLayout *timeline_layout) {
     .text.extent.node.type = LayoutNodeType_TextDynamic,
     .update = timeline_layout_time_text_update,
     .buffer_size = TIME_STRING_REQUIRED_LENGTH,
-    .text.style = LayoutContentSizeDefault,
+    .text.style = LayoutContentSize_Auto,
     .text.style_font = TextStyleFont_Header,
     .text.alignment = PBL_IF_RECT_ELSE(LayoutTextAlignment_Right, LayoutTextAlignment_Center),
     .text.extent.margin.h = PBL_IF_RECT_ELSE(0, -2), // time margin height
   };
   static const LayoutNodeTextAttributeConfig s_title_config = {
     .attr_id = AttributeIdTitle,
-    .text.style = LayoutContentSizeDefault,
+    .text.style = LayoutContentSize_Auto,
     .text.style_font = TextStyleFont_Title,
     .text.line_spacing_delta = CARD_LINE_DELTA,
     .text.extent.margin.h = 4, // title margin height
   };
   static const LayoutNodeTextAttributeConfig s_subtitle_config = {
     .attr_id = AttributeIdSubtitle,
-    // This is spec'd to always be Gothic 24 Bold regardless of content size
-    .text.font_key = FONT_KEY_GOTHIC_24_BOLD,
+    .text.style = LayoutContentSize_Auto,
+    .text.style_font = TextStyleFont_CardSubtitle,
     .text.line_spacing_delta = CARD_LINE_DELTA,
     .text.extent.margin.h = 10, // subtitle margin height
   };
   static const LayoutNodeTextAttributeConfig s_location_config = {
     .attr_id = AttributeIdLocationName,
-    .text.style = LayoutContentSizeDefault,
+    .text.style = LayoutContentSize_Auto,
     .text.style_font = TextStyleFont_Header,
     .text.extent.margin.h = 10, // location margin height
   };
   static const LayoutNodeTextAttributeConfig s_body_config = {
     .attr_id = AttributeIdBody,
-    .text.style = LayoutContentSizeDefault,
+    .text.style = LayoutContentSize_Auto,
     .text.style_font = TextStyleFont_Body,
     .text.extent.margin.h = 12, // body margin height
   };

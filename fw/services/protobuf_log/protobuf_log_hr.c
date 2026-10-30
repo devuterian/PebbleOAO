@@ -1,19 +1,16 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/protobuf_log/protobuf_log_hr.h"
-#include "pbl/services/protobuf_log/protobuf_log.h"
-
-#include "pbl/services/hrm/hrm_manager.h"
-
-#include "measurements.pb.h"
-#include "system/passert.h"
-
-#include <pbl/util/size.h>
-
 #include <stdint.h>
-#include <stdbool.h>
-#include "pbl/util/testing.h"
+
+#include <pbl/kernel/fatal.h>
+#include <pbl/services/hrm/hrm_manager.h>
+#include <pbl/services/protobuf_log/protobuf_log.h>
+#include <pbl/services/protobuf_log/protobuf_log_hr.h>
+#include <pbl/util/size.h>
+#include <pbl/util/testing.h>
+
+#include <measurements.pb.h>
 
 // -----------------------------------------------------------------------------------------
 // Convert HRMQuality to the internal protobuf representation.
@@ -32,7 +29,7 @@ PBL_T_STATIC uint32_t prv_hr_quality_int(HRMQuality quality) {
     case HRMQuality_Excellent:
       return pebble_pipeline_MeasurementSet_HeartRateQuality_Excellent;
   }
-  WTF; // Should never get here
+  pbl_panic(); // Should never get here
   return 0;
 }
 

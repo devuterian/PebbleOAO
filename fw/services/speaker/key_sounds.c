@@ -10,7 +10,7 @@
 #include "process_management/process_manager.h"
 #include "process_management/pebble_process_md.h"
 #include "syscall/syscall.h"
-#include "syscall/syscall_internal.h"
+#include <pbl/kernel/syscall.h>
 #include "resource/resource_ids.auto.h"
 
 typedef struct {
@@ -103,7 +103,7 @@ static void prv_queue(KeySound sound, int16_t preview, bool absolute) {
   }
   pbl_mutex_unlock(&s_lock);
 }
-DEFINE_SYSCALL(void, key_sounds_play, KeySound sound) {
+PBL_SYSCALL(void, key_sounds_play, (VAL, KeySound, sound)) {
   if ((unsigned)sound >= KeySoundCount) {
     return;
   }

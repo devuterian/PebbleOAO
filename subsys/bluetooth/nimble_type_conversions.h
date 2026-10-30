@@ -3,10 +3,13 @@
 
 #pragma once
 
-#include <pbl/bluetooth/types.h>
-#include <pbl/bluetooth/responsiveness.h>
-#include <host/ble_gap.h>
 #include <stdint.h>
+
+#include <pbl/bluetooth/hci_types.h>
+#include <pbl/bluetooth/responsiveness.h>
+#include <pbl/bluetooth/types.h>
+
+#include <host/ble_gap.h>
 
 #define BLE_UUID_SWIZZLE_(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
   a15, a14, a13, a12, a11, a10, a9, a8, a7, a6, a5, a4, a3, a2, a1, a0
@@ -28,5 +31,7 @@ void nimble_conn_params_to_pebble(struct ble_gap_conn_desc *desc,
 
 void pebble_conn_update_to_nimble(const struct pbl_bt_conn_params_update_req *req,
                                   struct ble_gap_upd_params *params);
+
+enum pbl_bt_hci_status nimble_hs_status_to_hci(int status);
 
 void nimble_uuid_to_pebble(const ble_uuid_any_t *stack_uuid, Uuid *uuid);

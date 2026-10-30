@@ -1,23 +1,24 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "applib/data_logging.h"
-#include "applib/health_service.h"
-#include "kernel/events.h"
-#include "pbl/kernel/mutex.h"
-#include "pbl/services/alarms/alarm.h"
-#include "syscall/syscall.h"
-#include "syscall/syscall_internal.h"
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/kernel/mutex.h>
+#include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/size.h"
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/activity/activity_algorithm.h>
+#include <pbl/services/activity/activity_insights.h>
+#include <pbl/services/activity/activity_private.h>
+#include <pbl/services/alarms/alarm.h>
+#include <pbl/services/time.h>
+#include <pbl/util/size.h>
+#include <pbl/util/units.h>
 
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/activity/activity_algorithm.h"
-#include "pbl/services/activity/activity_insights.h"
-#include "pbl/services/activity/activity_private.h"
-#include "pbl/services/time.h"
-#include "pbl/util/units.h"
+#include <applib/data_logging.h>
+#include <applib/health_service.h>
+#include <kernel/events.h>
+#include <syscall/syscall.h>
 
 PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
@@ -92,7 +93,7 @@ bool activity_sessions_prv_is_sleep_activity(ActivitySessionType activity_type) 
     case ActivitySessionTypeCount:
       break;
   }
-  WTF;
+  pbl_panic();
 }
 
 // ------------------------------------------------------------------------------------
@@ -252,7 +253,7 @@ void activity_sessions_prv_send_activity_session_to_data_logging(ActivitySession
     dls_record.step_data = session->step_data;
   }
 
-  if (state->activity_dls_session == NULL) {
+  if (state->activity_dls_session == nullptr) {
     // We don't need to be buffered since we are logging from the KernelBG task and this
     // saves having to allocate another buffer from the kernel heap.
     const bool buffered = false;
@@ -372,12 +373,16 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
     // Collect stats on sleep
     ActivitySleepStats stats;
     if (!prv_compute_sleep_stats(now_utc, 0 /*min_end_utc*/, max_end_utc, &stats)) {
-      // No sleep session to be in, e.g. it was lost across a reboot
+      // No sleep session to be in, e.g. it was lost across a reboot or rejected
+      sleep_data->total_minutes = 0;
+      sleep_data->restful_minutes = 0;
+      sleep_data->enter_at_minute = 0;
+      sleep_data->exit_at_minute = 0;
       if (sleep_data->cur_state != ActivitySleepStateAwake) {
         sleep_data->cur_state = ActivitySleepStateAwake;
         sleep_data->cur_state_elapsed_minutes = 0;
       }
-      goto unlock;
+      goto post_event;
     }
 
     // Update our sleep metrics
@@ -414,6 +419,7 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
           (stats.last_session_len_sec + now_utc - stats.last_exit_utc) / PBL_SEC_PER_MIN;
     }
 
+  post_event:
     // If the info that is part of a health sleep event has changed, send out a notification event
     if ((sleep_data->total_minutes != prev_sleep_data.total_minutes) ||
         (sleep_data->restful_minutes != prev_sleep_data.restful_minutes)) {
@@ -440,7 +446,6 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
                   sleep_data->cur_state_elapsed_minutes);
     }
   }
-unlock:
   pbl_mutex_unlock(&state->mutex);
 }
 
@@ -506,14 +511,32 @@ static void prv_log_activities(time_t now_utc) {
     {ActivitySettingsKeyLastStepActivityUTC, &state->logged_step_activity_exit_at_utc, false},
   };
 
-  bool logged_event = false;
+  bool exit_utc_changed = false;
+
+  // A clock set into the future and corrected later leaves future exit times behind, which
+  // would mark every new session as already logged. Reset them; the phone dedups re-sent ones.
+  for (int i = 0; i < ActivityClassCount; i++) {
+    ActivityClassParams *params = &class_settings[i];
+    if (*params->exit_utc > now_utc) {
+      PBL_LOG_WRN("Last logged activity exit time in the future, resetting");
+      *params->exit_utc = 0;
+      params->modified = true;
+      exit_utc_changed = true;
+    }
+  }
+
   ActivitySession *session = state->activity_sessions;
   for (uint32_t i = 0; i < state->activity_sessions_count; i++, session++) {
     // Get info on this activity
     uint32_t session_len_sec = session->length_min * PBL_SEC_PER_MIN;
     time_t session_exit_utc = session->start_utc + session_len_sec;
 
-    ActivityClassParams *params = NULL;
+    // Sessions ending in the future were recorded with a wrong clock, don't log them
+    if (session_exit_utc > now_utc) {
+      continue;
+    }
+
+    ActivityClassParams *params = nullptr;
     switch (session->type) {
       case ActivitySessionType_Sleep:
       case ActivitySessionType_Nap:
@@ -532,7 +555,7 @@ static void prv_log_activities(time_t now_utc) {
         break;
       case ActivitySessionType_None:
       case ActivitySessionTypeCount:
-        WTF;
+        pbl_panic();
         break;
     }
     PBL_ASSERTN(params);
@@ -555,11 +578,11 @@ static void prv_log_activities(time_t now_utc) {
     activity_sessions_prv_send_activity_session_to_data_logging(session);
     *params->exit_utc = session_exit_utc;
     params->modified = true;
-    logged_event = true;
+    exit_utc_changed = true;
   }
 
-  // Update settings file if any events were logged
-  if (logged_event) {
+  // Update settings file if any exit times changed
+  if (exit_utc_changed) {
     pbl_mutex_lock(&state->mutex, PBL_FOREVER);
     SettingsFile *file = activity_private_settings_open();
     if (file) {
@@ -614,7 +637,7 @@ void activity_sessions_prv_init(SettingsFile *file, time_t utc_now) {
     if (!prv_is_valid_activity_session(session)) {
       // NOTE: We check for full validity as well as we can (rather than just checking for a
       // non-null activity start time for example) because there have been cases where
-      // flash got corrupted, as in PBL-37848
+      // flash got corrupted.
       PBL_HEXDUMP(LOG_LEVEL_INFO, (void *)state->activity_sessions,
                   sizeof(state->activity_sessions));
       PBL_LOG_ERR("Invalid activity session detected - could be flash corruption");
@@ -623,7 +646,7 @@ void activity_sessions_prv_init(SettingsFile *file, time_t utc_now) {
       memset(state->activity_sessions, 0, sizeof(state->activity_sessions));
       settings_file_set(file, &key, sizeof(key), state->activity_sessions,
                         sizeof(state->activity_sessions));
-      WTF;
+      pbl_panic();
     }
     state->activity_sessions_count++;
   }
@@ -682,6 +705,6 @@ bool activity_sessions_is_session_type_ongoing(ActivitySessionType type) {
 }
 
 // ------------------------------------------------------------------------------------------------
-DEFINE_SYSCALL(bool, sys_activity_sessions_is_session_type_ongoing, ActivitySessionType type) {
+PBL_SYSCALL(bool, sys_activity_sessions_is_session_type_ongoing, (VAL, ActivitySessionType, type)) {
   return activity_sessions_is_session_type_ongoing(type);
 }

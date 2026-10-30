@@ -4,13 +4,10 @@
 #pragma once
 #include <inttypes.h>
 
-#include <pbl/bluetooth/types.h>
+#include <pbl/bluetooth/hci_types.h>
 #include <pbl/bluetooth/sm_types.h>
-
-#include "pbl/kernel/compiler.h"
-#include "pbl/bluetooth/hci_types.h"
-
-#include "pbl/kernel/compiler.h"
+#include <pbl/bluetooth/types.h>
+#include <pbl/kernel/compiler.h>
 
 /**
  * @defgroup bluetooth_gap_le_connect LE connections
@@ -33,7 +30,7 @@ enum pbl_bt_addr_type {
 };
 
 #ifndef __clang__
-_Static_assert(sizeof(enum pbl_bt_addr_type) == 1, "enum pbl_bt_addr_type is not 1 byte in size");
+static_assert(sizeof(enum pbl_bt_addr_type) == 1, "enum pbl_bt_addr_type is not 1 byte in size");
 #endif
 
 /** @brief Parameters of an established connection. */
@@ -102,7 +99,7 @@ struct PBL_PACKED pbl_bt_conn_update_complete_event {
   struct pbl_bt_conn_params conn_params;
   /** Address of the peer. The address type is not available. */
   struct pbl_bt_addr dev_address;
-  /** Status. The NimBLE backend only reports successful updates. */
+  /** Status. On failure, conn_params holds the parameters still in use. */
   enum pbl_bt_hci_status status;
 };
 

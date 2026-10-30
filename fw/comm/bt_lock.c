@@ -3,8 +3,6 @@
 
 #include "bt_lock.h"
 
-#include "system/passert.h"
-
 // NOTE: The s_bt_lock is the global Bluetooth lock that is used by the firmware
 // *and* by Bluetopia. It gets handed to Bluetopia using bt_lock_get() in
 // BTPSKRNL.c when Bluetopia is initialized. The firmware uses this lock to
@@ -25,9 +23,7 @@ struct pbl_mutex *bt_lock_get(void) {
 }
 
 void bt_lock(void) {
-  register uint32_t LR __asm("lr");
-  uint32_t myLR = LR;
-  pbl_mutex_lock_lr(&s_bt_lock, PBL_FOREVER, myLR);
+  pbl_mutex_lock_lr(&s_bt_lock, PBL_FOREVER, (uintptr_t)PBL_RETURN_ADDRESS(0));
 }
 
 void bt_unlock(void) {

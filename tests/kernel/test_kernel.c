@@ -1,23 +1,25 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-
-#include "pbl/kernel/kernel.h"
-
-#include "kernel_test.h"
+#define _POSIX_C_SOURCE 200809L
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pbl/kernel/compiler.h"
+#include <time.h>
+
+#include <pbl/kernel/compiler.h>
+#include <pbl/kernel/kernel.h>
+
+#include <clar.h>
+#include <kernel_test.h>
 
 // The kernel on the POSIX arch: threads are pthreads that run one at
 // a time under the kernel's scheduling decisions, and time only moves when a
 // test delivers ticks or every thread is blocked.
 
-PBL_NORETURN void pbl_kernel_assert_failed(const char *filename, int line) {
+[[noreturn]] void pbl_panic_bare_at(const char *filename, int line) {
   fprintf(stderr, "kernel assert at %s:%d\n", filename, line);
   abort();
 }
@@ -73,8 +75,8 @@ static void prv_hi_entry(void *arg) {
 }
 
 void test_kernel__priority_preempts(void) {
-  prv_spawn(0, "lo", 1, prv_lo_entry, NULL);
-  prv_spawn(1, "hi", 3, prv_hi_entry, NULL);
+  prv_spawn(0, "lo", 1, prv_lo_entry, nullptr);
+  prv_spawn(1, "hi", 3, prv_hi_entry, nullptr);
   pbl_test_kernel_run();
   // hi runs first, sleeps, lo runs to the stop while hi is asleep
   cl_assert_equal_s(s_trace, "HL");
@@ -90,7 +92,7 @@ static void prv_sleep_then_stop(void *arg) {
 }
 
 void test_kernel__sleep_advances_virtual_time(void) {
-  prv_spawn(0, "sleeper", 2, prv_sleep_then_stop, NULL);
+  prv_spawn(0, "sleeper", 2, prv_sleep_then_stop, nullptr);
   pbl_test_kernel_run();
   cl_assert_equal_s(s_trace, "S");
 }
@@ -132,6 +134,92 @@ void test_kernel__tick_time_slices(void) {
   cl_assert_equal_s(s_trace, "ABABABAB");
 }
 
+// ---- delays and uptime ------------------------------------------------------
+
+static void prv_sleep_rounds_up(void *arg) {
+  // 1024 Hz: 10 ms is 10.24 ticks, rounded up plus the partial tick.
+  uint64_t start = pbl_uptime_ticks();
+  pbl_sleep_ms(10);
+  cl_assert_equal_i(pbl_uptime_ticks() - start, 12);
+
+  start = pbl_uptime_ticks();
+  pbl_sleep_us(1);
+  cl_assert_equal_i(pbl_uptime_ticks() - start, 2);
+
+  start = pbl_uptime_ticks();
+  pbl_sleep_ms(0);
+  cl_assert_equal_i(pbl_uptime_ticks() - start, 0);
+
+  pbl_test_kernel_stop();
+}
+
+void test_kernel__sleep_waits_at_least_the_request(void) {
+  prv_spawn(0, "sleeper", 2, prv_sleep_rounds_up, nullptr);
+  pbl_test_kernel_run();
+}
+
+static void prv_sleep_past_wrap(void *arg) {
+  for (int i = 0; i < 3; i++) {
+    pbl_thread_sleep(PBL_TICKS(INT32_MAX));
+  }
+  cl_assert(pbl_uptime_ticks() >= 3ULL * INT32_MAX);
+  cl_assert_equal_i(pbl_uptime_ms(), pbl_uptime_ticks() * 1000 / PBL_TICK_HZ);
+  pbl_test_kernel_stop();
+}
+
+void test_kernel__uptime_does_not_wrap(void) {
+  prv_spawn(0, "sleeper", 2, prv_sleep_past_wrap, nullptr);
+  pbl_test_kernel_run();
+}
+
+void test_kernel__busy_wait_waits_at_least_the_request(void) {
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_MONOTONIC, &t0);
+  pbl_busy_wait_us(2000);
+  clock_gettime(CLOCK_MONOTONIC, &t1);
+  int64_t ns = (t1.tv_sec - t0.tv_sec) * 1000000000LL + (t1.tv_nsec - t0.tv_nsec);
+  cl_assert(ns >= 2000000);
+}
+
+static int s_poll_count;
+
+static bool prv_poll_ready(int after) {
+  return ++s_poll_count > after;
+}
+
+static void prv_poll_sleep(void *arg) {
+  s_poll_count = 0;
+  cl_assert_equal_i(PBL_POLL_SLEEP_MS(prv_poll_ready(3), 1, 100), 0);
+  cl_assert_equal_i(s_poll_count, 4);
+
+  // Never true: times out after at least 20 ms, with one last evaluation.
+  s_poll_count = 0;
+  uint64_t start = pbl_uptime_ms();
+  cl_assert_equal_i(PBL_POLL_SLEEP_MS(prv_poll_ready(1000), 5, 20), -ETIMEDOUT);
+  cl_assert(pbl_uptime_ms() - start >= 20);
+  cl_assert(s_poll_count >= 2 && s_poll_count <= 6);
+
+  pbl_test_kernel_stop();
+}
+
+void test_kernel__poll_sleep(void) {
+  prv_spawn(0, "poller", 2, prv_poll_sleep, nullptr);
+  pbl_test_kernel_run();
+}
+
+void test_kernel__poll_busy(void) {
+  s_poll_count = 0;
+  cl_assert_equal_i(PBL_POLL_BUSY_US(prv_poll_ready(2), 10, 100000), 0);
+  cl_assert_equal_i(s_poll_count, 3);
+
+  struct timespec t0, t1;
+  clock_gettime(CLOCK_MONOTONIC, &t0);
+  cl_assert_equal_i(PBL_POLL_BUSY_US(false, 100, 2000), -ETIMEDOUT);
+  clock_gettime(CLOCK_MONOTONIC, &t1);
+  int64_t ns = (t1.tv_sec - t0.tv_sec) * 1000000000LL + (t1.tv_nsec - t0.tv_nsec);
+  cl_assert(ns >= 2000000);
+}
+
 // ---- semaphores -------------------------------------------------------------
 
 static PBL_SEM_DEFINE(s_sem, 0, 1);
@@ -154,8 +242,8 @@ static void prv_giver(void *arg) {
 
 void test_kernel__semaphore_handoff_and_timeout(void) {
   pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
-  prv_spawn(0, "taker", 3, prv_taker, NULL);
-  prv_spawn(1, "giver", 2, prv_giver, NULL);
+  prv_spawn(0, "taker", 3, prv_taker, nullptr);
+  prv_spawn(1, "giver", 2, prv_giver, nullptr);
   pbl_test_kernel_run();
   // taker blocks, giver gives and is preempted by the higher-priority taker,
   // which then times out on its second take after the giver finished
@@ -179,8 +267,8 @@ static void prv_isr_giver(void *arg) {
 
 void test_kernel__semaphore_give_from_isr(void) {
   pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
-  prv_spawn(0, "taker", 3, prv_isr_taker, NULL);
-  prv_spawn(1, "giver", 2, prv_isr_giver, NULL);
+  prv_spawn(0, "taker", 3, prv_isr_taker, nullptr);
+  prv_spawn(1, "giver", 2, prv_isr_giver, nullptr);
   pbl_test_kernel_run();
   cl_assert_equal_s(s_trace, "igT");
 }
@@ -194,6 +282,92 @@ void test_kernel__semaphore_counts_to_limit(void) {
   cl_assert_equal_i(pbl_sem_count(&s), 2);
   pbl_sem_reset(&s);
   cl_assert_equal_i(pbl_sem_count(&s), 0);
+}
+
+// ---- timers -----------------------------------------------------------------
+
+static struct pbl_timer s_timer;
+static uint64_t s_timer_fired_at;
+static bool s_timer_in_isr;
+
+static void prv_timer_fn(struct pbl_timer *timer) {
+  cl_assert(timer == &s_timer);
+  s_timer_fired_at = pbl_uptime_ticks();
+  s_timer_in_isr = pbl_in_isr();
+  pbl_sem_give(&s_sem);
+}
+
+static void prv_timer_waiter(void *arg) {
+  pbl_timer_start(&s_timer, PBL_TICKS(7));
+  cl_assert(pbl_timer_is_active(&s_timer));
+  cl_assert_equal_i(pbl_sem_take(&s_sem, PBL_FOREVER), 0);
+  cl_assert_equal_i(s_timer_fired_at, 7);
+  cl_assert(s_timer_in_isr);
+  cl_assert(!pbl_timer_is_active(&s_timer));
+  pbl_test_kernel_stop();
+}
+
+void test_kernel__timer_expires_in_isr_while_idle(void) {
+  pbl_sem_init(&s_sem, 0, 1);
+  pbl_timer_init(&s_timer, prv_timer_fn);
+  prv_spawn(0, "waiter", 2, prv_timer_waiter, nullptr);
+  pbl_test_kernel_run();
+}
+
+static void prv_timer_restart_stop(void *arg) {
+  pbl_timer_start(&s_timer, PBL_TICKS(5));
+  pbl_thread_sleep(PBL_TICKS(3));
+  pbl_timer_start(&s_timer, PBL_TICKS(5));
+  cl_assert_equal_i(pbl_sem_take(&s_sem, PBL_FOREVER), 0);
+  cl_assert_equal_i(s_timer_fired_at, 8);
+
+  pbl_timer_start(&s_timer, PBL_TICKS(2));
+  pbl_timer_stop(&s_timer);
+  cl_assert(!pbl_timer_is_active(&s_timer));
+  cl_assert_equal_i(pbl_sem_take(&s_sem, PBL_TICKS(10)), -EAGAIN);
+  pbl_test_kernel_stop();
+}
+
+void test_kernel__timer_restart_and_stop(void) {
+  pbl_sem_init(&s_sem, 0, 1);
+  pbl_timer_init(&s_timer, prv_timer_fn);
+  prv_spawn(0, "waiter", 2, prv_timer_restart_stop, nullptr);
+  pbl_test_kernel_run();
+}
+
+#define NUM_ORDER_TIMERS 3
+
+static struct pbl_timer s_order_timers[NUM_ORDER_TIMERS];
+static int s_timer_order[NUM_ORDER_TIMERS];
+static int s_timer_count;
+
+static void prv_timer_order_fn(struct pbl_timer *timer) {
+  s_timer_order[s_timer_count++] = (int)(timer - s_order_timers);
+  if (s_timer_count == NUM_ORDER_TIMERS) {
+    pbl_sem_give(&s_sem);
+  }
+}
+
+static void prv_timer_order(void *arg) {
+  pbl_timer_start(&s_order_timers[0], PBL_TICKS(9));
+  pbl_timer_start(&s_order_timers[1], PBL_TICKS(3));
+  pbl_timer_start(&s_order_timers[2], PBL_TICKS(6));
+  cl_assert_equal_i(pbl_sem_take(&s_sem, PBL_FOREVER), 0);
+  cl_assert_equal_i(pbl_uptime_ticks(), 9);
+  pbl_test_kernel_stop();
+}
+
+void test_kernel__timers_expire_in_order(void) {
+  pbl_sem_init(&s_sem, 0, 1);
+  s_timer_count = 0;
+  for (int i = 0; i < NUM_ORDER_TIMERS; i++) {
+    pbl_timer_init(&s_order_timers[i], prv_timer_order_fn);
+  }
+  prv_spawn(0, "waiter", 2, prv_timer_order, nullptr);
+  pbl_test_kernel_run();
+  cl_assert_equal_i(s_timer_order[0], 1);
+  cl_assert_equal_i(s_timer_order[1], 2);
+  cl_assert_equal_i(s_timer_order[2], 0);
 }
 
 // ---- mutexes ----------------------------------------------------------------
@@ -231,9 +405,9 @@ static void prv_pi_high(void *arg) {
 
 void test_kernel__mutex_priority_inheritance(void) {
   pbl_mutex_init(&s_mutex);
-  prv_spawn(0, "low", 1, prv_pi_low, NULL);
-  prv_spawn(1, "med", 2, prv_pi_medium, NULL);
-  prv_spawn(2, "high", 4, prv_pi_high, NULL);
+  prv_spawn(0, "low", 1, prv_pi_low, nullptr);
+  prv_spawn(1, "med", 2, prv_pi_medium, nullptr);
+  prv_spawn(2, "high", 4, prv_pi_high, nullptr);
   pbl_test_kernel_run();
   // low takes the lock; high blocks and boosts low over medium; low hands
   // the mutex to high, then medium outranks the deboosted low
@@ -253,7 +427,7 @@ static void prv_recursive(void *arg) {
 
 void test_kernel__mutex_recursive(void) {
   pbl_mutex_init(&s_mutex);
-  prv_spawn(0, "r", 2, prv_recursive, NULL);
+  prv_spawn(0, "r", 2, prv_recursive, nullptr);
   pbl_test_kernel_run();
 }
 
@@ -275,8 +449,8 @@ static void prv_timed_locker(void *arg) {
 
 void test_kernel__mutex_timeouts(void) {
   pbl_mutex_init(&s_mutex);
-  prv_spawn(0, "holder", 2, prv_holder, NULL);
-  prv_spawn(1, "locker", 3, prv_timed_locker, NULL);
+  prv_spawn(0, "holder", 2, prv_holder, nullptr);
+  prv_spawn(1, "locker", 3, prv_timed_locker, nullptr);
   pbl_test_kernel_run();
 }
 
@@ -308,8 +482,8 @@ static void prv_consumer(void *arg) {
 
 void test_kernel__msgq_blocks_full_and_empty(void) {
   pbl_msgq_init(&s_q, s_q.buf, s_q.msg_size, s_q.max_msgs);
-  prv_spawn(0, "producer", 2, prv_producer, NULL);
-  prv_spawn(1, "consumer", 3, prv_consumer, NULL);
+  prv_spawn(0, "producer", 2, prv_producer, nullptr);
+  prv_spawn(1, "consumer", 3, prv_consumer, nullptr);
   pbl_test_kernel_run();
   // producer puts 1,2 then blocks; every put wakes the higher-priority
   // consumer, which drains the message before the producer can trace it
@@ -340,7 +514,7 @@ static PBL_POLL_GROUP_DEFINE(s_group);
 
 static void prv_poll_waiter(void *arg) {
   cl_assert(pbl_poll_group_is_empty(&s_group));
-  cl_assert(pbl_poll_group_wait(&s_group, PBL_TICKS(2)) == NULL);
+  cl_assert(pbl_poll_group_wait(&s_group, PBL_TICKS(2)) == nullptr);
   struct pbl_msgq *ready = pbl_poll_group_wait(&s_group, PBL_FOREVER);
   cl_assert(ready == &s_qb);
   int v;
@@ -354,7 +528,7 @@ static void prv_poll_waiter(void *arg) {
   pbl_msgq_get(&s_qa, &v, PBL_NO_WAIT);
   cl_assert(pbl_poll_group_wait(&s_group, PBL_NO_WAIT) == &s_qb);
   pbl_msgq_get(&s_qb, &v, PBL_NO_WAIT);
-  cl_assert(pbl_poll_group_wait(&s_group, PBL_NO_WAIT) == NULL);
+  cl_assert(pbl_poll_group_wait(&s_group, PBL_NO_WAIT) == nullptr);
   pbl_test_kernel_stop();
 }
 
@@ -370,8 +544,8 @@ void test_kernel__poll_group(void) {
   pbl_poll_group_init(&s_group);
   pbl_poll_group_add(&s_group, &s_qa);
   pbl_poll_group_add(&s_group, &s_qb);
-  prv_spawn(0, "waiter", 3, prv_poll_waiter, NULL);
-  prv_spawn(1, "poster", 2, prv_poll_poster, NULL);
+  prv_spawn(0, "waiter", 3, prv_poll_waiter, nullptr);
+  prv_spawn(1, "poster", 2, prv_poll_poster, nullptr);
   pbl_test_kernel_run();
 }
 
@@ -402,7 +576,7 @@ static void prv_controller(void *arg) {
 }
 
 void test_kernel__suspend_resume_abort(void) {
-  struct pbl_thread *victim = prv_spawn(0, "victim", 2, prv_victim, NULL);
+  struct pbl_thread *victim = prv_spawn(0, "victim", 2, prv_victim, nullptr);
   prv_spawn(1, "ctl", 3, prv_controller, victim);
   pbl_test_kernel_run();
 }
@@ -420,8 +594,8 @@ static void prv_watcher(void *arg) {
 }
 
 void test_kernel__thread_exit_on_return(void) {
-  prv_spawn(0, "short", 3, prv_short_lived, NULL);
-  prv_spawn(1, "watch", 2, prv_watcher, NULL);
+  prv_spawn(0, "short", 3, prv_short_lived, nullptr);
+  prv_spawn(1, "watch", 2, prv_watcher, nullptr);
   pbl_test_kernel_run();
   cl_assert_equal_s(s_trace, "sw");
 }
@@ -443,7 +617,7 @@ static void prv_stats_entry(void *arg) {
 }
 
 void test_kernel__stats_and_stack_info(void) {
-  prv_spawn(0, "stats", 2, prv_stats_entry, NULL);
+  prv_spawn(0, "stats", 2, prv_stats_entry, nullptr);
   pbl_test_kernel_run();
 }
 
@@ -461,7 +635,7 @@ static void prv_raised(void *arg) {
 }
 
 void test_kernel__prio_set_preempts(void) {
-  struct pbl_thread *other = prv_spawn(0, "other", 1, prv_raised, NULL);
+  struct pbl_thread *other = prv_spawn(0, "other", 1, prv_raised, nullptr);
   prv_spawn(1, "raiser", 3, prv_prio_raiser, other);
   pbl_test_kernel_run();
   cl_assert_equal_s(s_trace, "aRb");
@@ -485,8 +659,8 @@ static void prv_sched_waiter(void *arg) {
 
 void test_kernel__sched_lock_defers_switch(void) {
   pbl_sem_init(&s_sem, s_sem.initial, s_sem.limit);
-  prv_spawn(0, "waiter", 3, prv_sched_waiter, NULL);
-  prv_spawn(1, "locker", 2, prv_sched_locked, NULL);
+  prv_spawn(0, "waiter", 3, prv_sched_waiter, nullptr);
+  prv_spawn(1, "locker", 2, prv_sched_locked, nullptr);
   pbl_test_kernel_run();
   cl_assert_equal_s(s_trace, "abWc");
 }

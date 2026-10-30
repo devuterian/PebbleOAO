@@ -1,22 +1,23 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/touch/touch.h"
-#include "pbl/services/touch/touch_event.h"
-#include "pbl/services/touch/touch_session.h"
-
-#include <pbl/drivers/display/display.h>
-#include <pbl/drivers/touch/touch_sensor.h>
-#include "kernel/event_loop.h"
-#include "kernel/events.h"
-#include "kernel/pebble_tasks.h"
-#include "pbl/services/event_service.h"
-#include "pbl/services/analytics/analytics.h"
-#include "syscall/syscall.h"
-#include "syscall/syscall_internal.h"
+#include <pbl/drivers/touch.h>
+#include <pbl/input/input.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/mutex.h>
+#include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
-#include "pbl/kernel/mutex.h"
-#include "system/passert.h"
+#include <pbl/services/analytics/analytics.h>
+#include <pbl/services/event_service.h>
+#include <pbl/services/touch/touch.h>
+#include <pbl/services/touch/touch_event.h>
+#include <pbl/services/touch/touch_session.h>
+
+#include <board/display.h>
+#include <kernel/event_loop.h>
+#include <kernel/events.h>
+#include <kernel/pebble_tasks.h>
+#include <syscall/syscall.h>
 
 PBL_LOG_MODULE_DEFINE(service_touch, CONFIG_SERVICE_TOUCH_LOG_LEVEL);
 
@@ -37,6 +38,7 @@ static bool s_system_hold_subscribed = false;
 static bool s_nav_enabled = false;
 static bool s_app_nav_active = false;
 static bool s_globally_enabled = true;
+static bool s_sensor_enabled = false;
 static bool s_rotated = false;
 //! Set while an injected gesture owns the sensor, between its touchdown and liftoff. Physical
 //! samples are ignored for its duration so the synthetic path cannot be corrupted mid-swipe.
@@ -49,13 +51,33 @@ static void prv_apply_rotation(int16_t *x, int16_t *y) {
   }
 }
 
+//! Powers the sensor while touch is globally enabled and has subscribers. Caller must hold
+//! s_touch_mutex.
+static void prv_update_sensor(void) {
+  const bool enable = s_globally_enabled && (s_subscriber_count > 0);
+  int ret;
+
+  if (enable == s_sensor_enabled) {
+    return;
+  }
+
+  if (enable) {
+    ret = pbl_touch_enable(TOUCH);
+    if (ret != 0) {
+      PBL_LOG_WRN("Touch: could not enable the touchscreen (%d)", ret);
+      return;
+    }
+  } else {
+    (void)pbl_touch_disable(TOUCH);
+  }
+
+  s_sensor_enabled = enable;
+}
+
 static void prv_add_subscriber_cb(PebbleTask task) {
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
-  // Honor the global kill switch: when touch is globally disabled, track the
-  // subscriber count but don't power up the sensor.
-  if (++s_subscriber_count == 1 && s_globally_enabled) {
-    touch_sensor_set_enabled(true);
-  }
+  s_subscriber_count++;
+  prv_update_sensor();
   PBL_LOG_DBG("Touch: subscriber added, count=%" PRIu8, s_subscriber_count);
   pbl_mutex_unlock(&s_touch_mutex);
 }
@@ -63,9 +85,8 @@ static void prv_add_subscriber_cb(PebbleTask task) {
 static void prv_remove_subscriber_cb(PebbleTask task) {
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
   PBL_ASSERTN(s_subscriber_count > 0);
-  if (--s_subscriber_count == 0 && s_globally_enabled) {
-    touch_sensor_set_enabled(false);
-  }
+  s_subscriber_count--;
+  prv_update_sensor();
   // An app whose shared touch subscription disappears (task exit, or both
   // slots emptied) cannot have a live raw handler or nav dispatcher anymore;
   // drop its raw-slot mark and the app-nav-active flag so a crashed app cannot
@@ -75,6 +96,15 @@ static void prv_remove_subscriber_cb(PebbleTask task) {
     s_app_nav_active = false;
   }
   PBL_LOG_DBG("Touch: subscriber removed, count=%" PRIu8, s_subscriber_count);
+  pbl_mutex_unlock(&s_touch_mutex);
+}
+
+void touch_process_cleanup(PebbleTask task) {
+  pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
+  s_raw_subscriber_tasks &= (uint8_t)~(1u << task);
+  if (task == PebbleTask_App) {
+    s_app_nav_active = false;
+  }
   pbl_mutex_unlock(&s_touch_mutex);
 }
 
@@ -127,10 +157,9 @@ void touch_service_set_globally_enabled(bool enabled) {
     return;
   }
   s_globally_enabled = enabled;
-  const bool sensor_enabled = enabled && (s_subscriber_count > 0);
+  prv_update_sensor();
   pbl_mutex_unlock(&s_touch_mutex);
 
-  touch_sensor_set_enabled(sensor_enabled);
   if (!enabled) {
     // A finger down when touch is torn down never gets a Liftoff otherwise, so
     // the backlight hold counter stays pinned. Synthesize one before the reset
@@ -148,19 +177,26 @@ bool touch_service_is_globally_enabled(void) {
   return enabled;
 }
 
-DEFINE_SYSCALL(bool, sys_touch_service_is_enabled, void) {
+PBL_SYSCALL(bool, sys_touch_service_is_enabled) {
   return touch_service_is_globally_enabled();
 }
 
-DEFINE_SYSCALL(bool, sys_touch_nav_enabled, void) {
+PBL_SYSCALL(bool, sys_touch_nav_enabled) {
   return touch_nav_enabled();
 }
 
-DEFINE_SYSCALL(bool, sys_touch_app_nav_active, void) {
+PBL_SYSCALL(bool, sys_touch_app_nav_active) {
   return touch_app_nav_active();
 }
 
-DEFINE_SYSCALL(void, sys_touch_set_raw_subscribed, bool subscribed) {
+PBL_SYSCALL(void, sys_touch_set_app_nav_active, (VAL, bool, active)) {
+  if (pebble_task_get_current() != PebbleTask_App) {
+    return;
+  }
+  touch_set_app_nav_active(active);
+}
+
+PBL_SYSCALL(void, sys_touch_set_raw_subscribed, (VAL, bool, subscribed)) {
   const PebbleTask task = pebble_task_get_current();
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);
   if (subscribed) {
@@ -171,7 +207,7 @@ DEFINE_SYSCALL(void, sys_touch_set_raw_subscribed, bool subscribed) {
   pbl_mutex_unlock(&s_touch_mutex);
 }
 
-DEFINE_SYSCALL(void, sys_touch_reset, void) {
+PBL_SYSCALL(void, sys_touch_reset) {
   touch_reset();
 }
 
@@ -300,7 +336,7 @@ bool touch_handle_injected_update(TouchInjectPhase phase, int16_t x, int16_t y) 
     s_injecting = true;
     // Arm before the touchdown is queued: both land on KernelMain in order, so the gate sees an
     // armed session rather than dropping the gesture as unarmed idle-watchface contact.
-    launcher_task_add_callback(prv_arm_session_cb, NULL);
+    launcher_task_add_callback(prv_arm_session_cb, nullptr);
   } else if (!s_injecting) {
     // The gesture lost the sensor (reset, or touch switched off and back on). Refusing here is
     // what lets the caller abort, rather than having this sample taken as a new touchdown from
@@ -366,6 +402,71 @@ void touch_handle_gesture(TouchGesture gesture, int16_t x, int16_t y) {
 
   pbl_mutex_unlock(&s_touch_mutex);
 }
+
+// Input reports are built by a single driver context, so the pending report needs no lock.
+static struct {
+  bool has_sample;
+  bool has_gesture;
+  bool down;
+  TouchGesture gesture;
+  int16_t x;
+  int16_t y;
+} s_report;
+
+static void prv_input_cb(const struct pbl_input_event *evt, void *user_data) {
+  switch (evt->type) {
+    case PBL_INPUT_EV_KEY:
+      if (evt->code != PBL_INPUT_BTN_TOUCH) {
+        return;
+      }
+      s_report.has_sample = true;
+      s_report.down = evt->value != 0;
+      break;
+    case PBL_INPUT_EV_ABS:
+      if (evt->code == PBL_INPUT_ABS_X) {
+        s_report.x = (int16_t)evt->value;
+      } else if (evt->code == PBL_INPUT_ABS_Y) {
+        s_report.y = (int16_t)evt->value;
+      } else {
+        return;
+      }
+      break;
+    case PBL_INPUT_EV_GES:
+      switch (evt->code) {
+        case PBL_INPUT_GES_TAP:
+          s_report.gesture = TouchGesture_Tap;
+          break;
+        case PBL_INPUT_GES_DOUBLE_TAP:
+          s_report.gesture = TouchGesture_DoubleTap;
+          break;
+        case PBL_INPUT_GES_PALM:
+          s_report.gesture = TouchGesture_Palm;
+          break;
+        default:
+          return;
+      }
+      s_report.has_gesture = true;
+      break;
+    default:
+      return;
+  }
+
+  if (!evt->sync) {
+    return;
+  }
+
+  if (s_report.has_gesture) {
+    touch_handle_gesture(s_report.gesture, s_report.x, s_report.y);
+  }
+  if (s_report.has_sample) {
+    touch_handle_update(s_report.down ? TouchState_FingerDown : TouchState_FingerUp, s_report.x,
+                        s_report.y);
+  }
+  s_report.has_sample = false;
+  s_report.has_gesture = false;
+}
+
+PBL_INPUT_CALLBACK_DEFINE(prv_input_cb, nullptr);
 
 void touch_reset(void) {
   pbl_mutex_lock(&s_touch_mutex, PBL_FOREVER);

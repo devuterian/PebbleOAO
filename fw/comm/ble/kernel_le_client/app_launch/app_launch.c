@@ -3,12 +3,11 @@
 
 #include "app_launch.h"
 
-#include "comm/ble/gatt_client_operations.h"
-#include "pbl/services/comm_session/session.h"
+#include <pbl/kernel/assert.h>
 #include <pbl/logging/logging.h>
-#include "system/passert.h"
+#include <pbl/services/comm_session/session.h>
 
-//! See https://pebbletechnology.atlassian.net/wiki/display/DEV/Pebble+GATT+Services
+#include <comm/ble/gatt_client_operations.h>
 
 // -------------------------------------------------------------------------------------------------
 // Static variables
@@ -59,7 +58,7 @@ void app_launch_trigger(void) {
   if (s_app_launch_characteristic == PBL_BT_CHARACTERISTIC_INVALID) {
     return;
   }
-  enum pbl_bt_errno err = gatt_client_op_read(s_app_launch_characteristic, GAPLEClientKernel);
+  enum pbl_bt_errno err = gatt_client_op_read(s_app_launch_characteristic);
   if (err != PBL_BT_ERRNO_OK) {
     PBL_LOG_ERR("App relaunch failed: %u", err);
   }

@@ -2,21 +2,23 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "gap_le_connect_params.h"
+
 #include "gap_le_connection.h"
 
-#include "pbl/bluetooth/gap_le_connect.h"
-#include "pbl/bluetooth/responsiveness.h"
-#include "comm/bluetooth_analytics.h"
-#include "comm/bt_conn_mgr.h"
-#include "comm/bt_lock.h"
-#include <pbl/drivers/rtc.h>
-#include "pbl/services/analytics/analytics.h"
-#include "pbl/services/new_timer/new_timer.h"
-#include "pbl/services/system_task.h"
-#include <pbl/logging/logging.h>
-#include "pbl/util/units.h"
-
 #include <stdint.h>
+
+#include <pbl/bluetooth/gap_le_connect.h>
+#include <pbl/bluetooth/responsiveness.h>
+#include <pbl/drivers/rtc.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/analytics/analytics.h>
+#include <pbl/services/new_timer/new_timer.h>
+#include <pbl/services/system_task.h>
+#include <pbl/util/units.h>
+
+#include <comm/bluetooth_analytics.h>
+#include <comm/bt_conn_mgr.h>
+#include <comm/bt_lock.h>
 
 // [MT] See page 129 of BLE Developer's Handbook (R. Heydon) and also
 // http://www.ti.com/lit/ug/swru271f/swru271f.pdf
@@ -73,20 +75,24 @@
 //! Try 3 times before giving up.
 #define MAX_UPDATE_REQUEST_ATTEMPTS (3)
 
+//! Collisions with a peer procedure don't count as attempts, up to this many.
+#define MAX_COLLISION_RETRIES (10)
+#define COLLISION_RETRY_MS    (2 * 1000)
+
 static const GAPLEConnectRequestParams s_default_connection_params_table[PBL_BT_RESPONSE_TIME_NUM] =
     {
       [PBL_BT_RESPONSE_TIME_MAX] =
           {
-            .slave_latency_events = 30,
-            .connection_interval_min_1_25ms = 24, // 30ms
-            .connection_interval_max_1_25ms = 36, // 45ms
+            .slave_latency_events = 4,
+            .connection_interval_min_1_25ms = 36, // 45ms
+            .connection_interval_max_1_25ms = 48, // 60ms
             .supervision_timeout_10ms = 600,      // 6s
           },
       [PBL_BT_RESPONSE_TIME_MIDDLE] =
           {
-            .slave_latency_events = 30,
-            .connection_interval_min_1_25ms = 24, // 30ms
-            .connection_interval_max_1_25ms = 36, // 45ms
+            .slave_latency_events = 4,
+            .connection_interval_min_1_25ms = 36, // 45ms
+            .connection_interval_max_1_25ms = 48, // 60ms
             .supervision_timeout_10ms = 600,      // 6s
           },
       [PBL_BT_RESPONSE_TIME_MIN] = {
@@ -101,6 +107,7 @@ extern void conn_mgr_handle_desired_state_granted(GAPLEConnection *hdl,
                                                   enum pbl_bt_response_time_state granted_state);
 
 static void prv_watchdog_timer_callback(void *ctx);
+static bool prv_handle_update_failed(GAPLEConnection *connection, enum pbl_bt_hci_status status);
 
 // -----------------------------------------------------------------------------
 //! Analytics helpers for tracking connection interval time.
@@ -230,9 +237,12 @@ static void prv_request_params_update(GAPLEConnection *connection,
     .supervision_timeout_10ms = desired_params->supervision_timeout_10ms,
   };
 
-  const bool success = pbl_bt_le_connection_parameter_update(&connection->device, &req);
-  if (success) {
+  const enum pbl_bt_hci_status status =
+      pbl_bt_le_connection_parameter_update(&connection->device, &req);
+  if (status == PBL_BT_HCI_STATUS_SUCCESS) {
     connection->param_update_info.is_request_pending = true;
+  } else if (prv_handle_update_failed(connection, status)) {
+    return;
   }
 
 retry:
@@ -251,7 +261,7 @@ static void prv_watchdog_system_task_callback(void *ctx) {
     connection->param_update_info.is_request_pending = false;
     // Retry with most recently requested latency:
     const enum pbl_bt_response_time_state state =
-        conn_mgr_get_latency_for_le_connection(connection, NULL);
+        conn_mgr_get_latency_for_le_connection(connection, nullptr);
     if (connection->param_update_info.attempts > 0) {
       PBL_LOG_INFO("Conn param request timed out: re-requesting %u", state);
     }
@@ -271,6 +281,7 @@ void gap_le_connect_params_request(GAPLEConnection *connection,
                                    enum pbl_bt_response_time_state desired_state) {
   // A new desired state is requested by the FW, start afresh:
   connection->param_update_info.attempts = 0;
+  connection->param_update_info.collisions = 0;
 
   prv_request_params_update(connection, desired_state);
 }
@@ -289,7 +300,7 @@ void gap_le_connect_params_cleanup_by_connection(GAPLEConnection *connection) {
 enum pbl_bt_response_time_state gap_le_connect_params_get_actual_state(
     GAPLEConnection *connection) {
   for (enum pbl_bt_response_time_state state = 0; state < PBL_BT_RESPONSE_TIME_NUM; ++state) {
-    if (prv_do_actual_params_match_desired_state(connection, state, NULL)) {
+    if (prv_do_actual_params_match_desired_state(connection, state, nullptr)) {
       return state;
     }
   }
@@ -298,7 +309,7 @@ enum pbl_bt_response_time_state gap_le_connect_params_get_actual_state(
 
 static void prv_evaluate(GAPLEConnection *connection,
                          enum pbl_bt_response_time_state desired_state) {
-  if (prv_do_actual_params_match_desired_state(connection, desired_state, NULL)) {
+  if (prv_do_actual_params_match_desired_state(connection, desired_state, nullptr)) {
     conn_mgr_handle_desired_state_granted(connection, desired_state);
 
     // If the deferred KernelBG callback is already queued or waiting on bt_lock at this point,
@@ -320,8 +331,30 @@ static void prv_evaluate(GAPLEConnection *connection,
 //! This is used when the set of desired request params are changed through Pebble Pairing Service.
 void gap_le_connect_params_re_evaluate(GAPLEConnection *connection) {
   const enum pbl_bt_response_time_state desired_state =
-      conn_mgr_get_latency_for_le_connection(connection, NULL);
+      conn_mgr_get_latency_for_le_connection(connection, nullptr);
   prv_evaluate(connection, desired_state);
+}
+
+//! Returns true if a retry was scheduled.
+static bool prv_handle_update_failed(GAPLEConnection *connection, enum pbl_bt_hci_status status) {
+  connection->param_update_info.is_request_pending = false;
+
+  if (((status != PBL_BT_HCI_STATUS_LL_PROCEDURE_COLLISION) &&
+       (status != PBL_BT_HCI_STATUS_DIFFERENT_TRANSACTION_COLLISION)) ||
+      (connection->param_update_info.collisions >= MAX_COLLISION_RETRIES)) {
+    return false;
+  }
+
+  connection->param_update_info.collisions++;
+  if (connection->param_update_info.attempts > 0) {
+    connection->param_update_info.attempts--;
+  }
+
+  PBL_LOG_DBG("Conn param request collided (0x%02x), retrying", status);
+  new_timer_start(connection->param_update_info.watchdog_timer, COLLISION_RETRY_MS,
+                  prv_watchdog_timer_callback, connection, 0);
+
+  return true;
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -334,18 +367,19 @@ void pbl_bt_handle_le_conn_params_update_event(
     const struct pbl_bt_conn_update_complete_event *event) {
   bt_lock();
   const struct pbl_bt_conn_params *params = &event->conn_params;
-  if (event->status != PBL_BT_HCI_STATUS_SUCCESS) {
-    goto unlock;
-  }
-
   GAPLEConnection *connection = gap_le_connection_by_addr(&event->dev_address);
   if (!connection) {
     PBL_LOG_DBG("Receiving conn param update but connection is no longer open");
     goto unlock;
   }
 
+  if (event->status != PBL_BT_HCI_STATUS_SUCCESS) {
+    prv_handle_update_failed(connection, event->status);
+    goto unlock;
+  }
+
   const enum pbl_bt_response_time_state desired_state =
-      conn_mgr_get_latency_for_le_connection(connection, NULL);
+      conn_mgr_get_latency_for_le_connection(connection, nullptr);
 
   // Cache the BLE connection parameters
   connection->conn_params = *params;

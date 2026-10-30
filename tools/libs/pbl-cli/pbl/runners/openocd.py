@@ -1,15 +1,13 @@
 # SPDX-FileCopyrightText: 2024 Google LLC
 # SPDX-License-Identifier: Apache-2.0
 
-import contextlib
 import errno
 import os
 import re
 import socket
 import subprocess
-import sys
 
-from .core import Runner, RunnerCaps, RunnerError
+from .core import Runner, RunnerCaps, RunnerError, UnsupportedOperation
 
 OPENOCD_TELNET_PORT = 4444
 OPENOCD_GDB_PORT = 3333
@@ -33,64 +31,68 @@ class OpenOcdRunner(Runner):
     @classmethod
     def capabilities(cls):
         return RunnerCaps(
-            commands={"flash", "run", "reset", "erase", "debug", "debugserver"}
+            commands={"flash", "erase", "debug", "debugserver"},
+            flash_resources=True,
         )
 
     @property
     def _cfg_file(self):
         return os.path.join(self.cfg.board_dir, "support", "openocd.cfg")
 
+    @property
+    def _flash_cfg(self):
+        return os.path.join(self.cfg.board_dir, "support", "flash.cfg")
+
+    def _check_flash_cfg(self, what):
+        if not os.path.exists(self._flash_cfg):
+            raise UnsupportedOperation(f"the board has no support/flash.cfg to {what}")
+
+    def _erase_ranges(self):
+        self._check_flash_cfg("erase ranges")
+        erase = "".join(f"pbl_erase {a:#x} {s:#x}; " for a, s in self.cfg.erase_ranges)
+        self._run_command(
+            f"init; reset halt; source {{{self._flash_cfg}}}; {erase}"
+            "echo {Erase Finished}; reset;",
+            expect=["Erase Finished", "shutdown"],
+            enforce_expect=True,
+        )
+
+    def _flash_resources(self):
+        self._check_flash_cfg("flash resources")
+        self._run_command(
+            f"init; reset halt; program {self.cfg.hex_file}; "
+            f"source {{{self._flash_cfg}}}; "
+            f"pbl_flash_resources {{{self.cfg.resources_file}}} "
+            f"{self.cfg.resources_address:#x}; "
+            "echo {Resources Finished}; reset;",
+            expect=[
+                "Programming Started",
+                "Programming Finished",
+                "Resources Finished",
+                "shutdown",
+            ],
+            enforce_expect=True,
+        )
+
     def do_run(self, command):
-        if command == "flash":
+        if command == "flash" and self.cfg.resources_file:
+            self._flash_resources()
+        elif command == "flash":
             self._run_command(
                 f"init; reset halt; program {self.cfg.hex_file} reset;",
                 expect=["Programming Started", "Programming Finished", "shutdown"],
                 enforce_expect=True,
             )
-        elif command == "run":
-            self._run_command("init; reset run;", expect=["found"])
-        elif command == "reset":
-            self._run_command("init; reset;", expect=["found"])
         elif command == "erase":
-            self._run_command("init; reset halt;", ignore_fail=True)
-            self._run_command("init; flash erase_sector 0 0 1;", ignore_fail=True)
-        elif command == "debugserver":
-            self._run_command("init; reset", shutdown=False)
+            self._erase_ranges()
         elif command == "debug":
-            self._debug()
+            port = self.gdb_port(OPENOCD_GDB_PORT)
+            return self.run_server_and_gdb(self._server(port), port)
+        elif command == "debugserver":
+            return self.run_program(self._server(self.gdb_port(OPENOCD_GDB_PORT)))
 
-    def _debug(self):
-        from tools.gdb_driver import find_gdb_path
-
-        gdb = self.cfg.gdb or find_gdb_path()
-        if gdb is None:
-            raise RunnerError("pebble-gdb not found!")
-
-        with self._daemon():
-            cmd = f'{gdb} {self.cfg.elf_file} --init-command=".gdbinit" --ex="target remote :{OPENOCD_GDB_PORT}"'
-            if self.cfg.dry_run:
-                print("[dry-run] " + cmd)
-            else:
-                os.system(cmd)
-
-    @contextlib.contextmanager
-    def _daemon(self):
-        if _is_openocd_running():
-            yield
-            return
-
-        import pexpect
-
-        proc = pexpect.spawn(
-            "openocd", ["-f", self._cfg_file], encoding="utf-8", logfile=sys.stdout
-        )
-        result = proc.expect(["Listening on port", pexpect.TIMEOUT], timeout=10)
-        if result != 0:
-            raise RunnerError("Timed out connecting OpenOCD to development board...")
-        try:
-            yield
-        finally:
-            proc.close()
+    def _server(self, port):
+        return ["openocd", "-f", self._cfg_file, "-c", f"gdb_port {port}"]
 
     def _run_command(
         self, cmd, ignore_fail=False, expect=(), shutdown=True, enforce_expect=False

@@ -1,18 +1,17 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/compositor/screenshot_pp.h"
-
-#include "pbl/services/compositor/compositor.h"
-
-#include "applib/graphics/framebuffer.h"
-#include "kernel/event_loop.h"
-#include "kernel/pbl_malloc.h"
-#include "pbl/services/comm_session/session_send_buffer.h"
-#include "pbl/services/system_task.h"
+#include <pbl/kernel/compiler.h>
 #include <pbl/logging/logging.h>
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/byteorder.h"
+#include <pbl/services/comm_session/session_send_buffer.h>
+#include <pbl/services/compositor/compositor.h>
+#include <pbl/services/compositor/screenshot_pp.h>
+#include <pbl/services/system_task.h>
+#include <pbl/util/byteorder.h>
+
+#include <applib/graphics/framebuffer.h>
+#include <kernel/event_loop.h>
+#include <kernel/pbl_malloc.h>
 
 PBL_LOG_MODULE_DECLARE(service_compositor, CONFIG_SERVICE_COMPOSITOR_LOG_LEVEL);
 
@@ -101,9 +100,8 @@ static uint32_t prv_framebuffer_next_chunk(FrameBufferState *restrict state,
     }
 
 #if PBL_ROUND
-    const GBitmapDataRowInfoInternal *row_infos = g_gbitmap_data_row_infos;
-    const size_t framebuffer_row_min_pixel = row_infos[state->row].min_x;
-    const size_t framebuffer_row_max_pixel = row_infos[state->row].max_x;
+    const size_t framebuffer_row_min_pixel = display_round_mask_inset(state->row);
+    const size_t framebuffer_row_max_pixel = DISP_COLS - 1 - framebuffer_row_min_pixel;
     for (uint32_t i = 0; i < remaining_framebuffer_row_bytes; i++) {
       const uint32_t i_with_offset = i + framebuffer_current_column;
       if (WITHIN(i_with_offset, framebuffer_row_min_pixel, framebuffer_row_max_pixel)) {
@@ -159,8 +157,8 @@ void screenshot_send_next_chunk(void *raw_state) {
 
   SendBuffer *sb;
   if (max_buf_len == 0 /* disconnected */ ||
-      !(sb = comm_session_send_buffer_begin_write(session, SCREENSHOT_ENDPOINT_ID, session_len,
-                                                  COMM_SESSION_DEFAULT_TIMEOUT))) {
+      !(sb = comm_session_send_buffer_begin_write_bulk(session, SCREENSHOT_ENDPOINT_ID, session_len,
+                                                       COMM_SESSION_DEFAULT_TIMEOUT))) {
     PBL_LOG_WRN("Terminating screenshot send early: %" PRIu32, max_buf_len);
     prv_finish(state);
     return;

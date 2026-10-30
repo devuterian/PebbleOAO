@@ -7,7 +7,7 @@
 #   cmake --build build
 #
 # Pass Kconfig overrides the same way: -DCONFIG_RELEASE=y. See
-# docs/development/build_system.md.
+# docs/development/build_system/index.md.
 
 cmake_minimum_required(VERSION 3.20)
 
@@ -33,8 +33,19 @@ set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 # The toolchain and the device tools come from the installed SDK.
 include(pebbleos_sdk)
 
+# Boards that do not run on ARM bring their own toolchain, and so can
+# their variants (BOARD[@REVISION][/VARIANT]).
+string(REGEX REPLACE "[@/].*$" "" board_name "${BOARD}")
+string(REGEX MATCH "/.+$" board_variant "${BOARD}")
+string(REPLACE "/" "" board_variant "${board_variant}")
 if(NOT CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE ${PBL_BASE}/cmake/toolchain/arm-none-eabi.cmake)
+  if(board_variant AND EXISTS ${PBL_BASE}/boards/${board_name}/toolchain.${board_variant}.cmake)
+    set(CMAKE_TOOLCHAIN_FILE ${PBL_BASE}/boards/${board_name}/toolchain.${board_variant}.cmake)
+  elseif(EXISTS ${PBL_BASE}/boards/${board_name}/toolchain.cmake)
+    set(CMAKE_TOOLCHAIN_FILE ${PBL_BASE}/boards/${board_name}/toolchain.cmake)
+  else()
+    set(CMAKE_TOOLCHAIN_FILE ${PBL_BASE}/cmake/toolchain/arm-none-eabi.cmake)
+  endif()
 endif()
 
 # ccache, when it is around.
@@ -45,11 +56,6 @@ if(CCACHE)
 endif()
 
 project(pebbleos VERSION 1.0 LANGUAGES C ASM)
-
-# Build steps that call the toolchain by name -- the native SDK generator
-# asks for arm-none-eabi-gcc -- find it next to the compiler CMake chose.
-get_filename_component(toolchain_bin ${CMAKE_C_COMPILER} DIRECTORY)
-set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=${toolchain_bin}:$ENV{PATH}")
 
 # Kconfig symbols given on the command line (-DCONFIG_FOO=y) are passed
 # through to Kconfig as overrides.
@@ -62,6 +68,21 @@ foreach(var ${cache_variables})
 endforeach()
 
 include(kconfig)
+
+# Build steps that call the toolchain by name -- the native SDK generator
+# asks for arm-none-eabi-gcc -- find it next to the compiler CMake chose, or
+# in the SDK when that compiler is another one.
+get_filename_component(toolchain_bin ${CMAKE_C_COMPILER} DIRECTORY)
+if(CONFIG_REQUIRES_ARM_TOOLCHAIN)
+  find_program(PBL_ARM_GCC arm-none-eabi-gcc HINTS ${PEBBLEOS_SDK_HINTS})
+  if(NOT PBL_ARM_GCC)
+    message(FATAL_ERROR "The build needs the ARM toolchain of the PebbleOS SDK "
+                        "(CONFIG_REQUIRES_ARM_TOOLCHAIN): install the SDK")
+  endif()
+  get_filename_component(arm_bin ${PBL_ARM_GCC} DIRECTORY)
+  set(toolchain_bin ${toolchain_bin}:${arm_bin})
+endif()
+set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=${toolchain_bin}:$ENV{PATH}")
 include(extensions)
 include(platform)
 include(compiler)
@@ -77,6 +98,9 @@ include(firmware)
 message(STATUS "Board: ${PBL_BOARD} (${PBL_PLATFORM_NAME}), variant: ${VARIANT}")
 
 pbl_init()
+if(PBL_LIBC_DEFINITIONS)
+  pbl_compile_definitions(${PBL_LIBC_DEFINITIONS})
+endif()
 
 # The generated headers every firmware library may include.
 add_custom_target(pbl_generated_headers)
@@ -102,13 +126,16 @@ add_custom_command(
 add_custom_target(pbl_version DEPENDS ${version_h})
 add_dependencies(pbl_generated_headers pbl_version)
 
-# The recovery firmware has no third-party apps, so it needs neither the
-# SDK shims nor the stored apps.
-if(NOT CONFIG_RECOVERY_FW)
+# Third-party apps call the firmware through the SDK shims. The recovery
+# firmware runs none, and a firmware for a CPU other than a watch's only runs
+# them with Samsa interpreting them. The shippable SDK is for the watch's.
+if(NOT CONFIG_RECOVERY_FW AND (CONFIG_CPU_CORTEX_M OR CONFIG_SAMSA))
   pbl_native_sdk()
-  pbl_sdk()
   add_dependencies(pbl_generated_headers pbl_native_sdk)
   set(PBL_FIRMWARE_SOURCES ${PBL_PEBBLE_AUTO_C})
+endif()
+if(NOT CONFIG_RECOVERY_FW AND CONFIG_CPU_CORTEX_M)
+  pbl_sdk()
 endif()
 
 add_subdirectory(third_party)
@@ -116,8 +143,11 @@ add_subdirectory(lib)
 add_subdirectory(kernel)
 add_subdirectory(soc)
 add_subdirectory(subsys)
+add_subdirectory(drivers)
 add_subdirectory(fw)
-if(NOT CONFIG_RECOVERY_FW)
+# The stored apps are built for the watch, which the recovery firmware runs
+# none on.
+if(NOT CONFIG_RECOVERY_FW AND NOT CONFIG_SOC_POSIX)
   add_subdirectory(apps/stored)
 endif()
 

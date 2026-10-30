@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "kernel/events.h"
+#include <kernel/events.h>
 
 void fake_event_init(void);
 
@@ -15,7 +15,10 @@ void fake_event_reset_count(void);
 
 uint32_t fake_event_get_count(void);
 
-void **fake_event_get_buffer(PebbleEvent *event);
+void *fake_event_get_buffer_slot(PebbleEvent *event);
 
 typedef void (*FakeEventCallback)(PebbleEvent *event);
 void fake_event_set_callback(FakeEventCallback cb);
+
+//! Makes event_try_put_from_process() fail, as with a full queue.
+void fake_event_set_try_put_fails(bool fails);

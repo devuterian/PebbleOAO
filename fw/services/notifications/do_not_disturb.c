@@ -1,34 +1,33 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/notifications/do_not_disturb.h"
-#include "pbl/services/notifications/do_not_disturb_toggle.h"
-
-#include "applib/ui/action_toggle.h"
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/dialogs/actionable_dialog.h"
-#include "applib/ui/dialogs/dialog.h"
-#include "applib/ui/dialogs/expandable_dialog.h"
-#include "applib/ui/window_manager.h"
-#include <pbl/drivers/rtc.h>
-#include "kernel/events.h"
-#include "kernel/ui/modals/modal_manager.h"
-#include "process_state/app_state/app_state.h"
-#include "resource/resource_ids.auto.h"
-#include "pbl/services/i18n/i18n.h"
-#include "pbl/services/system_task.h"
-#include "pbl/services/notifications/alerts_preferences.h"
-#include "pbl/services/notifications/alerts_preferences_private.h"
-#include "pbl/services/timeline/calendar.h"
-#include "syscall/syscall_internal.h"
-#include <pbl/logging/logging.h>
-#include "system/passert.h"
-#include "pbl/util/math.h"
-#include "pbl/util/time.h"
-#include "pbl/util/units.h"
+#include <errno.h>
 
 #include <pbl/cron/cron.h>
-#include <stdbool.h>
+#include <pbl/drivers/rtc.h>
+#include <pbl/kernel/syscall.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/i18n/i18n.h>
+#include <pbl/services/notifications/alerts_preferences.h>
+#include <pbl/services/notifications/alerts_preferences_private.h>
+#include <pbl/services/notifications/do_not_disturb.h>
+#include <pbl/services/notifications/do_not_disturb_toggle.h>
+#include <pbl/services/system_task.h>
+#include <pbl/services/timeline/calendar.h>
+#include <pbl/util/math.h>
+#include <pbl/util/time.h>
+#include <pbl/util/units.h>
+
+#include <applib/ui/action_toggle.h>
+#include <applib/ui/app_window_stack.h>
+#include <applib/ui/dialogs/actionable_dialog.h>
+#include <applib/ui/dialogs/dialog.h>
+#include <applib/ui/dialogs/expandable_dialog.h>
+#include <applib/ui/window_manager.h>
+#include <kernel/events.h>
+#include <kernel/ui/modals/modal_manager.h>
+#include <process_state/app_state/app_state.h>
+#include <resource/resource_ids.auto.h>
 
 PBL_LOG_MODULE_DECLARE(service_notifications, CONFIG_SERVICE_NOTIFICATIONS_LOG_LEVEL);
 
@@ -40,13 +39,11 @@ typedef struct DoNotDisturbData {
 
 static DoNotDisturbData s_data;
 
-//! Cron jobs for the schedule boundaries, and for midnight of the days on
-//! which the weekday/weekend schedule takes over from the other.
-static struct pbl_cron_job s_weekday_from_job;
-static struct pbl_cron_job s_weekday_to_job;
-static struct pbl_cron_job s_weekend_from_job;
-static struct pbl_cron_job s_weekend_to_job;
-static struct pbl_cron_job s_schedule_switch_job;
+//! Cron jobs for the start and end of each schedule slot's period, and for midnight where a
+//! legacy slot's period starts or stops.
+static struct pbl_cron_job s_schedule_from_jobs[DND_NUM_SCHEDULE_SLOTS];
+static struct pbl_cron_job s_schedule_to_jobs[DND_NUM_SCHEDULE_SLOTS];
+static struct pbl_cron_job s_schedule_midnight_jobs[DND_NUM_SCHEDULE_SLOTS];
 
 static bool prv_is_smart_dnd_active(void);
 static bool prv_is_schedule_active(void);
@@ -147,32 +144,34 @@ static void prv_schedule_cron_callback(struct pbl_cron_job *job, void *data) {
   prv_try_update_schedule_mode_callback(true);
 }
 
-static DoNotDisturbScheduleType prv_current_schedule_type(void) {
-  struct tm time;
-  rtc_get_time_tm(&time);
-  return ((time.tm_wday == PBL_SATURDAY || time.tm_wday == PBL_SUNDAY) ? WeekendSchedule
-                                                                       : WeekdaySchedule);
+//! Move each day in a PBL_CRON_WDAY_ mask to the day after.
+static uint8_t prv_next_days(uint8_t days) {
+  return ((days << 1) | (days >> (PBL_DAY_PER_WEEK - 1))) & PBL_CRON_WDAY_ANY;
 }
 
-static bool prv_is_in_schedule_period(void) {
-  const DoNotDisturbScheduleType type = prv_current_schedule_type();
-  if (!do_not_disturb_is_schedule_enabled(type)) {
-    return false;
-  }
+static int prv_minutes(uint8_t hour, uint8_t minute) {
+  return hour * PBL_MIN_PER_HOUR + minute;
+}
 
-  DoNotDisturbSchedule schedule;
-  do_not_disturb_get_schedule(type, &schedule);
-  const int from = schedule.from_hour * PBL_MIN_PER_HOUR + schedule.from_minute;
-  const int to = schedule.to_hour * PBL_MIN_PER_HOUR + schedule.to_minute;
-
-  struct tm time;
-  rtc_get_time_tm(&time);
-  const int now = time.tm_hour * PBL_MIN_PER_HOUR + time.tm_min;
+static bool prv_is_in_slot_period(const DoNotDisturbScheduleSlot *slot, const struct pbl_tm *now) {
+  const DoNotDisturbSchedule *schedule = &slot->schedule;
+  const int from = prv_minutes(schedule->from_hour, schedule->from_minute);
+  const int to = prv_minutes(schedule->to_hour, schedule->to_minute);
+  const int minute = prv_minutes(now->tm_hour, now->tm_min);
+  const uint8_t days = do_not_disturb_schedule_slot_get_days(slot);
+  const uint8_t today = 1 << now->tm_wday;
 
   if (from < to) {
-    return now >= from && now < to;
+    return (days & today) && minute >= from && minute < to;
   }
-  return from != to && (now >= from || now < to);
+  if (from == to) {
+    return false;
+  }
+  if (slot->legacy) {
+    return (days & today) && (minute >= from || minute < to);
+  }
+  // After midnight, the period started the day before
+  return ((days & today) && minute >= from) || ((prv_next_days(days) & today) && minute < to);
 }
 
 static void prv_schedule_job(struct pbl_cron_job *job, int hour, int minute, uint8_t wday) {
@@ -187,36 +186,50 @@ static void prv_schedule_job(struct pbl_cron_job *job, int hour, int minute, uin
   pbl_cron_job_schedule(job);
 }
 
-static void prv_schedule_jobs(DoNotDisturbScheduleType type, struct pbl_cron_job *from_job,
-                              struct pbl_cron_job *to_job, uint8_t wday) {
-  DoNotDisturbSchedule schedule;
-  do_not_disturb_get_schedule(type, &schedule);
-  prv_schedule_job(from_job, schedule.from_hour, schedule.from_minute, wday);
-  prv_schedule_job(to_job, schedule.to_hour, schedule.to_minute, wday);
+static void prv_schedule_slot_jobs(unsigned int index, const DoNotDisturbScheduleSlot *slot) {
+  const DoNotDisturbSchedule *schedule = &slot->schedule;
+  const int from = prv_minutes(schedule->from_hour, schedule->from_minute);
+  const int to = prv_minutes(schedule->to_hour, schedule->to_minute);
+  const uint8_t days = do_not_disturb_schedule_slot_get_days(slot);
+  // A zero mask would fire every day
+  if (days == 0 || from == to) {
+    return;
+  }
+
+  prv_schedule_job(&s_schedule_from_jobs[index], schedule->from_hour, schedule->from_minute, days);
+  if (from < to || !slot->legacy) {
+    prv_schedule_job(&s_schedule_to_jobs[index], schedule->to_hour, schedule->to_minute,
+                     (from < to) ? days : prv_next_days(days));
+    return;
+  }
+
+  prv_schedule_job(&s_schedule_to_jobs[index], schedule->to_hour, schedule->to_minute, days);
+  // The period starts or stops at midnight on days next to an unscheduled one
+  const uint8_t midnight_days = days ^ prv_next_days(days);
+  if (midnight_days != 0) {
+    prv_schedule_job(&s_schedule_midnight_jobs[index], 0, 0, midnight_days);
+  }
 }
 
 static void prv_update_schedule_mode(void) {
-  pbl_cron_job_unschedule(&s_weekday_from_job);
-  pbl_cron_job_unschedule(&s_weekday_to_job);
-  pbl_cron_job_unschedule(&s_weekend_from_job);
-  pbl_cron_job_unschedule(&s_weekend_to_job);
-  pbl_cron_job_unschedule(&s_schedule_switch_job);
+  struct pbl_tm now;
+  rtc_get_time_tm(&now);
 
-  const bool weekday_enabled = do_not_disturb_is_schedule_enabled(WeekdaySchedule);
-  const bool weekend_enabled = do_not_disturb_is_schedule_enabled(WeekendSchedule);
-  if (weekday_enabled) {
-    prv_schedule_jobs(WeekdaySchedule, &s_weekday_from_job, &s_weekday_to_job,
-                      PBL_CRON_WDAY_WEEKDAYS);
-  }
-  if (weekend_enabled) {
-    prv_schedule_jobs(WeekendSchedule, &s_weekend_from_job, &s_weekend_to_job,
-                      PBL_CRON_WDAY_WEEKENDS);
-  }
-  if (weekday_enabled || weekend_enabled) {
-    prv_schedule_job(&s_schedule_switch_job, 0, 0, PBL_CRON_WDAY_MONDAY | PBL_CRON_WDAY_SATURDAY);
+  bool in_period = false;
+  for (unsigned int i = 0; i < DND_NUM_SCHEDULE_SLOTS; i++) {
+    pbl_cron_job_unschedule(&s_schedule_from_jobs[i]);
+    pbl_cron_job_unschedule(&s_schedule_to_jobs[i]);
+    pbl_cron_job_unschedule(&s_schedule_midnight_jobs[i]);
+
+    DoNotDisturbScheduleSlot slot;
+    alerts_preferences_dnd_get_schedule_slot(i, &slot);
+    if (!slot.used || !slot.enabled) {
+      continue;
+    }
+    prv_schedule_slot_jobs(i, &slot);
+    in_period = in_period || prv_is_in_slot_period(&slot, &now);
   }
 
-  const bool in_period = prv_is_in_schedule_period();
   // Coming out of scheduled DND with manual DND on, turning it off
   if (s_data.is_in_schedule_period && !in_period && do_not_disturb_is_manually_enabled()) {
     do_not_disturb_set_manually_enabled(false);
@@ -225,13 +238,8 @@ static void prv_update_schedule_mode(void) {
   PBL_LOG_DBG("%s scheduled period", s_data.is_in_schedule_period ? "In" : "Out of");
 }
 
-static bool prv_is_current_schedule_enabled() {
-  return (do_not_disturb_is_schedule_enabled(prv_current_schedule_type()));
-}
-
 static bool prv_is_schedule_active(void) {
-  return (prv_is_current_schedule_enabled() && s_data.is_in_schedule_period &&
-          !s_data.manually_override_dnd);
+  return (s_data.is_in_schedule_period && !s_data.manually_override_dnd);
 }
 
 static bool prv_is_smart_dnd_active(void) {
@@ -243,7 +251,7 @@ static bool prv_is_smart_dnd_active(void) {
 //! Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-DEFINE_SYSCALL(bool, sys_do_not_disturb_is_active, void) {
+PBL_SYSCALL(bool, sys_do_not_disturb_is_active) {
   return do_not_disturb_is_active();
 }
 
@@ -260,8 +268,7 @@ bool do_not_disturb_is_manually_enabled(void) {
 }
 
 void do_not_disturb_set_manually_enabled(bool enable) {
-  const bool is_auto_dnd =
-      prv_is_current_schedule_enabled() || do_not_disturb_is_smart_dnd_enabled();
+  const bool is_auto_dnd = s_data.is_in_schedule_period || do_not_disturb_is_smart_dnd_enabled();
   const bool was_active = do_not_disturb_is_active();
 
   alerts_preferences_dnd_set_manually_enabled(enable);
@@ -278,9 +285,9 @@ void do_not_disturb_toggle_manually_enabled(ManualDNDFirstUseSource source) {
     prv_push_manual_dnd_first_use_dialog(source);
   } else {
     if (source == ManualDNDFirstUseSourceSettingsMenu) {
-      prv_toggle_manual_dnd_from_settings_menu(NULL);
+      prv_toggle_manual_dnd_from_settings_menu(nullptr);
     } else {
-      prv_toggle_manual_dnd_from_action_menu(NULL);
+      prv_toggle_manual_dnd_from_action_menu(nullptr);
     }
   }
 }
@@ -293,32 +300,54 @@ void do_not_disturb_toggle_smart_dnd(void) {
   if (!alerts_preferences_check_and_set_first_use_complete(FirstUseSourceSmartDND)) {
     prv_push_smart_dnd_first_use_dialog();
   } else {
-    prv_toggle_smart_dnd(NULL);
+    prv_toggle_smart_dnd(nullptr);
   }
 }
 
-void do_not_disturb_get_schedule(DoNotDisturbScheduleType type,
-                                 DoNotDisturbSchedule *schedule_out) {
-  alerts_preferences_dnd_get_schedule(type, schedule_out);
+void do_not_disturb_get_schedule_slot(unsigned int index, DoNotDisturbScheduleSlot *slot) {
+  alerts_preferences_dnd_get_schedule_slot(index, slot);
 }
 
-void do_not_disturb_set_schedule(DoNotDisturbScheduleType type, DoNotDisturbSchedule *schedule) {
-  alerts_preferences_dnd_set_schedule(type, schedule);
+int do_not_disturb_set_schedule_slot(unsigned int index, const DoNotDisturbScheduleSlot *slot) {
+  if (index >= DND_NUM_SCHEDULE_SLOTS || !do_not_disturb_schedule_slot_is_valid(slot)) {
+    return -EINVAL;
+  }
+
+  DoNotDisturbScheduleSlot current;
+  alerts_preferences_dnd_get_schedule_slot(index, &current);
+  DoNotDisturbScheduleSlot stored = *slot;
+  stored.used = true;
+  if (!current.used || do_not_disturb_schedule_slot_get_days(&current) !=
+                           do_not_disturb_schedule_slot_get_days(&stored)) {
+    stored.legacy = false;
+  }
+  alerts_preferences_dnd_set_schedule_slot(index, &stored);
   prv_try_update_schedule_mode_callback(true);
+  return 0;
 }
 
-bool do_not_disturb_is_schedule_enabled(DoNotDisturbScheduleType type) {
-  return alerts_preferences_dnd_is_schedule_enabled(type);
+int do_not_disturb_add_schedule_slot(const DoNotDisturbScheduleSlot *slot) {
+  if (!do_not_disturb_schedule_slot_is_valid(slot)) {
+    return -EINVAL;
+  }
+
+  for (unsigned int i = 0; i < DND_NUM_SCHEDULE_SLOTS; i++) {
+    DoNotDisturbScheduleSlot existing;
+    alerts_preferences_dnd_get_schedule_slot(i, &existing);
+    if (!existing.used) {
+      do_not_disturb_set_schedule_slot(i, slot);
+      return i;
+    }
+  }
+  return -ENOSPC;
 }
 
-void do_not_disturb_set_schedule_enabled(DoNotDisturbScheduleType type, bool scheduled) {
-  alerts_preferences_dnd_set_schedule_enabled(type, scheduled);
-  prv_try_update_schedule_mode_callback(true);
-}
+void do_not_disturb_delete_schedule_slot(unsigned int index) {
+  if (index >= DND_NUM_SCHEDULE_SLOTS) {
+    return;
+  }
 
-void do_not_disturb_toggle_scheduled(DoNotDisturbScheduleType type) {
-  alerts_preferences_dnd_set_schedule_enabled(type,
-                                              !alerts_preferences_dnd_is_schedule_enabled(type));
+  alerts_preferences_dnd_set_schedule_slot(index, &(DoNotDisturbScheduleSlot){});
   prv_try_update_schedule_mode_callback(true);
 }
 

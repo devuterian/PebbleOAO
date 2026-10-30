@@ -2,32 +2,32 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "ancs.h"
+
 #include "ancs_app_name_storage.h"
+#include "ancs_definition.h"
 #include "ancs_types.h"
 #include "ancs_util.h"
-#include "ancs_definition.h"
-
-#include "comm/ble/gatt_client_subscriptions.h"
-#include "comm/ble/gatt_client_operations.h"
-
-#include "kernel/event_loop.h"
-#include "kernel/pbl_malloc.h"
-
-#include "pbl/services/evented_timer.h"
-#include "pbl/services/notifications/ancs/ancs_notifications.h"
-#include "pbl/services/regular_timer.h"
-
-#include "system/hexdump.h"
-#include "system/passert.h"
-#include <pbl/logging/logging.h>
-
-#include "pbl/kernel/compiler.h"
-#include "pbl/util/testing.h"
-#include "pbl/util/buffer.h"
-#include "pbl/util/size.h"
 
 #include <string.h>
-#include "pbl/util/units.h"
+
+#include <pbl/drivers/rtc.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/compiler.h>
+#include <pbl/kernel/fatal.h>
+#include <pbl/logging/logging.h>
+#include <pbl/services/evented_timer.h>
+#include <pbl/services/notifications/ancs/ancs_notifications.h>
+#include <pbl/services/regular_timer.h>
+#include <pbl/util/buffer.h>
+#include <pbl/util/size.h>
+#include <pbl/util/testing.h>
+#include <pbl/util/units.h>
+
+#include <comm/ble/gatt_client_operations.h>
+#include <comm/ble/gatt_client_subscriptions.h>
+#include <kernel/event_loop.h>
+#include <kernel/pbl_malloc.h>
+#include <system/hexdump.h>
 
 PBL_LOG_MODULE_DECLARE(bt, CONFIG_BT_LOG_LEVEL);
 
@@ -107,7 +107,6 @@ typedef struct ANCSClient {
   RegularTimerInfo is_alive_timer;
   // Watchdog for the in-flight Control Point request.
   RegularTimerInfo op_timeout_timer;
-  ReassemblyContext reassembly_ctx;
   ANCSAttribute *attributes[NUM_FETCHED_NOTIF_ATTRIBUTES];
   NotificationQueueNode *queue;
   bool alive_check_pending;
@@ -119,6 +118,7 @@ typedef struct ANCSClient {
   uint8_t consecutive_busy_alive_checks;
   // Consecutive alive checks whose Control Point write iOS rejected.
   uint8_t consecutive_rejected_alive_checks;
+  ReassemblyContext reassembly_ctx;
 } ANCSClient;
 
 static ANCSClient *s_ancs_client;
@@ -153,7 +153,7 @@ static bool prv_can_transition_state(ANCSClientState new_state) {
       return (new_state == ANCSClientStateRequestedNotification ||
               new_state == ANCSClientStateIdle);
     default:
-      WTF;
+      pbl_panic();
   }
 }
 
@@ -195,10 +195,10 @@ static void prv_notif_queue_reset(void) {
   ListNode *cur;
   while (head) {
     cur = head;
-    list_remove(cur, &head, NULL);
+    list_remove(cur, &head, nullptr);
     kernel_free(cur);
   }
-  s_ancs_client->queue = NULL;
+  s_ancs_client->queue = nullptr;
 }
 
 static void prv_notif_queue_push_common(NotificationQueueNode *node) {
@@ -237,13 +237,13 @@ static void prv_notif_queue_push_action(uint32_t uid, ActionId action_id) {
 // Never the in-flight head or a user action. Returns true if one was freed.
 static bool prv_evict_oldest_attr_request(void) {
   const NotificationQueueNode *in_flight =
-      (s_ancs_client->state != ANCSClientStateIdle) ? s_ancs_client->queue : NULL;
+      (s_ancs_client->state != ANCSClientStateIdle) ? s_ancs_client->queue : nullptr;
   NotificationQueueNode *node = s_ancs_client->queue;
   while (node) {
     NotificationQueueNode *next = (NotificationQueueNode *)list_get_next((ListNode *)node);
     if (node != in_flight && node->op == NotificationQueueOpGetAttributes) {
       PBL_LOG_WRN("ANCS queue full, evicting oldest notif (uid=%" PRIu32 ")", node->uid);
-      list_remove((ListNode *)node, (ListNode **)&s_ancs_client->queue, NULL);
+      list_remove((ListNode *)node, (ListNode **)&s_ancs_client->queue, nullptr);
       kernel_free(node);
       return true;
     }
@@ -278,7 +278,7 @@ static void prv_notif_queue_push_attr_request(uint32_t uid, ANCSProperty propert
 static void prv_notif_queue_pop(void) {
   NotificationQueueNode *temp = s_ancs_client->queue;
   if (temp) {
-    list_remove((ListNode *)s_ancs_client->queue, (ListNode **)&s_ancs_client->queue, NULL);
+    list_remove((ListNode *)s_ancs_client->queue, (ListNode **)&s_ancs_client->queue, nullptr);
     kernel_free(temp);
   }
 }
@@ -289,7 +289,7 @@ static void prv_notif_queue_next(void) {
     return;
   }
 
-  if (s_ancs_client->queue == NULL) {
+  if (s_ancs_client->queue == nullptr) {
     // empty
     return;
   }
@@ -307,7 +307,7 @@ PBL_T_STATIC bool prv_queue_contains_uid(uint32_t uid) {
     .op = NotificationQueueOpGetAttributes,
     .uid = uid,
   };
-  return prv_notif_queue_find(&key) != NULL;
+  return prv_notif_queue_find(&key) != nullptr;
 }
 #endif
 
@@ -323,7 +323,7 @@ static void prv_reset_and_idle(void) {
 }
 
 static void prv_reset_and_retry(void *unused) {
-  if (s_ancs_client == NULL) {
+  if (s_ancs_client == nullptr) {
     return;
   }
 
@@ -368,7 +368,7 @@ static void prv_op_timeout_launcher_task_cb(void *unused) {
 
 static void prv_op_timeout_cb(void *unused) {
   // Hop to KernelMain; ANCS state is single-threaded there.
-  launcher_task_add_callback(prv_op_timeout_launcher_task_cb, NULL);
+  launcher_task_add_callback(prv_op_timeout_launcher_task_cb, nullptr);
 }
 
 static void prv_op_timeout_stop(void) {
@@ -497,10 +497,10 @@ static void prv_resubscribe_to_ancs(void) {
     if (charx != PBL_BT_CHARACTERISTIC_INVALID) {
       // Unsubscribe to clear the local state (ignore errors -- the subscription
       // may already have been cleaned up)
-      gatt_client_subscriptions_subscribe(charx, BLESubscriptionNone, GAPLEClientKernel);
+      gatt_client_subscriptions_subscribe(charx, BLESubscriptionNone);
 
-      const enum pbl_bt_errno e = gatt_client_subscriptions_subscribe(
-          charx, BLESubscriptionNotifications, GAPLEClientKernel);
+      const enum pbl_bt_errno e =
+          gatt_client_subscriptions_subscribe(charx, BLESubscriptionNotifications);
       if (e != PBL_BT_ERRNO_OK) {
         PBL_LOG_ERR("Failed to resubscribe to ANCS charx %d: %d", c, e);
       }
@@ -610,28 +610,23 @@ static void prv_is_ancs_alive_cb(void *data) {
 }
 
 // -----------------------------------------------------------------------------
-//! With iOS 8.2 the pre-existing flag seems to be broken. Don't allow notifications for a bit after
-//! reconnection so that all the "real" pre-existing notification don't come through again.
-static RegularTimerInfo s_notification_connection_delay_timer;
-static bool s_just_connected = false;
+//! iOS re-sends the whole notification center as pre-existing right after (re)subscribing. Those
+//! are only handed over as recovered (missed while disconnected) for a bit after reconnection.
+//! Without a previous session to compare against, they are dropped.
+#define POST_CONNECTION_IGNORE_TICKS (10 * RTC_TICKS_HZ)
+static RtcTicks s_connected_ticks;
+static bool s_connected_ticks_valid;
+static bool s_session_active = false;
+static bool s_had_session = false;
 
-static void prv_set_no_longer_just_connected(void *data) {
-  s_just_connected = false;
-  regular_timer_remove_callback(&s_notification_connection_delay_timer);
+static void prv_start_post_connection_ignore_window(void) {
+  s_connected_ticks = rtc_get_ticks();
+  s_connected_ticks_valid = true;
 }
 
-static void prv_start_temp_notification_connection_delay_timer(void) {
-  if (regular_timer_is_scheduled(&s_notification_connection_delay_timer)) {
-    regular_timer_remove_callback(&s_notification_connection_delay_timer);
-  }
-  s_just_connected = true;
-
-  const int post_connection_notification_ignore_seconds = 10;
-  s_notification_connection_delay_timer = (const RegularTimerInfo){
-    .cb = prv_set_no_longer_just_connected,
-  };
-  regular_timer_add_multisecond_callback(&s_notification_connection_delay_timer,
-                                         post_connection_notification_ignore_seconds);
+static bool prv_just_connected(void) {
+  return s_connected_ticks_valid &&
+         (rtc_get_ticks() - s_connected_ticks) < POST_CONNECTION_IGNORE_TICKS;
 }
 
 // -----------------------------------------------------------------------------
@@ -698,7 +693,7 @@ static void prv_reassembly_handle_complete_response(const uint8_t *data, const s
       prv_handle_notification_attributes_response(data, length);
       return;
     default:
-      // WTF;
+      // pbl_panic();
       prv_reset_and_next();
       return;
   }
@@ -768,7 +763,7 @@ static void prv_handle_app_attributes_response(const uint8_t *data, size_t lengt
     }
   }
 
-  ANCSAttribute *app_attrs[NUM_FETCHED_APP_ATTRIBUTES] = {0};
+  ANCSAttribute *app_attrs[NUM_FETCHED_APP_ATTRIBUTES] = {};
 
   if (length == 0) {
     goto fail;
@@ -863,7 +858,7 @@ static void prv_get_app_attributes(const ANCSAttribute *app_id) {
 
   if (!success) {
     PBL_LOG_WRN("Failed to fetch app attributes for notification");
-    ANCSAttribute *empty_attrs[NUM_FETCHED_APP_ATTRIBUTES] = {0};
+    ANCSAttribute *empty_attrs[NUM_FETCHED_APP_ATTRIBUTES] = {};
     // we failed to fetch the app, but we got a notification
     prv_put_ancs_message(empty_attrs);
     prv_reset_and_next();
@@ -903,7 +898,7 @@ static void prv_get_notification_attributes(uint32_t uid) {
       // Waiting on the retry timer, not a response.
       prv_op_timeout_stop();
       prv_set_state(ANCSClientStateRetrying);
-      evented_timer_register(ANCS_RETRY_TIME_MS, false, prv_reset_and_retry, NULL);
+      evented_timer_register(ANCS_RETRY_TIME_MS, false, prv_reset_and_retry, nullptr);
     }
   }
 }
@@ -948,6 +943,12 @@ static ANCSCharacteristic prv_get_id_for_characteristic(
 }
 
 static void prv_put_ancs_disconnected_event(void) {
+  if (s_session_active) {
+    s_session_active = false;
+    s_had_session = true;
+    ancs_notifications_handle_session_lost();
+  }
+
   PebbleEvent event = {
     .type = PEBBLE_ANCS_DISCONNECTED_EVENT,
   };
@@ -961,7 +962,7 @@ void ancs_handle_subscribe(pbl_bt_characteristic_t subscribed_characteristic,
   if (characteristic_id != ANCSCharacteristicNotification &&
       characteristic_id != ANCSCharacteristicData) {
     // Only Notification and Data characteristics are expected to be subscribed to
-    WTF;
+    pbl_panic();
   }
 
   if (error == PBL_BT_GATT_ERROR_SUCCESS) {
@@ -969,7 +970,8 @@ void ancs_handle_subscribe(pbl_bt_characteristic_t subscribed_characteristic,
 
     if (characteristic_id == ANCSCharacteristicData) {
       prv_ancs_is_alive_start_tracking();
-      prv_start_temp_notification_connection_delay_timer();
+      prv_start_post_connection_ignore_window();
+      s_session_active = true;
     }
   } else {
     PBL_LOG_ERR("Failed to subscribe charx: %u (error=%u)", characteristic_id, error);
@@ -1010,8 +1012,8 @@ void ancs_handle_service_discovered(pbl_bt_characteristic_t *characteristics) {
   // Subscribe to Data, then to Notification characteristics. Reject the service
   // if subscribing fails instead of asserting (e.g. a "fake ANCS" without CCCD).
   for (int c = ANCSCharacteristicData; c >= ANCSCharacteristicNotification; --c) {
-    const enum pbl_bt_errno e = gatt_client_subscriptions_subscribe(
-        characteristics[c], BLESubscriptionNotifications, GAPLEClientKernel);
+    const enum pbl_bt_errno e =
+        gatt_client_subscriptions_subscribe(characteristics[c], BLESubscriptionNotifications);
     if (e != PBL_BT_ERRNO_OK) {
       PBL_LOG_WRN("Failed to subscribe ANCS charx %d (err=%d), ignoring service", c, e);
       ancs_invalidate_all_references();
@@ -1036,7 +1038,7 @@ bool ancs_can_handle_characteristic(pbl_bt_characteristic_t characteristic) {
 // Handling inbound GATT Notifications
 
 static void prv_handle_ns_notification(uint32_t length, const uint8_t *notification) {
-  PBL_ASSERTN(notification != NULL);
+  PBL_ASSERTN(notification != nullptr);
 
   if (length != sizeof(NSNotification)) {
     PBL_LOG_ERR("Received invalid ANCS NS Notification length=<%" PRIu32 ">", length);
@@ -1072,6 +1074,10 @@ static void prv_handle_ns_notification(uint32_t length, const uint8_t *notificat
     properties |= ANCSProperty_MultiMedia;
   }
 
+  if (nsnotification->event_flags & EventFlagSilent) {
+    properties |= ANCSProperty_Silent;
+  }
+
   if (s_ancs_client->version >= ANCSVersion_iOS9OrNewer) {
     properties |= ANCSProperty_iOS9;
   }
@@ -1084,8 +1090,14 @@ static void prv_handle_ns_notification(uint32_t length, const uint8_t *notificat
       // By skipping the pre-existing check we will re-receive all the notifications
       // we got in the past 2 hours. To get past this ignore notifications for the first couple
       // seconds after connecting
-      if (s_just_connected && (nsnotification->event_flags & EventFlagPreExisting)) {
-        PBL_LOG_DBG("Ignoring notification because we just connected and PreExisting");
+      if (prv_just_connected() && (nsnotification->event_flags & EventFlagPreExisting)) {
+        if (s_had_session) {
+          PBL_LOG_DBG("PreExisting ANCS notification after reconnecting");
+          prv_notif_queue_push_attr_request(nsnotification->uid,
+                                            properties | ANCSProperty_Recovered);
+        } else {
+          PBL_LOG_DBG("Ignoring notification because we just connected and PreExisting");
+        }
       } else {
         PBL_LOG_DBG("Added ANCS notification!");
         prv_notif_queue_push_attr_request(nsnotification->uid, properties);
@@ -1104,7 +1116,7 @@ static void prv_handle_ns_notification(uint32_t length, const uint8_t *notificat
 }
 
 static void prv_handle_ds_notification(uint32_t length, const uint8_t *data) {
-  PBL_ASSERTN(data != NULL);
+  PBL_ASSERTN(data != nullptr);
 
   if (length < 1) {
     PBL_LOG_ERR("Received ANCS DS notification of length 0");
@@ -1140,7 +1152,7 @@ void ancs_handle_read_or_notification(pbl_bt_characteristic_t characteristic, co
       handler = prv_handle_ds_notification;
       break;
     default:
-      WTF;
+      pbl_panic();
   }
   handler(value_length, value);
 }
@@ -1180,8 +1192,7 @@ void ancs_handle_write_response(pbl_bt_characteristic_t characteristic,
 
 static bool prv_write_control_point_request(const CPDSMessage *cmd, size_t size) {
   const pbl_bt_characteristic_t cp = s_ancs_client->characteristics[ANCSCharacteristicControl];
-  const enum pbl_bt_errno error =
-      gatt_client_op_write(cp, (const uint8_t *)cmd, size, GAPLEClientKernel);
+  const enum pbl_bt_errno error = gatt_client_op_write(cp, (const uint8_t *)cmd, size);
 
   PBL_LOG_DBG("Writing to control point:");
   PBL_HEXDUMP(LOG_LEVEL_DEBUG, (const uint8_t *)cmd, size);
@@ -1258,7 +1269,7 @@ void ancs_handle_ios9_or_newer_detected(void) {
 // Lifecycle
 
 void ancs_create(void) {
-  PBL_ASSERTN(s_ancs_client == NULL);
+  PBL_ASSERTN(s_ancs_client == nullptr);
   s_ancs_client = (ANCSClient *)kernel_zalloc_check(sizeof(ANCSClient));
   pbl_buffer_init(&s_ancs_client->reassembly_ctx.buffer,
                   sizeof(s_ancs_client->reassembly_ctx.buffer_storage));
@@ -1276,6 +1287,6 @@ void ancs_destroy(void) {
 
   prv_reset_and_flush();
   kernel_free(s_ancs_client);
-  s_ancs_client = NULL;
+  s_ancs_client = nullptr;
   prv_put_ancs_disconnected_event();
 }

@@ -3,8 +3,7 @@
 
 #include "menu_layer_legacy2.h"
 
-#include "kernel/pbl_malloc.h"
-#include "system/passert.h"
+#include <kernel/pbl_malloc.h>
 
 extern void menu_layer_init_scroll_layer_callbacks(MenuLayer *menu_layer);
 

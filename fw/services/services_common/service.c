@@ -7,28 +7,26 @@
 //! I'll slowly move initialization routines into here as we continue to refactor services.
 //! For now this will just be woefully incomplete.
 
-#include "pbl/services/services_common.h"
-
-#include "mfg/mfg_info.h"
-
-#include "pbl/services/accel_manager.h"
-#include "pbl/services/bluetooth/bluetooth_persistent_storage.h"
-#include "pbl/services/comm_session/app_session_capabilities.h"
-#include "pbl/services/comm_session/default_kernel_sender.h"
-#include "pbl/services/comm_session/session.h"
 #include <pbl/cron/cron.h>
-#include "pbl/services/firmware_update.h"
-#include "pbl/services/hrm/hrm_manager.h"
-#include "pbl/services/light.h"
-#include "kernel/remote_input.h"
-#include "pbl/services/poll_remote.h"
-#include "pbl/services/put_bytes/put_bytes.h"
-#include "pbl/services/shared_prf_storage/shared_prf_storage.h"
-#include "pbl/services/touch/touch.h"
-#include <pbl/drivers/touch/touch_sensor.h>
-#include "pbl/services/vibe_pattern.h"
-#include "pbl/services/runlevel_impl.h"
-#include "pbl/util/size.h"
+#include <pbl/services/accel_manager.h>
+#include <pbl/services/bluetooth/bluetooth_persistent_storage.h>
+#include <pbl/services/comm_session/app_session_capabilities.h>
+#include <pbl/services/comm_session/default_kernel_sender.h>
+#include <pbl/services/comm_session/session.h>
+#include <pbl/services/firmware_update.h>
+#include <pbl/services/hrm/hrm_manager.h>
+#include <pbl/services/light.h>
+#include <pbl/services/poll_remote.h>
+#include <pbl/services/put_bytes/put_bytes.h>
+#include <pbl/services/runlevel_impl.h>
+#include <pbl/services/services_common.h>
+#include <pbl/services/shared_prf_storage/shared_prf_storage.h>
+#include <pbl/services/touch/touch.h>
+#include <pbl/services/vibe_pattern.h>
+#include <pbl/util/size.h>
+
+#include <kernel/remote_input.h>
+#include <mfg/mfg_info.h>
 
 void services_common_init(void) {
   firmware_update_init();
@@ -78,14 +76,6 @@ static struct ServiceRunLevelSetting s_runlevel_settings[] = {
     .set_enable_fn = bt_ctl_set_enabled,
     .enable_mask = R_FirmwareUpdate | R_Normal,
   },
-#if defined(CONFIG_TOUCH) && defined(CONFIG_RECOVERY_FW)
-  // Only keep touch enabled on recovery (and so manufacturing as well)
-  // Once supported in main firmware, this should be removed.
-  {
-    .set_enable_fn = touch_sensor_set_enabled,
-    .enable_mask = R_Normal,
-  },
-#endif
 #ifdef CONFIG_HRM
   {
     .set_enable_fn = hrm_manager_enable,

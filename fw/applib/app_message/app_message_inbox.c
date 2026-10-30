@@ -1,11 +1,12 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "applib/app_message/app_message_internal.h"
-#include "applib/app_message/app_message_receiver.h"
-#include "process_state/app_state/app_state.h"
 #include <pbl/logging/logging.h>
-#include "syscall/syscall.h"
+
+#include <applib/app_message/app_message_internal.h>
+#include <applib/app_message/app_message_receiver.h>
+#include <process_state/app_state/app_state.h>
+#include <syscall/syscall.h>
 
 AppMessageResult app_message_inbox_open(AppMessageCtxInbox *inbox, size_t size_inbound) {
   const size_t size_maximum = app_message_inbox_size_maximum();
@@ -90,7 +91,6 @@ void app_message_inbox_receive(CommSession *session, AppMessagePush *push_messag
 
   DictionaryIterator iterator;
   const uint16_t dict_size = (length - APP_MSG_HDR_OVRHD_SIZE);
-  // TODO PBL-1639: Maybe do some sanity checking on the dict structure?
   dict_read_begin_from_buffer(&iterator, (const uint8_t *)&push_message->dictionary, dict_size);
 
   if (inbox->received_callback) {

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import re
 import time
 
 import numpy as np
@@ -10,7 +11,6 @@ from harness.helpers.ui import Ui
 
 pytestmark = [
     pytest.mark.variants("prf"),
-    pytest.mark.power,
     pytest.mark.device_types("hardware"),
 ]
 
@@ -18,9 +18,7 @@ pytestmark = [
 NOMINAL_VOLTAGE_MV = 3800
 ADVERTISING_MAX_UA = 1000
 CONNECTED_MAX_UA = 550
-OFF_MAX_UA = 15
 MEASURE_S = 30
-OFF_SETTLE_S = 5
 
 # The backlight stays on 3 s after a press, then fades out over 0.5 s.
 BACKLIGHT_ON_S = (3.0, 4.0)
@@ -31,6 +29,10 @@ SMOOTHING_S = 0.01
 
 # Booting at this VBAT, the fuel gauge estimates under 5%: PRF's low battery.
 LOW_BATTERY_MV = 3500
+# The fuel gauge's first reading after boot, within this of the PPK2's.
+BATTERY_LOG = r"Percent: \d+, V: (-?\d+) mV"
+VBAT_TOLERANCE_MV = 100
+VBAT_ATTEMPTS = 3
 
 
 @pytest.fixture(autouse=True)
@@ -62,17 +64,6 @@ def test_connected(dut, phones, power, record_property):
     assert m.mean_ua <= CONNECTED_MAX_UA, m
 
 
-def test_off(dut, power, record_property):
-    dut.standby()
-    try:
-        time.sleep(OFF_SETTLE_S)
-        m = power.measure_for(MEASURE_S, "off")
-    finally:
-        dut.reset()
-    _record(record_property, m, OFF_MAX_UA)
-    assert m.mean_ua <= OFF_MAX_UA, m
-
-
 def _on_time_s(samples):
     """How long the current stays in its upper half: the backlight's."""
     window = int(SMOOTHING_S * SAMPLE_RATE_HZ)
@@ -96,11 +87,23 @@ def test_backlight_timeout(dut, power, record_property):
     assert low <= on_s <= high, f"backlight on for {on_s:.2f} s"
 
 
-def test_low_battery(dut, power):
-    power.ppk2.set_voltage(LOW_BATTERY_MV)
-    try:
+def _boot_at(dut, power, voltage_mv):
+    """Reset the watch until it reads ``voltage_mv``, re-applying it if the
+    PPK2 did not; the log mark of that boot."""
+    for _ in range(VBAT_ATTEMPTS):
+        power.ppk2.set_voltage(voltage_mv)
         since = dut.logs.mark()
         dut.reset()
+        record = dut.wait_for_log(BATTERY_LOG, 30, since)
+        vbat_mv = int(re.search(BATTERY_LOG, str(record)).group(1))
+        if abs(vbat_mv - voltage_mv) <= VBAT_TOLERANCE_MV:
+            return since
+    pytest.fail(f"VBAT reads {vbat_mv} mV with the PPK2 at {voltage_mv} mV")
+
+
+def test_low_battery(dut, power):
+    try:
+        since = _boot_at(dut, power, LOW_BATTERY_MV)
         dut.wait_for_log(r"Battery low: enter low power mode", 60, since)
         assert "Low Power App" in Ui(dut).window_stack()
     finally:

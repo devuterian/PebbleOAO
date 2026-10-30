@@ -5,7 +5,7 @@
 
 #include "recognizer.h"
 
-#include "applib/graphics/gtypes.h"
+#include <applib/graphics/gtypes.h>
 
 typedef struct TapRecognizerData TapRecognizerData;
 
@@ -46,6 +46,3 @@ GPoint tap_recognizer_get_tap_point(const Recognizer *recognizer);
 
 //!   @} // end addtogroup Recognizer
 //! @} // end addtogroup UI
-
-// TODO: Add configuration methods & getters for state
-// https://pebbletechnology.atlassian.net/browse/PBL-28983

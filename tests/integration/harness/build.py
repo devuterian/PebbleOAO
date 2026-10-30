@@ -4,11 +4,12 @@
 """What the harness needs to know about the firmware build under test."""
 
 import os
-import re
+import shutil
 
 from harness.errors import HarnessError
 
 _PLATFORMS = ("emery", "flint", "gabbro")
+_TOPDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 
 def _read_dotconfig(path):
@@ -65,9 +66,12 @@ class Build:
 
     @property
     def topdir(self):
-        return self.cache.get("CMAKE_HOME_DIRECTORY") or self.cache.get(
-            "pebbleos_SOURCE_DIR", os.getcwd()
+        """The source tree, or the harness's own for a build configured on
+        another host."""
+        topdir = self.cache.get("CMAKE_HOME_DIRECTORY") or self.cache.get(
+            "pebbleos_SOURCE_DIR"
         )
+        return topdir if topdir and os.path.isdir(topdir) else _TOPDIR
 
     @property
     def board_target(self):
@@ -91,6 +95,10 @@ class Build:
         return bool(self.config.get("CONFIG_QEMU"))
 
     @property
+    def native(self):
+        return bool(self.config.get("CONFIG_SOC_POSIX"))
+
+    @property
     def variant(self):
         return self.cache.get("VARIANT", "normal")
 
@@ -99,40 +107,18 @@ class Build:
         return self.join(f"{self.cache.get('CMAKE_PROJECT_NAME', 'pebbleos')}.elf")
 
     @property
+    def executable(self):
+        """The native build's program."""
+        return self.join(self.cache.get("CMAKE_PROJECT_NAME", "pebbleos"))
+
+    @property
     def loghash_dict(self):
         return self.join("fw", "loghash_dict.json")
 
-    def flash_region(self, name):
-        """``(address, size)`` of a flash region (e.g. ``FILESYSTEM``), from
-        the layout header the build's flash part selects."""
-        for key, value in self.config.items():
-            if not key.startswith("CONFIG_FLASH_") or value is not True:
-                continue
-            header = os.path.join(
-                self.topdir,
-                "fw",
-                "flash_region",
-                f"flash_region_{key[len('CONFIG_FLASH_') :].lower()}.h",
-            )
-            if os.path.isfile(header):
-                break
-        else:
-            raise HarnessError(f"no flash layout for board {self.board}")
-
-        with open(header) as f:
-            text = f.read()
-        base = re.search(r"#define FLASH_REGION_BASE_ADDRESS\s+(0x[0-9A-Fa-f]+)", text)
-        # Regions are laid out back to back, in the order they are listed.
-        address = int(base.group(1), 16) if base else 0
-        for region, size in re.findall(r"MACRO\((\w+),\s*(0x[0-9A-Fa-f]+)", text):
-            if region == name:
-                return address, int(size, 16)
-            address += int(size, 16)
-        raise HarnessError(f"no {name} flash region for board {self.board}")
-
     def tool(self, name):
-        """An SDK tool CMake located (PBL_<NAME>), or None."""
+        """An SDK tool CMake located (PBL_<NAME>), else the one on PATH, or
+        None."""
         value = self.cache.get(f"PBL_{name.upper()}")
-        if not value or value.endswith("-NOTFOUND"):
-            return None
-        return value
+        if value and os.path.isfile(value):
+            return value
+        return shutil.which(name)

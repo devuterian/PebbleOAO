@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "applib/fonts/fonts_private.h"
-#include "resource/resource.h"
+#include <applib/fonts/fonts_private.h>
+#include <resource/resource.h>
 
 #if !defined(SDK)
-#include "font_resource_keys.auto.h"
+#include <font_resource_keys.auto.h>
 #endif
 
 //! @addtogroup Graphics
@@ -69,7 +69,7 @@ uint8_t fonts_get_font_height(GFont font);
 
 //! @internal
 // Get the vertical offset of the top of the font's caps from the origin of a text frame
-// Currently only an approximation, see PBL-25709
+// Currently only an approximation
 int16_t fonts_get_font_cap_offset(GFont font);
 
 //!   @} // end addtogroup Fonts

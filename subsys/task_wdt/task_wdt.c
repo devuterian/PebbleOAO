@@ -1,51 +1,53 @@
 /* SPDX-FileCopyrightText: 2026 Core Devices LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <pbl/task_wdt/task_wdt.h>
-
 #include <errno.h>
 #include <inttypes.h>
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
 #include <pbl/drivers/watchdog.h>
+#include <pbl/kernel/assert.h>
+#include <pbl/kernel/debug.h>
+#include <pbl/kernel/irq.h>
+#include <pbl/kernel/thread.h>
+#include <pbl/kernel/time.h>
+#include <pbl/kernel/types.h>
 #include <pbl/logging/logging.h>
+#include <pbl/task_wdt/task_wdt.h>
+#include <pbl/util/math.h>
 
-#include "pbl/kernel/debug.h"
-#include "pbl/kernel/irq.h"
-#include "pbl/kernel/sched.h"
-#include "pbl/kernel/thread.h"
-#include "pbl/kernel/types.h"
-#include "system/die.h"
-#include "system/passert.h"
-#include "system/reboot_reason.h"
+#include <system/die.h>
+#include <system/reboot_reason.h>
 
 PBL_LOG_MODULE_DEFINE(task_wdt, CONFIG_TASK_WDT_LOG_LEVEL);
 
 #define NUM_CHANNELS CONFIG_TASK_WDT_CHANNELS
-_Static_assert(NUM_CHANNELS <= 8, "the reboot reason records the channels as 8-bit masks");
+static_assert(NUM_CHANNELS <= 8, "the reboot reason records the channels as 8-bit masks");
 #ifdef CONFIG_WATCHDOG
-_Static_assert(CONFIG_TASK_WDT_CHECK_PERIOD_MS < CONFIG_WATCHDOG_TIMEOUT_MS / 2,
-               "the hardware watchdog must outlast the check period");
+static_assert(CONFIG_TASK_WDT_CHECK_PERIOD_MS < CONFIG_WATCHDOG_TIMEOUT_MS / 2,
+              "the hardware watchdog must outlast the check period");
 #endif
 
 struct channel {
   struct pbl_thread *thread;
   pbl_tick_t timeout;
   pbl_tick_t deadline;
+  pbl_tick_t expired_since;
   pbl_task_wdt_callback_t callback;
   void *user_data;
   bool active;
   bool waiting;
+  bool woken;
+  bool expired;
 };
 
 struct expired {
   int id;
   struct pbl_thread *thread;
   uint32_t since_feed_ms;
-  uint32_t overdue_ms;
+  pbl_tick_t expired_for;
   pbl_task_wdt_callback_t callback;
   void *user_data;
 };
@@ -55,6 +57,9 @@ static bool s_suspended;
 static bool s_suspend_timed;
 static pbl_tick_t s_suspend_until;
 static bool s_stalled;
+#ifdef CONFIG_DEBUGGER_AWARE
+static bool s_debugger;
+#endif
 
 static struct pbl_thread s_thread;
 PBL_THREAD_STACK_DEFINE(s_stack, CONFIG_TASK_WDT_THREAD_STACK_SIZE);
@@ -65,6 +70,24 @@ static inline bool prv_reached(pbl_tick_t now, pbl_tick_t when) {
 
 static void prv_feed_locked(struct channel *ch, pbl_tick_t now) {
   ch->deadline = now + ch->timeout;
+  ch->expired = false;
+}
+
+//! A waiting thread is idle only while blocked: once woken it must run within
+//! its timeout like a busy one, or a starved thread would never expire.
+static bool prv_idle_locked(struct channel *ch, pbl_tick_t now) {
+  if (!ch->waiting) {
+    return false;
+  }
+  if (pbl_thread_state(ch->thread) != PBL_THREAD_READY) {
+    ch->woken = false;
+    return true;
+  }
+  if (!ch->woken) {
+    ch->woken = true;
+    prv_feed_locked(ch, now);
+  }
+  return false;
 }
 
 static void prv_feed_all_locked(pbl_tick_t now) {
@@ -95,21 +118,25 @@ static size_t prv_collect_expired(struct expired *expired, uint8_t *fed_mask,
     prv_feed_all_locked(now);
   }
   for (int i = 0; i < NUM_CHANNELS; i++) {
-    const struct channel *ch = &s_channels[i];
+    struct channel *ch = &s_channels[i];
     if (!ch->active) {
       continue;
     }
     *active_mask |= 1u << i;
-    if (ch->waiting || !prv_reached(now, ch->deadline)) {
+    if (prv_idle_locked(ch, now) || !prv_reached(now, ch->deadline)) {
       *fed_mask |= 1u << i;
       continue;
+    }
+    if (!ch->expired) {
+      ch->expired = true;
+      ch->expired_since = now;
     }
     pbl_tick_t overdue = now - ch->deadline;
     expired[num_expired++] = (struct expired){
       .id = i,
       .thread = ch->thread,
       .since_feed_ms = pbl_ticks_to_ms(ch->timeout + overdue),
-      .overdue_ms = pbl_ticks_to_ms(overdue),
+      .expired_for = now - ch->expired_since,
       .callback = ch->callback,
       .user_data = ch->user_data,
     };
@@ -128,16 +155,16 @@ static bool prv_reboot_reason_is_ours(void) {
 //! Logs every expired channel, gives each callback a chance to recover the
 //! thread and records the highest-priority stuck thread, which is the most
 //! likely culprit when several are stuck, in the reboot reason.
-//! @return the longest time any channel has been expired for.
-static uint32_t prv_report(const struct expired *expired, size_t num_expired, uint8_t fed_mask,
-                           uint8_t active_mask) {
+//! @return the longest time since a check first found a channel expired.
+static pbl_tick_t prv_report(const struct expired *expired, size_t num_expired, uint8_t fed_mask,
+                             uint8_t active_mask) {
   RebootReason reason = {
     .code = RebootReasonCode_Watchdog,
     .data8 = {fed_mask, active_mask},
   };
   pbl_prio_t worst_prio = 0;
   bool have_worst = false;
-  uint32_t max_overdue_ms = 0;
+  pbl_tick_t max_expired_for = 0;
 
   PBL_LOG_SYNC_WRN("Task watchdog: channels fed 0x%" PRIx8 " active 0x%" PRIx8, fed_mask,
                    active_mask);
@@ -150,7 +177,7 @@ static uint32_t prv_report(const struct expired *expired, size_t num_expired, ui
     PBL_LOG_SYNC_WRN("<%s> not fed for %" PRIu32 " ms: PC %p LR %p", pbl_thread_name(e->thread),
                      e->since_feed_ms, (void *)regs.pc, (void *)regs.lr);
 
-    void *work = e->callback ? e->callback(e->id, e->user_data) : NULL;
+    void *work = e->callback ? e->callback(e->id, e->user_data) : nullptr;
     if (work) {
       PBL_LOG_SYNC_WRN("<%s> running %p", pbl_thread_name(e->thread), work);
     }
@@ -163,8 +190,8 @@ static uint32_t prv_report(const struct expired *expired, size_t num_expired, ui
       reason.watchdog.stuck_task_lr = regs.lr;
       reason.watchdog.stuck_task_callback = (uint32_t)(uintptr_t)work;
     }
-    if (e->overdue_ms > max_overdue_ms) {
-      max_overdue_ms = e->overdue_ms;
+    if (e->expired_for > max_expired_for) {
+      max_expired_for = e->expired_for;
     }
   }
 
@@ -173,13 +200,51 @@ static uint32_t prv_report(const struct expired *expired, size_t num_expired, ui
     reboot_reason_set(&reason);
   }
 
-  return max_overdue_ms;
+  return max_expired_for;
 }
 
-static void prv_check(void) {
+//! Whether a debugger is attached, stopping the hardware watchdog meanwhile when it would keep
+//! counting while the CPU is stopped.
+static bool prv_debugger_attached(void) {
+#ifdef CONFIG_DEBUGGER_AWARE
+  bool attached = pbl_debugger_attached();
+  if (attached != s_debugger) {
+    s_debugger = attached;
+    if (attached) {
+      PBL_LOG_SYNC_INFO("Task watchdog: debugger attached, not resetting");
+#ifdef CONFIG_WATCHDOG_RUNS_WHILE_HALTED
+      watchdog_stop();
+#endif
+    } else {
+      PBL_LOG_SYNC_INFO("Task watchdog: debugger detached");
+#ifdef CONFIG_WATCHDOG_RUNS_WHILE_HALTED
+      watchdog_start();
+#endif
+    }
+  }
+  return attached;
+#else
+  return false;
+#endif
+}
+
+static void prv_feed_hw(bool debugger) {
+#ifdef CONFIG_WATCHDOG_RUNS_WHILE_HALTED
+  // Stopped for the debugger: feeding restarts it
+  if (debugger) {
+    return;
+  }
+#else
+  (void)debugger;
+#endif
+  watchdog_feed();
+}
+
+static uint32_t prv_check(void) {
   struct expired expired[NUM_CHANNELS];
   uint8_t fed_mask;
   uint8_t active_mask;
+  bool debugger = prv_debugger_attached();
 
   size_t num_expired = prv_collect_expired(expired, &fed_mask, &active_mask);
   if (num_expired == 0) {
@@ -190,30 +255,37 @@ static void prv_check(void) {
       }
       PBL_LOG_SYNC_WRN("Task watchdog: recovered from a stall");
     }
-    watchdog_feed();
-    return;
+    prv_feed_hw(debugger);
+    return CONFIG_TASK_WDT_CHECK_PERIOD_MS;
   }
 
   s_stalled = true;
-  uint32_t overdue_ms = prv_report(expired, num_expired, fed_mask, active_mask);
-  if (overdue_ms >= CONFIG_TASK_WDT_GRACE_MS) {
+  pbl_tick_t expired_for = prv_report(expired, num_expired, fed_mask, active_mask);
+  if (expired_for >= pbl_ms_to_ticks(CONFIG_TASK_WDT_GRACE_MS)) {
 #ifdef CONFIG_WATCHDOG
-    // The orderly teardown system_reset() performs from thread context could
-    // block on the stuck thread and lose the core dump; a locked-out
-    // scheduler makes it skip straight to the dump.
-    pbl_irq_lock();
-    reset_due_to_software_failure();
+    if (debugger) {
+      PBL_LOG_SYNC_ERR("Task watchdog: expired, not resetting (debugger attached)");
+    } else {
+      // The orderly teardown system_reset() performs from thread context could
+      // block on the stuck thread and lose the core dump; a locked-out
+      // scheduler makes it skip straight to the dump.
+      pbl_irq_lock();
+      reset_due_to_software_failure();
+    }
 #else
     PBL_LOG_SYNC_ERR("Task watchdog: expired, not resetting (CONFIG_WATCHDOG=n)");
 #endif
   }
-  watchdog_feed();
+  prv_feed_hw(debugger);
+  return MIN(CONFIG_TASK_WDT_GRACE_MS, CONFIG_TASK_WDT_CHECK_PERIOD_MS);
 }
 
 static void prv_thread_entry(void *arg) {
+  uint32_t sleep_ms = CONFIG_TASK_WDT_CHECK_PERIOD_MS;
+
   for (;;) {
-    pbl_thread_sleep(PBL_MSEC(CONFIG_TASK_WDT_CHECK_PERIOD_MS));
-    prv_check();
+    pbl_thread_sleep(PBL_MSEC(sleep_ms));
+    sleep_ms = prv_check();
   }
 }
 
@@ -316,6 +388,7 @@ void pbl_task_wdt_set_waiting(bool waiting) {
     struct channel *ch = &s_channels[i];
     if (ch->active && ch->thread == thread) {
       ch->waiting = waiting;
+      ch->woken = false;
       prv_feed_locked(ch, now);
     }
   }

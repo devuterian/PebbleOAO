@@ -1,50 +1,42 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "applib/accel_service.h"
-#include "applib/data_logging.h"
-#include <pbl/drivers/ambient_light.h>
-#include <pbl/drivers/rtc.h>
-#include "pbl/services/regular_timer.h"
-#include "pbl/services/battery/battery_state.h"
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/activity/activity_private.h"
-#include "pbl/services/activity/activity_algorithm.h"
-#include "pbl/services/activity/kraepelin/activity_algorithm_kraepelin.h"
-#include "pbl/services/activity/kraepelin/kraepelin_algorithm.h"
-#include "pbl/services/data_logging/data_logging_service.h"
-#include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/settings/settings_file.h"
-#include "pbl/services/system_task.h"
-#include "pbl/util/math.h"
-#include "pbl/util/size.h"
-
 #include <stdint.h>
 #include <string.h>
+
+#include <pbl/drivers/rtc.h>
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/activity/activity_algorithm.h>
+#include <pbl/services/activity/activity_private.h>
+#include <pbl/services/activity/kraepelin/activity_algorithm_kraepelin.h>
+#include <pbl/services/activity/kraepelin/kraepelin_algorithm.h>
+#include <pbl/services/battery/battery_state.h>
+#include <pbl/services/data_logging/data_logging_service.h>
+#include <pbl/services/filesystem/pfs.h>
+#include <pbl/services/light_level.h>
+#include <pbl/services/regular_timer.h>
+#include <pbl/services/settings/settings_file.h>
+#include <pbl/services/system_task.h>
+#include <pbl/util/math.h>
+#include <pbl/util/size.h>
+
+#include <applib/accel_service.h>
+#include <applib/data_logging.h>
 #include <applib/health_service.h>
+#include <clar.h>
 #include <services/activity/kraepelin/activity_algorithm_kraepelin.h>
 
-#include "clar.h"
-
 // Stubs
-#include "stubs_analytics.h"
-#include "stubs_irq.h"
-#include "stubs_hexdump.h"
-#include "stubs_hr_util.h"
-#include "stubs_logging.h"
-#include "stubs_mutex.h"
-#include "stubs_passert.h"
-#include "stubs_sleep.h"
-#include "stubs_task_wdt.h"
 
 // Fakes
-#include "fake_accel_service.h"
-#include "fake_new_timer.h"
-#include "fake_rtc.h"
-#include "fake_spi_flash.h"
-#include "fake_system_task.h"
-#include "pbl/services/time.h"
-#include "pbl/util/units.h"
+#include <pbl/services/time.h>
+#include <pbl/util/units.h>
+
+#include <fake_accel_service.h>
+#include <fake_new_timer.h>
+#include <fake_rtc.h>
+#include <fake_spi_flash.h>
+#include <fake_system_task.h>
 
 #define ASSERT_EQUAL_I(i1, i2, file, line) \
   clar__assert_equal_i((i1), (i2), file, line, #i1 " != " #i2, 1)
@@ -69,7 +61,7 @@ static uint8_t s_alg_next_orientation;
 static uint8_t s_alg_next_light;
 static bool s_alg_next_plugged_in;
 
-static struct tm s_start_time_tm = {.tm_hour = 17, .tm_mday = 1, .tm_mon = 0, .tm_year = 115};
+static struct pbl_tm s_start_time_tm = {.tm_hour = 17, .tm_mday = 1, .tm_mon = 0, .tm_year = 115};
 
 // ============================================================================================
 // Misc stubs
@@ -77,7 +69,7 @@ uint32_t light_get_ambient_lux(void) {
   return s_alg_next_light << 4;
 }
 
-AmbientLightLevel ambient_light_level_to_enum(uint32_t light_level) {
+AmbientLightLevel light_level_to_enum(uint32_t light_level) {
   // Just return a predictable result to validate the unit tests
   return (light_level / ALG_RAW_LIGHT_SENSOR_DIVIDE_BY) % AMBIENT_LIGHT_LEVEL_ENUM_COUNT;
 }
@@ -91,7 +83,8 @@ BatteryChargeState battery_get_charge_state(void) {
   return state;
 }
 
-void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable) {
+void kalg_enable_activity_tracking(KAlgState *kalg_state, bool enable,
+                                   KAlgActivitySessionCallback sessions_cb, void *context) {
 }
 
 bool kalg_activity_hrm_is_active(KAlgState *kalg_state) {
@@ -122,7 +115,7 @@ bool activity_sessions_prv_is_sleep_activity(ActivitySessionType activity_type) 
     case ActivitySessionTypeCount:
       break;
   }
-  WTF;
+  pbl_panic();
 }
 
 // ------------------------------------------------------------------------------------
@@ -394,7 +387,7 @@ static void prv_feed_minute_data(uint32_t num_minutes, AlgMinuteDLSSample *minut
 // =============================================================================================
 // Start of unit tests
 void test_activity_algorithm_kraepelin__initialize(void) {
-  time_t utc_sec = mktime(&s_start_time_tm);
+  time_t utc_sec = pbl_mktime(&s_start_time_tm);
   fake_rtc_init(100 /*initial_ticks*/, utc_sec);
 
   fake_spi_flash_init(0, 0x1000000);
@@ -448,8 +441,8 @@ static void prv_assert_minute_data(HealthMinuteData *actual, AlgMinuteDLSSample 
   cl_assert_equal_i(actual->steps, expected->base.steps);
   cl_assert_equal_i(actual->orientation, expected->base.orientation);
   cl_assert_equal_i(actual->vmc, expected->base.vmc);
-  cl_assert_equal_i(actual->light, ambient_light_level_to_enum(expected->base.light *
-                                                               ALG_RAW_LIGHT_SENSOR_DIVIDE_BY));
+  cl_assert_equal_i(actual->light,
+                    light_level_to_enum(expected->base.light * ALG_RAW_LIGHT_SENSOR_DIVIDE_BY));
   cl_assert_equal_i(actual->heart_rate_bpm, expected->heart_rate_bpm);
 }
 
@@ -605,6 +598,35 @@ void test_activity_algorithm_kraepelin__get_flash_minute_history(void) {
   cl_assert_equal_i(num_records_found, num_minutes);
   for (int i = 0; i < num_minutes; i++) {
     prv_assert_minute_data(&retrieve[i], &minute_data[i]);
+  }
+}
+
+// ---------------------------------------------------------------------------------------
+// Heart rates are indexed from the requested start, from both flash and RAM, with minutes
+// before the first record left at 0
+void test_activity_algorithm_kraepelin__get_minute_heart_rate(void) {
+  const int num_minutes = 4 * PBL_MIN_PER_HOUR;
+  const int num_empty = 30;
+  time_t start_utc = rtc_get_time();
+
+  // Not on a 15 minute boundary, so the latest minutes are still in RAM
+  start_utc += 7 * PBL_SEC_PER_MIN;
+  rtc_set_time(start_utc);
+
+  AlgMinuteDLSSample minute_data[num_minutes];
+  prv_create_test_data(num_minutes, minute_data);
+  prv_feed_minute_data(num_minutes, minute_data, false /*simulate_bg_delays*/);
+
+  uint8_t bpm[num_empty + num_minutes];
+  memset(bpm, 0xA5, sizeof(bpm));
+  // Starting just past the minute to test that it is rounded down
+  const time_t start = start_utc - (num_empty * PBL_SEC_PER_MIN) + 5;
+  cl_assert(activity_algorithm_get_minute_heart_rate(bpm, ARRAY_LENGTH(bpm), start));
+  for (int i = 0; i < num_empty; i++) {
+    cl_assert_equal_i(bpm[i], 0);
+  }
+  for (int i = 0; i < num_minutes; i++) {
+    cl_assert_equal_i(bpm[num_empty + i], minute_data[i].heart_rate_bpm);
   }
 }
 
@@ -935,9 +957,8 @@ void test_activity_algorithm_kraepelin__minute_data_steps_during_sleep(void) {
     }
     cl_assert_equal_i(retrieve[i].orientation, minute_data[i].base.orientation);
     cl_assert_equal_i(retrieve[i].vmc, minute_data[i].base.vmc);
-    cl_assert_equal_i(
-        retrieve[i].light,
-        ambient_light_level_to_enum(minute_data[i].base.light * ALG_RAW_LIGHT_SENSOR_DIVIDE_BY));
+    cl_assert_equal_i(retrieve[i].light, light_level_to_enum(minute_data[i].base.light *
+                                                             ALG_RAW_LIGHT_SENSOR_DIVIDE_BY));
     cl_assert_equal_i(retrieve[i].heart_rate_bpm, minute_data[i].heart_rate_bpm);
   }
 }

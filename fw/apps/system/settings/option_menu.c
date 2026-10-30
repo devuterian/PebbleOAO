@@ -5,8 +5,9 @@
 
 #include "menu.h"
 
-#include "kernel/pbl_malloc.h"
-#include "pbl/services/i18n/i18n.h"
+#include <pbl/services/i18n/i18n.h>
+
+#include <kernel/pbl_malloc.h>
 
 static void prv_menu_unload(OptionMenu *option_menu, void *context) {
   SettingsOptionMenuData *data = context;
@@ -29,13 +30,20 @@ static void prv_menu_draw_row(OptionMenu *option_menu, GContext *ctx, const Laye
   option_menu_system_draw_row(option_menu, ctx, cell_layer, cell_frame, title, selected, context);
 }
 
+static uint16_t prv_menu_get_cell_height(OptionMenu *option_menu, uint16_t row, bool selected,
+                                         void *context) {
+  SettingsOptionMenuData *data = context;
+  return option_menu_system_cell_height(option_menu, i18n_get(data->rows[row], option_menu),
+                                        selected);
+}
+
 OptionMenu *settings_option_menu_create(const char *i18n_title_key,
                                         OptionMenuContentType content_type, int choice,
                                         const OptionMenuCallbacks *callbacks_ref, uint16_t num_rows,
                                         bool icons_enabled, const char **rows, void *context) {
   OptionMenu *option_menu = option_menu_create();
   if (!option_menu) {
-    return NULL;
+    return nullptr;
   }
   GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
   GColor highlight_bg = shell_prefs_get_theme_highlight_color();
@@ -58,6 +66,9 @@ OptionMenu *settings_option_menu_create(const char *i18n_title_key,
     .rows = rows,
   };
   callbacks.draw_row = prv_menu_draw_row;
+  if (!callbacks.get_cell_height) {
+    callbacks.get_cell_height = prv_menu_get_cell_height;
+  }
   callbacks.get_num_rows = prv_menu_get_num_rows;
   callbacks.unload = prv_menu_unload;
   option_menu_set_callbacks(option_menu, &callbacks, data);

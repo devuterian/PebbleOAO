@@ -1,30 +1,21 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-
 #include <pbl/cron/cron.h>
-#include "pbl/services/new_timer/new_timer.h"
-#include "pbl/util/size.h"
+#include <pbl/services/new_timer/new_timer.h>
+#include <pbl/services/time.h>
+#include <pbl/util/size.h>
+#include <pbl/util/units.h>
 
-#include "stubs_logging.h"
-#include "stubs_mutex.h"
-#include "stubs_passert.h"
-#include "fake_rtc.h"
-#include "pbl/services/time.h"
-#include "pbl/util/units.h"
-
-static uint32_t s_timer_timeout_ms;
+#include <clar.h>
+#include <fake_rtc.h>
+#include <fff.h>
 
 TimerID new_timer_create(void) {
   return 1;
 }
 
-bool new_timer_start(TimerID timer, uint32_t timeout_ms, NewTimerCallback cb, void *cb_data,
-                     uint32_t flags) {
-  s_timer_timeout_ms = timeout_ms;
-  return true;
-}
+FAKE_VALUE_FUNC(bool, new_timer_start, TimerID, uint32_t, NewTimerCallback, void *, uint32_t);
 
 bool new_timer_stop(TimerID timer) {
   return true;
@@ -52,7 +43,8 @@ static const TimezoneInfo s_timezone_gmt = {
 };
 
 void test_cron__initialize(void) {
-  s_timer_timeout_ms = 0;
+  RESET_FAKE(new_timer_start);
+  new_timer_start_fake.return_val = true;
   pbl_cron_init();
 }
 
@@ -93,7 +85,7 @@ void test_cron__timer_aligned_to_execute_second(void) {
 
   cl_assert_equal_i(execute_time, 1447332300);
   // 603250 ms away, aimed early by 1/256 plus the margin.
-  cl_assert_equal_i(s_timer_timeout_ms, 603250 - 603250 / 256 + 10);
+  cl_assert_equal_i(new_timer_start_fake.arg1_val, 603250 - 603250 / 256 + 10);
   cl_assert(pbl_cron_job_unschedule(&job));
 }
 
@@ -855,13 +847,13 @@ void test_cron__schedule_at_fires_at_the_time(void) {
 
   pbl_cron_job_schedule_at(&job, s_2015_nov12_123456_gmt + 100);
   cl_assert_equal_i(job.cached_execute_time, s_2015_nov12_123456_gmt + 100);
-  cl_assert_equal_i(s_timer_timeout_ms, 100000 - 100000 / 256 + 10);
+  cl_assert_equal_i(new_timer_start_fake.arg1_val, 100000 - 100000 / 256 + 10);
 
   // The timer expiring early re-arms for what is left.
   fake_rtc_increment_time(99);
   pbl_cron_wakeup();
   cl_assert_equal_i((uintptr_t)job.cb_data, 0);
-  cl_assert_equal_i(s_timer_timeout_ms, 1000 - 1000 / 256 + 10);
+  cl_assert_equal_i(new_timer_start_fake.arg1_val, 1000 - 1000 / 256 + 10);
 
   fake_rtc_increment_time(1);
   pbl_cron_wakeup();
@@ -933,5 +925,130 @@ void test_cron__clock_correction_keeps_execute_times(void) {
   pbl_cron_handle_clock_correction();
   cl_assert_equal_i(job.cached_execute_time, execute_time);
   cl_assert_equal_i((uintptr_t)job.cb_data, 0);
+  cl_assert(pbl_cron_job_unschedule(&job));
+}
+
+// Europe/Vienna in 2026: CET (+1), CEST (+2) from 2026-03-29 01:00 UTC to
+// 2026-10-25 01:00 UTC. At the end the clocks go 03:00 CEST -> 02:00 CET, so
+// local 02:00-02:59 happens twice.
+static const time_t s_2026_oct25_010000_gmt = 1792890000;
+static const TimezoneInfo s_timezone_vienna = {
+  .tm_zone = "CE*T",
+  .dst_id = 1,
+  .timezone_id = 2,
+  .tm_gmtoff = 3600,
+  .dst_start = 1774746000,
+  .dst_end = 1792890000,
+};
+
+void test_cron__dst_end_overlap_minute_job_keeps_cadence(void) {
+  struct pbl_cron_job job = {
+    .cb = prv_cron_callback,
+    .minute = PBL_CRON_MINUTE_ANY,
+    .hour = PBL_CRON_HOUR_ANY,
+    .mday = PBL_CRON_MDAY_ANY,
+    .month = PBL_CRON_MONTH_ANY,
+  };
+  const time_t dst_end = s_2026_oct25_010000_gmt;
+
+  // 02:30:00 CEST, the first pass through the repeated hour: next minute is 02:31 CEST.
+  prv_set_rtc(dst_end - 30 * PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end - 29 * PBL_SEC_PER_MIN);
+
+  // 02:59:00 CEST: next minute is the transition itself, shown as 02:00 CET.
+  prv_set_rtc(dst_end - PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end);
+
+  // At the transition instant (02:00:00 CET): next minute is 02:01 CET, not now.
+  prv_set_rtc(dst_end, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + PBL_SEC_PER_MIN);
+
+  // 02:30:00 CET, the second pass: next minute is 02:31 CET, not the CEST one.
+  prv_set_rtc(dst_end + 30 * PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + 31 * PBL_SEC_PER_MIN);
+  cl_assert(pbl_cron_job_unschedule(&job));
+}
+
+void test_cron__dst_end_overlap_minute_job_fires_across_transition(void) {
+  struct pbl_cron_job job = {
+    .cb = prv_cron_callback,
+    .minute = PBL_CRON_MINUTE_ANY,
+    .hour = PBL_CRON_HOUR_ANY,
+    .mday = PBL_CRON_MDAY_ANY,
+    .month = PBL_CRON_MONTH_ANY,
+  };
+  const time_t dst_end = s_2026_oct25_010000_gmt;
+
+  // 02:59 CEST -> fires at the transition.
+  prv_set_rtc(dst_end - PBL_SEC_PER_MIN, &s_timezone_vienna);
+  pbl_cron_job_schedule(&job);
+  fake_rtc_increment_time(PBL_SEC_PER_MIN);
+  pbl_cron_wakeup();
+  cl_assert_equal_i((uintptr_t)job.cb_data, 1);
+
+  // Rescheduled for 02:01 CET; the DST clock-change recompute leaves that alone.
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + PBL_SEC_PER_MIN);
+  prv_clock_change(0, 0, true);
+  cl_assert_equal_i(job.cached_execute_time, dst_end + PBL_SEC_PER_MIN);
+  cl_assert_equal_i((uintptr_t)job.cb_data, 1);
+
+  fake_rtc_increment_time(PBL_SEC_PER_MIN);
+  pbl_cron_wakeup();
+  cl_assert_equal_i((uintptr_t)job.cb_data, 2);
+  cl_assert_equal_i(pbl_cron_get_job_count(), 0);
+}
+
+void test_cron__dst_end_overlap_hourly_job_runs_in_both_hours(void) {
+  struct pbl_cron_job job = {
+    .cb = prv_cron_callback,
+    .minute = 30,
+    .hour = PBL_CRON_HOUR_ANY,
+    .mday = PBL_CRON_MDAY_ANY,
+    .month = PBL_CRON_MONTH_ANY,
+  };
+  const time_t dst_end = s_2026_oct25_010000_gmt;
+
+  // 02:00 CEST: due at 02:30 CEST.
+  prv_set_rtc(dst_end - PBL_SEC_PER_HOUR, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end - 30 * PBL_SEC_PER_MIN);
+
+  // 02:00 CET: due again at 02:30 CET.
+  prv_set_rtc(dst_end, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + 30 * PBL_SEC_PER_MIN);
+
+  // Top of the hour from 02:30 CEST: the transition instant shows as 02:00 CET.
+  job.minute = 0;
+  prv_set_rtc(dst_end - 30 * PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end);
+
+  // Scheduled at the transition instant itself, it must not fire right now again.
+  prv_set_rtc(dst_end, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + PBL_SEC_PER_HOUR);
+  cl_assert(pbl_cron_job_unschedule(&job));
+}
+
+void test_cron__dst_end_overlap_fixed_hour_job_fires_once(void) {
+  struct pbl_cron_job job = {
+    .cb = prv_cron_callback,
+    .minute = 45,
+    .hour = 2,
+    .mday = PBL_CRON_MDAY_ANY,
+    .month = PBL_CRON_MONTH_ANY,
+    .may_be_instant = true,
+  };
+  const time_t dst_end = s_2026_oct25_010000_gmt;
+
+  // An alarm at 02:45 rings at the second 02:45 whether set before or after the transition, so
+  // the clock-change recompute at the transition cannot make it ring twice.
+  prv_set_rtc(dst_end - 30 * PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + 45 * PBL_SEC_PER_MIN);
+  prv_set_rtc(dst_end + 30 * PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + 45 * PBL_SEC_PER_MIN);
+
+  // 03:00 local only exists once, as CET.
+  job.minute = 0;
+  job.hour = 3;
+  prv_set_rtc(dst_end - 30 * PBL_SEC_PER_MIN, &s_timezone_vienna);
+  cl_assert_equal_i(pbl_cron_job_schedule(&job), dst_end + PBL_SEC_PER_HOUR);
   cl_assert(pbl_cron_job_unschedule(&job));
 }
