@@ -806,7 +806,7 @@ bool speaker_service_play_ui_pcm(const int16_t *samples, uint32_t count, uint8_t
     return false;
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
-  if (!s_state.initialized || do_not_disturb_is_active() || prv_is_speaker_muted() || !volume ||
+  if (!s_state.initialized || do_not_disturb_is_active() || prv_is_speaker_muted(SpeakerPriorityApp) || !volume ||
       (!absolute && !alerts_preferences_get_speaker_volume()) ||
       (s_state.state != SpeakerStateIdle && s_state.source_type != SpeakerSourceUI)) {
     pbl_mutex_unlock(&s_lock);
@@ -882,7 +882,7 @@ bool speaker_service_preview_chime_resource(uint32_t resource_id, uint8_t volume
     return false;
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
-  if (!s_state.initialized || do_not_disturb_is_active() || prv_is_speaker_muted() ||
+  if (!s_state.initialized || do_not_disturb_is_active() || prv_is_speaker_muted(SpeakerPriorityApp) ||
       !alerts_preferences_get_speaker_volume() ||
       (s_state.state != SpeakerStateIdle && s_state.source_type != SpeakerSourceUI &&
        s_state.source_type != SpeakerSourceChime)) {
