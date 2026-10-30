@@ -5,6 +5,7 @@
 
 #include <pbl/cron/cron.h>
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/mutex.h>
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/activity/activity.h>
@@ -45,6 +46,17 @@ typedef struct DoNotDisturbData {
 
 static DoNotDisturbData s_data;
 
+//! Until Wake ends by itself after this long, in case sleep is never seen, e.g. off the wrist
+#define DND_UNTIL_WAKE_MAX_SEC (18 * PBL_SEC_PER_HOUR)
+
+//! Guards Until Wake state changes, which come from the app, KernelMain and KernelBG
+static PBL_MUTEX_DEFINE(s_until_wake_mutex);
+
+static void prv_until_wake_cron_callback(struct pbl_cron_job *job, void *data);
+static struct pbl_cron_job s_until_wake_job = {
+  .cb = prv_until_wake_cron_callback,
+};
+
 //! Cron jobs for the start and end of each schedule slot's period, and for midnight where a
 //! legacy slot's period starts or stops.
 static struct pbl_cron_job s_schedule_from_jobs[DND_NUM_SCHEDULE_SLOTS];
@@ -54,6 +66,7 @@ static struct pbl_cron_job s_schedule_midnight_jobs[DND_NUM_SCHEDULE_SLOTS];
 static bool prv_is_smart_dnd_active(void);
 static bool prv_is_schedule_active(void);
 static bool prv_is_sleep_dnd_active(void);
+static bool prv_is_until_wake_active(void);
 static void prv_update_schedule_mode(void);
 static void prv_set_manually_enabled(bool enable, bool by_user);
 
@@ -272,6 +285,63 @@ static void prv_clear_sleep_override_if_setting_changed(void) {
   }
 }
 
+static bool prv_is_until_wake_active(void) {
+  return alerts_preferences_dnd_get_until_wake_state() != DndUntilWakeStateDisabled;
+}
+
+//! Call with s_until_wake_mutex held
+static void prv_until_wake_set_state(DndUntilWakeState state) {
+  if (state == alerts_preferences_dnd_get_until_wake_state()) {
+    return;
+  }
+  PBL_LOG_DBG("Until Wake: %d", state);
+  alerts_preferences_dnd_set_until_wake_state(state);
+  if (state == DndUntilWakeStateDisabled) {
+    pbl_cron_job_unschedule(&s_until_wake_job);
+  }
+}
+
+static void prv_until_wake_expired(void *data) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (prv_is_until_wake_active() &&
+      rtc_get_time() >= alerts_preferences_dnd_get_until_wake_deadline()) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
+  prv_do_update();
+}
+
+static void prv_until_wake_cron_callback(struct pbl_cron_job *job, void *data) {
+  system_task_add_callback(prv_until_wake_expired, nullptr);
+}
+
+//! Call with s_until_wake_mutex held
+static void prv_until_wake_schedule_deadline(void) {
+  time_t deadline = alerts_preferences_dnd_get_until_wake_deadline();
+  const time_t now = rtc_get_time();
+  if (deadline <= now) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+    return;
+  }
+  // The clock was moved back
+  if (deadline - now > DND_UNTIL_WAKE_MAX_SEC) {
+    deadline = now + DND_UNTIL_WAKE_MAX_SEC;
+    alerts_preferences_dnd_set_until_wake_deadline(deadline);
+  }
+  pbl_cron_job_schedule_at(&s_until_wake_job, deadline);
+}
+
+static void prv_until_wake_handle_sleep_state(ActivitySleepState state, bool wake_confirmed) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  const DndUntilWakeState until_wake = alerts_preferences_dnd_get_until_wake_state();
+  if (until_wake == DndUntilWakeStateWaitingForSleep && prv_is_asleep(state)) {
+    prv_until_wake_set_state(DndUntilWakeStateWaitingForWake);
+  } else if (until_wake == DndUntilWakeStateWaitingForWake && wake_confirmed) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
+}
+
 static void prv_set_sleep_state(ActivitySleepState state, bool wake_confirmed) {
   if (state > ActivitySleepStateUnknown) {
     state = ActivitySleepStateUnknown;
@@ -281,6 +351,7 @@ static void prv_set_sleep_state(ActivitySleepState state, bool wake_confirmed) {
   if (wake_confirmed) {
     s_data.sleep_dnd_override = false;
   }
+  prv_until_wake_handle_sleep_state(state, wake_confirmed);
   prv_do_update();
 }
 
@@ -294,7 +365,7 @@ PBL_SYSCALL(bool, sys_do_not_disturb_is_active) {
 
 bool do_not_disturb_is_active(void) {
   if (do_not_disturb_is_manually_enabled() || prv_is_schedule_active() ||
-      prv_is_smart_dnd_active() || prv_is_sleep_dnd_active()) {
+      prv_is_smart_dnd_active() || prv_is_sleep_dnd_active() || prv_is_until_wake_active()) {
     return true;
   }
   return false;
@@ -364,6 +435,25 @@ void do_not_disturb_toggle_sleep_dnd(void) {
   prv_do_update();
 }
 
+bool do_not_disturb_is_until_wake_enabled(void) {
+  return prv_is_until_wake_active();
+}
+
+void do_not_disturb_set_until_wake_enabled(bool enable) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (!enable) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+  } else if (!prv_is_until_wake_active()) {
+    alerts_preferences_dnd_set_until_wake_deadline(rtc_get_time() + DND_UNTIL_WAKE_MAX_SEC);
+    prv_until_wake_set_state(prv_is_asleep(s_data.sleep_state)
+                                 ? DndUntilWakeStateWaitingForWake
+                                 : DndUntilWakeStateWaitingForSleep);
+    prv_until_wake_schedule_deadline();
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
+  prv_do_update();
+}
+
 void do_not_disturb_get_schedule_slot(unsigned int index, DoNotDisturbScheduleSlot *slot) {
   alerts_preferences_dnd_get_schedule_slot(index, slot);
 }
@@ -418,10 +508,20 @@ void do_not_disturb_init(void) {
     .sleep_dnd_enabled = do_not_disturb_is_sleep_dnd_enabled(),
     .was_active = false,
   };
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (prv_is_until_wake_active()) {
+    prv_until_wake_schedule_deadline();
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
   prv_try_update_schedule_mode((void *)true);
 }
 
 void do_not_disturb_handle_clock_change(void) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (prv_is_until_wake_active()) {
+    prv_until_wake_schedule_deadline();
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
   prv_try_update_schedule_mode_callback(false);
 }
 

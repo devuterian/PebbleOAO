@@ -25,6 +25,8 @@
  * - Smart (calendar aware): active while a calendar event is ongoing.
  * - Sleep aware: active while activity tracking reports light or restful sleep. Turning manual DND
  *   off during sleep overrides it until waking up is confirmed.
+ * - Until wake: active right away, ends once waking up from the next sleep is confirmed, or after
+ *   18 hours at the latest.
  *
  * Every change of the active state posts a @c PEBBLE_DO_NOT_DISTURB_EVENT.
  * @{
@@ -146,6 +148,20 @@ bool do_not_disturb_is_sleep_dnd_enabled(void);
 
 /** @brief Toggle sleep-aware DND. */
 void do_not_disturb_toggle_sleep_dnd(void);
+
+/**
+ * @brief Check whether Until Wake DND is on.
+ *
+ * @return true if on.
+ */
+bool do_not_disturb_is_until_wake_enabled(void);
+
+/**
+ * @brief Turn Until Wake DND on or off.
+ *
+ * @param enable true to turn it on.
+ */
+void do_not_disturb_set_until_wake_enabled(bool enable);
 
 /**
  * @brief Get the days a schedule slot applies to.

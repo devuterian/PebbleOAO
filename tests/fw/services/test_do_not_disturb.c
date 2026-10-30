@@ -30,6 +30,7 @@
 
 #define PREF_KEY_DND_MANUALLY_ENABLED "dndManuallyEnabled"
 #define PREF_KEY_DND_SLEEP_ENABLED "dndSleepEnabled"
+#define PREF_KEY_DND_UNTIL_WAKE_STATE "dndUntilWakeState"
 
 static int s_num_dnd_events_put = 0;
 static bool s_last_dnd_event_active = false;
@@ -184,6 +185,7 @@ void test_do_not_disturb__initialize(void) {
   alerts_preferences_init();
   pbl_cron_init();
   alerts_preferences_dnd_set_sleep_enabled(false);
+  alerts_preferences_dnd_set_until_wake_state(DndUntilWakeStateDisabled);
   do_not_disturb_init();
   prv_send_sleep_state(ActivitySleepStateAwake, true /* wake_confirmed */);
 
@@ -207,6 +209,7 @@ void test_do_not_disturb__cleanup(void) {
   if (do_not_disturb_is_sleep_dnd_enabled()) {
     do_not_disturb_toggle_sleep_dnd();
   }
+  do_not_disturb_set_until_wake_enabled(false);
   do_not_disturb_set_manually_enabled(false);
   for (int i = 0; i < DND_NUM_SCHEDULE_SLOTS; i++) {
     do_not_disturb_delete_schedule_slot(i);
@@ -416,6 +419,112 @@ void test_do_not_disturb__schedule_end_keeps_sleep_dnd(void) {
   do_not_disturb_handle_clock_change();
   cl_assert(!do_not_disturb_is_manually_enabled());
   cl_assert(do_not_disturb_is_active());
+}
+
+static void prv_assert_until_wake_state(DndUntilWakeState state) {
+  prv_assert_settings_value(PREF_KEY_DND_UNTIL_WAKE_STATE, strlen(PREF_KEY_DND_UNTIL_WAKE_STATE),
+                            &state, sizeof(state));
+}
+
+void test_do_not_disturb__until_wake(void) {
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+
+  do_not_disturb_set_until_wake_enabled(true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+  prv_assert_until_wake_state(DndUntilWakeStateWaitingForSleep);
+
+  // Being awake before sleeping doesn't end it
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  prv_assert_until_wake_state(DndUntilWakeStateWaitingForWake);
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep, false);
+
+  // Neither does a night waking
+  prv_send_sleep_state(ActivitySleepStateAwake, false);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+  prv_assert_until_wake_state(DndUntilWakeStateDisabled);
+}
+
+void test_do_not_disturb__until_wake_enabled_while_asleep(void) {
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_assert_until_wake_state(DndUntilWakeStateWaitingForWake);
+
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_keeps_other_sources(void) {
+  do_not_disturb_set_manually_enabled(true);
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(do_not_disturb_is_manually_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+}
+
+void test_do_not_disturb__until_wake_survives_tracking_interruptions(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_send_activity_event(PebbleActivityEvent_TrackingStopped);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+
+  prv_send_activity_event(PebbleActivityEvent_TrackingStarted);
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  prv_send_activity_event(PebbleActivityEvent_TrackingStopped);
+  prv_send_activity_event(PebbleActivityEvent_TrackingStarted);
+  // A sleep session lost across a reboot reads as awake, but doesn't confirm waking up
+  prv_send_sleep_state(ActivitySleepStateAwake, false);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_assert_until_wake_state(DndUntilWakeStateWaitingForWake);
+
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+}
+
+void test_do_not_disturb__until_wake_survives_restart(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+
+  alerts_preferences_init();
+  do_not_disturb_init();
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+  prv_assert_until_wake_state(DndUntilWakeStateWaitingForWake);
+  cl_assert_equal_i(pbl_cron_get_next_execute_time(), s_thursday_00_00 + 18 * PBL_SEC_PER_HOUR);
+}
+
+void test_do_not_disturb__until_wake_times_out(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+  cl_assert_equal_i(pbl_cron_get_next_execute_time(), s_thursday_00_00 + 18 * PBL_SEC_PER_HOUR);
+
+  rtc_set_time(s_thursday_00_00 + 18 * PBL_SEC_PER_HOUR);
+  pbl_cron_wakeup();
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__until_wake_expired_while_off(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+  rtc_set_time(s_thursday_00_00 + 19 * PBL_SEC_PER_HOUR);
+  do_not_disturb_init();
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
 }
 
 void test_do_not_disturb__manually_enable_active(void) {
