@@ -224,10 +224,18 @@ static LiquidProcessor s_liquid = {
   .processor.command = prv_fill_liquid,
 };
 
+// Where charging stops: the charge limit, unless it is off or bypassed once.
+static uint8_t prv_charge_target_percent(void) {
+  const bool limited = shell_prefs_get_charge_limit_enabled() &&
+                       !battery_charge_limit_is_once_to_full();
+  return limited ? shell_prefs_get_charge_limit_percent() : 100;
+}
+
 static void prv_liquid_animation_update(Animation *animation, const AnimationProgress progress) {
   const uint32_t elapsed_ms = (uint32_t)progress * LIQUID_CYCLE_MS / ANIMATION_NORMALIZED_MAX;
   const uint32_t rise_ms = MIN(elapsed_ms, LIQUID_RISE_MS);
-  const uint8_t level = s_liquid.percent + (100 - s_liquid.percent) * rise_ms / LIQUID_RISE_MS;
+  const uint8_t target = MAX(prv_charge_target_percent(), s_liquid.percent);
+  const uint8_t level = s_liquid.percent + (target - s_liquid.percent) * rise_ms / LIQUID_RISE_MS;
 
   if (level != s_liquid.level && s_dialog) {
     s_liquid.level = level;
@@ -301,7 +309,7 @@ static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
   BatteryChargeState state = battery_get_charge_state();
   bool limited = shell_prefs_get_charge_limit_enabled() &&
                  !battery_charge_limit_is_once_to_full();
-  uint8_t target = limited ? shell_prefs_get_charge_limit_percent() : 100;
+  uint8_t target = prv_charge_target_percent();
   ChargingDisplayPrefs prefs = shell_prefs_get_charging_display();
   uint32_t mpct = battery_state_get_millipercent();
   charging_display_format_percent(s_charge_percent, sizeof(s_charge_percent), mpct,
