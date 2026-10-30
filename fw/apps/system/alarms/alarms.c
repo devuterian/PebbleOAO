@@ -276,10 +276,9 @@ static void prv_alarm_list_draw_row_callback(GContext *ctx, const Layer *cell_la
 
   graphics_context_set_compositing_mode(ctx, GCompOpTint);
   // If the alarm is not smart, use the icon as spacing but don't render it.
-  // Otherwise if the alarm is smart draw according to the menu highlight.
+  // Otherwise if the alarm is smart draw it in the row's text color.
   graphics_context_set_tint_color(
-      ctx, !node->info.is_smart ? GColorClear
-                                : (cell_layer->is_highlighted ? GColorWhite : GColorBlack));
+      ctx, !node->info.is_smart ? GColorClear : ctx->draw_state.text_color);
 
   char alarm_day_text[32] = {};
   MenuCellLayerConfig config = {
