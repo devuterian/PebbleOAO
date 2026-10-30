@@ -52,8 +52,21 @@ void battery_charge_limit_init(void) {
   battery_charge_limit_refresh();
 }
 
+static volatile uint32_t s_stop_mpct = 80000;
+
+uint32_t battery_charge_limit_get_stop_mpct(void) {
+  return s_stop_mpct;
+}
+
+uint32_t battery_charge_limit_get_resume_mpct(void) {
+  return s_stop_mpct - CHARGE_RESUME_HYSTERESIS_PCT * 1000U;
+}
+
 void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {
   const uint8_t limit = shell_prefs_get_charge_limit_percent();
+  if (limit < 100) {
+    s_stop_mpct = limit * 1000U;
+  }
   if (s_once_to_full) {
     if (state.is_plugged) {
       s_once_to_full_was_plugged = true;

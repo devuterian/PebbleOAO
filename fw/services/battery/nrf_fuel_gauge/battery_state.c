@@ -12,6 +12,7 @@
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
+#include <pbl/services/battery/battery_charge_limit.h>
 #include <pbl/services/battery/battery_state.h>
 #include <pbl/services/new_timer/new_timer.h>
 #include <pbl/services/system_task.h>
@@ -395,8 +396,10 @@ static void prv_update_state(void *force_update) {
   s_last_soc_mpct = (uint32_t)(fminf(100.0f, fmaxf(0.0f, pct)) * 1000.0f);
 #ifdef CONFIG_BOARD_OBELIX
   // Integer SOC is rounded up; exact charge-limit crossings still need an event.
-  if ((previous_mpct < 80000 && s_last_soc_mpct >= 80000) ||
-      (previous_mpct > 77000 && s_last_soc_mpct <= 77000)) {
+  const uint32_t stop_mpct = battery_charge_limit_get_stop_mpct();
+  const uint32_t resume_mpct = battery_charge_limit_get_resume_mpct();
+  if ((previous_mpct < stop_mpct && s_last_soc_mpct >= stop_mpct) ||
+      (previous_mpct > resume_mpct && s_last_soc_mpct <= resume_mpct)) {
     update = true;
   }
 #else

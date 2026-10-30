@@ -20,3 +20,7 @@ bool battery_charge_limit_is_once_to_full(void);
 
 //! Queue an evaluation on KernelMain after the preference changes.
 void battery_charge_limit_refresh(void);
+//! Charge levels in millipercent where charging stops and resumes for the current limit,
+//! cached so the fuel gauge can post an event right at those crossings.
+uint32_t battery_charge_limit_get_stop_mpct(void);
+uint32_t battery_charge_limit_get_resume_mpct(void);
