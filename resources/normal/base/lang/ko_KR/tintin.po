@@ -1196,11 +1196,11 @@ msgstr "재생/일시정지"
 
 #: fw/apps/system/music_actions.c:86
 msgid "Volume Up"
-msgstr "볼륨 높이기"
+msgstr "음량 높이기"
 
 #: fw/apps/system/music_actions.c:100
 msgid "Volume Down"
-msgstr "볼륨 낮추기"
+msgstr "음량 낮추기"
 
 #: src/fw/apps/system/settings/quick_launch.c:61
 #: src/fw/apps/system/settings/system.c:522
@@ -3838,3 +3838,246 @@ msgstr "백라이트 깜빡임"
 
 msgid "Vibrate"
 msgstr "진동"
+
+msgctxt "MonthAbbr"
+msgid "Jan"
+msgstr "1월"
+
+msgctxt "MonthAbbr"
+msgid "Feb"
+msgstr "2월"
+
+msgctxt "MonthAbbr"
+msgid "Mar"
+msgstr "3월"
+
+msgctxt "MonthAbbr"
+msgid "Apr"
+msgstr "4월"
+
+msgctxt "MonthAbbr"
+msgid "May"
+msgstr "5월"
+
+msgctxt "MonthAbbr"
+msgid "Jun"
+msgstr "6월"
+
+msgctxt "MonthAbbr"
+msgid "Jul"
+msgstr "7월"
+
+msgctxt "MonthAbbr"
+msgid "Aug"
+msgstr "8월"
+
+msgctxt "MonthAbbr"
+msgid "Sep"
+msgstr "9월"
+
+msgctxt "MonthAbbr"
+msgid "Oct"
+msgstr "10월"
+
+msgctxt "MonthAbbr"
+msgid "Nov"
+msgstr "11월"
+
+msgctxt "MonthAbbr"
+msgid "Dec"
+msgstr "12월"
+
+msgid "Just Once"
+msgstr "한 번만"
+
+msgid "kcal"
+msgstr "kcal"
+
+msgid "%k"
+msgstr "%k"
+
+msgid "%l%p"
+msgstr "%l%p"
+
+msgid "%l"
+msgstr "%l"
+
+msgid "%d–%d BPM"
+msgstr "%d–%d BPM"
+
+msgid "TODAY'S RANGE"
+msgstr "오늘 범위"
+
+msgid "%s (%u)"
+msgstr "%s (%u)"
+
+msgid "Nothing"
+msgstr "아무것도 안 함"
+
+msgid "5 Minutes"
+msgstr "5분"
+
+msgid "SpO2 Monitoring"
+msgstr "산소포화도 측정"
+
+msgid "SpO2"
+msgstr "산소포화도"
+
+msgid "SpO2 During Activity"
+msgstr "운동 중 산소포화도"
+
+msgid "Needs HR During Activity"
+msgstr "운동 중 심박수 측정 필요"
+
+msgid "Same as System"
+msgstr "시스템 설정과 같게"
+
+msgid "Never"
+msgstr "안 함"
+
+msgid "1 Day"
+msgstr "1일"
+
+msgid "1 Week"
+msgstr "1주"
+
+msgid "All"
+msgstr "전체"
+
+msgid "Group by Sender"
+msgstr "보낸 사람별로 묶기"
+
+msgid "Actions"
+msgstr "동작"
+
+msgid "Apps"
+msgstr "앱"
+
+msgid "SpO2 Test"
+msgstr "산소포화도 테스트"
+
+msgid "Disconnect the charger to shut down."
+msgstr "전원을 끄려면 충전기를 분리하십시오."
+
+msgid "Toggle Airplane Mode"
+msgstr "비행기 모드 켜기/끄기"
+
+msgid "Toggle Backlight"
+msgstr "백라이트 켜기/끄기"
+
+msgid "Toggle Motion Backlight"
+msgstr "흔들어 백라이트 켜기/끄기"
+
+msgid "Turn On Touch?"
+msgstr "터치를 켜시겠습니까?"
+
+msgid "Turn Off Touch?"
+msgstr "터치를 끄시겠습니까?"
+
+msgid "Touch On"
+msgstr "터치 켜짐"
+
+msgid "Touch Off"
+msgstr "터치 꺼짐"
+
+msgid "Toggle Touch"
+msgstr "터치 켜기/끄기"
+
+msgid "%a, %b %d"
+msgstr "%b %d일 (%a)"
+
+msgid "m/s"
+msgstr "m/s"
+
+msgid "kt"
+msgstr "노트"
+
+msgid "COMPLETE"
+msgstr "완료"
+
+msgid "END WORKOUT?"
+msgstr "운동 종료?"
+
+msgid "PAUSED"
+msgstr "일시정지됨"
+
+msgid "AVG"
+msgstr "평균"
+
+msgid "Z%d"
+msgstr "Z%d"
+
+msgid "TOTAL TIME"
+msgstr "총 시간"
+
+msgid "TIMER"
+msgstr "타이머"
+
+msgid "DIST MI"
+msgstr "거리 mi"
+
+msgid "DIST KM"
+msgstr "거리 km"
+
+msgid "PACE /MI"
+msgstr "페이스 /mi"
+
+msgid "PACE /KM"
+msgstr "페이스 /km"
+
+msgid "KCAL"
+msgstr "kcal"
+
+msgid "CADENCE"
+msgstr "케이던스"
+
+msgid "SPEED MPH"
+msgstr "속도 mph"
+
+msgid "SPEED KM/H"
+msgstr "속도 km/h"
+
+msgid "LOW SPO2 %"
+msgstr "최저 산소포화도 %"
+
+msgid "AVG BPM"
+msgstr "평균 BPM"
+
+msgid "TIME IN ZONE"
+msgstr "구간 시간"
+
+msgid "LAST MINUTE"
+msgstr "최근 1분"
+
+msgid "WAITING FOR HR"
+msgstr "심박수 대기 중"
+
+msgid "READING SPO2"
+msgstr "산소포화도 측정 중"
+
+msgid "ZONE %d"
+msgstr "%d구간"
+
+msgid "MEASURING"
+msgstr "측정 중"
+
+msgid "SPO2 %"
+msgstr "산소포화도 %"
+
+msgid "WORKOUT"
+msgstr "운동"
+
+msgid "GO!"
+msgstr "시작!"
+
+msgid "iPhone Notifications Blocked"
+msgstr "iPhone 알림 차단됨"
+
+msgid "Your iPhone is not sharing notifications with this watch. On your iPhone, open Settings > Bluetooth, tap the (i) next to your Pebble and turn on Share System Notifications."
+msgstr "iPhone이 이 시계와 알림을 공유하지 않습니다. iPhone에서 설정 > Bluetooth로 이동해 Pebble 옆의 (i)를 누르고 시스템 알림 공유를 켜십시오."
+
+msgid "Sunrise"
+msgstr "일출"
+
+msgid "Sunset"
+msgstr "일몰"
