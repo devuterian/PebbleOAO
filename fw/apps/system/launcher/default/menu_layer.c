@@ -319,6 +319,16 @@ void launcher_menu_layer_reload_data(LauncherMenuLayer *launcher_menu_layer) {
   menu_layer_reload_data(&launcher_menu_layer->menu_layer);
 }
 
+void launcher_menu_layer_apply_theme_colors(LauncherMenuLayer *launcher_menu_layer) {
+  if (!launcher_menu_layer) {
+    return;
+  }
+  const GColor normal_bg = system_theme_get_bg_color();
+  menu_layer_set_normal_colors(&launcher_menu_layer->menu_layer, normal_bg,
+                               gcolor_legible_over(normal_bg));
+  layer_mark_dirty(menu_layer_get_layer(&launcher_menu_layer->menu_layer));
+}
+
 void launcher_menu_layer_update_content_size(LauncherMenuLayer *launcher_menu_layer) {
   if (!launcher_menu_layer ||
       (launcher_menu_layer->content_size == system_theme_get_content_size())) {
