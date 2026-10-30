@@ -364,23 +364,13 @@ static PBL_NOINLINE void prv_minimal_event_handler(PebbleEvent *e) {
 #endif
 
     case PEBBLE_GESTURE_EVENT: {
+#ifdef CONFIG_TOUCH
       if (e->gesture.event.type == GestureEvent_Palm) {
-        if (backlight_is_palm_sleep_enabled()) {
 #if !defined(CONFIG_RECOVERY_FW) && !defined(CONFIG_SHELL_SDK)
+        if (backlight_is_palm_sleep_enabled()) {
           watchface_return_from_palm();
-#endif
-          light_off_now();
-#ifdef CONFIG_TOUCH
-          // The screen was deliberately put to sleep, so close the interaction
-          // session too: a stray touch afterwards must not navigate.
-          touch_session_reset();
-#endif
         }
-        return;
-      }
-
-#ifdef CONFIG_TOUCH
-      if (e->gesture.event.type == GestureEvent_Palm) {
+#endif
         // palm gesture turns off the backlight
         light_touch_up();
         light_enable(false);
