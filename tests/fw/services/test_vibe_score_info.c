@@ -1,17 +1,14 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/vibes/vibe_score_info.h"
+#include <pbl/services/vibes/vibe_score_info.h>
 
-#include "clar.h"
-#include "resource/resource_ids.auto.h"
+#include <clar.h>
+#include <resource/resource_ids.auto.h>
 // stub
-#include "stubs_logging.h"
-#include "stubs_passert.h"
-
 #include <string.h>
 
-//unit test code
+// unit test code
 void test_vibe_score_info__initialize(void) {
 }
 
@@ -24,8 +21,7 @@ void test_vibe_score_info__get_resource_id_returns_correct_resource(void) {
 }
 
 void test_vibe_score_info__get_resource_id_returns_invalid_for_invalid_score(void) {
-  cl_assert_equal_i(vibe_score_info_get_resource_id(VibeScoreId_Invalid),
-                    RESOURCE_ID_INVALID);
+  cl_assert_equal_i(vibe_score_info_get_resource_id(VibeScoreId_Invalid), RESOURCE_ID_INVALID);
 }
 
 void test_vibe_score_info__get_name_returns_correct_name(void) {
@@ -39,8 +35,8 @@ void test_vibe_score_info__get_name_returns_empty_string_for_invalid_score(void)
 static void prv_test_cycle_next(VibeClient client, const VibeScoreId scores[], size_t scores_size,
                                 VibeScoreId starting_score, int curr_score_index) {
   VibeScoreId curr_score = starting_score;
-  while ((curr_score = vibe_score_info_cycle_next(client, curr_score),
-          curr_score != starting_score)) {
+  while (
+      (curr_score = vibe_score_info_cycle_next(client, curr_score), curr_score != starting_score)) {
     curr_score_index = (curr_score_index + 1) % scores_size;
     cl_assert_equal_i(scores[curr_score_index], curr_score);
   }

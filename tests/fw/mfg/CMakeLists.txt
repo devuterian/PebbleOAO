@@ -3,8 +3,8 @@
 
 pbl_clar_test(test_mfg_serials
   SOURCES
-    src/fw/mfg/mfg_serials.c
+    fw/mfg/mfg_serials.c
     tests/fakes/fake_otp.c
-  PLATFORMS obelix
+  PLATFORMS emery
   OVERRIDES dummy_board
 )

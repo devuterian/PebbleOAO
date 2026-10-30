@@ -9,17 +9,12 @@
 # Or, this script can be setup to auto-load into gdb by placing a link to it into the
 #  <data-directory>/python/gdb/command directory
 #
-# See https://pebbleos-core.readthedocs.io/en/latest/development/debugging.html
+# See https://pebbleos.readthedocs.io/latest/development/debugging/index.html
 
 import collections
 import json
 import os
 import sys
-
-# Necessary to allow the sh import to succeed when this script is auto-loaded by gdb (when placed into the
-#  <data-directory>/python/gdb/command directory).
-sys.argv = []
-import sh
 
 try:
     import gdb
@@ -590,7 +585,7 @@ def _load_applib_types_by_size():
     Returns an empty dict if the JSON can't be located or parsed.
     """
     json_path = os.path.join(
-        _SCRIPT_DIR, "..", "..", "src", "fw", "applib", "applib_malloc.json"
+        _SCRIPT_DIR, "..", "..", "fw", "applib", "applib_malloc.json"
     )
     try:
         with open(json_path) as f:
@@ -1033,6 +1028,27 @@ LayerTree()
 
 
 ##########################################################################################
+def elf_section_addresses(elf_file):
+    """Map the section names of a 32-bit little-endian ELF to their addresses."""
+    with open(elf_file, "rb") as f:
+        elf = f.read()
+    shoff, = struct.unpack_from("<I", elf, 0x20)
+    shentsize, shnum, shstrndx = struct.unpack_from("<HHH", elf, 0x2E)
+
+    def section(i):
+        # sh_name, sh_type, sh_flags, sh_addr, sh_offset
+        return struct.unpack_from("<IIIII", elf, shoff + i * shentsize)
+
+    strtab = section(shstrndx)[4]
+    addresses = {}
+    for i in range(shnum):
+        name, _, _, addr, _ = section(i)
+        end = elf.index(b"\0", strtab + name)
+        addresses[elf[strtab + name : end].decode()] = addr
+    return addresses
+
+
+##########################################################################################
 def setup_task_symbols(cmd, args, task_name):
     """The guts of the WorkerSymbols and AppSymbols commands. Parses the elf file name out of the
     args and sets up the given task (task_name can be 'worker' or 'app')
@@ -1055,13 +1071,9 @@ def setup_task_symbols(cmd, args, task_name):
 
     # Get the offsets to the text, data and bss sections
     offsets = {".bss": 0, ".data": 0}
-    for line in sh.arm_none_eabi_objdump("-h", elf_file):
-        cols = line.split()
-        if len(cols) < 4:
-            continue
-
-        if cols[1] in [".text", ".data", ".bss"]:
-            offsets[cols[1]] = int(cols[3], 16)
+    for name, addr in elf_section_addresses(elf_file).items():
+        if name in [".text", ".data", ".bss"]:
+            offsets[name] = addr
 
     # Load in the symbols now
     gdb.execute(
@@ -1246,7 +1258,7 @@ class DumpNotificationsApp(gdb.Command):
         )
 
     def invoke(self, unicode_args, from_tty):
-        symstr = "'src/fw/apps/system_apps/notifications_app.c'::s_data"
+        symstr = "'fw/apps/system_apps/notifications_app.c'::s_data"
         app_data = gdb.parse_and_eval(symstr)
         if app_data == 0:
             print("Notifications app was not open?")

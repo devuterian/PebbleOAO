@@ -1,20 +1,17 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-
 #include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "pbl/services/filesystem/app_file.h"
+#include <pbl/services/filesystem/app_file.h>
 
-#include "stubs_passert.h"
+#include <clar.h>
 
-static void assert_file_name(const char *vector,
-                             AppInstallId app_id, const char *suffix) {
+static void assert_file_name(const char *vector, AppInstallId app_id, const char *suffix) {
   char buf[42];
-  sprintf(buf, "@%08"PRIx32"/%s", (uint32_t)app_id, suffix);
+  sprintf(buf, "@%08" PRIx32 "/%s", (uint32_t)app_id, suffix);
   cl_assert_equal_s(vector, buf);
 }
 
@@ -49,11 +46,13 @@ void test_app_file__name_make_negative(void) {
 }
 
 void test_app_file__name_make_pseudo_directory(void) {
-  assert_app_file_name_make(76, "not/really/a/path");;
+  assert_app_file_name_make(76, "not/really/a/path");
+  ;
 }
 
 void test_app_file__name_make_no_suffix(void) {
-  assert_app_file_name_make(54321, "");;
+  assert_app_file_name_make(54321, "");
+  ;
 }
 
 void test_app_file__name_make_buf_just_big_enough(void) {
@@ -63,12 +62,12 @@ void test_app_file__name_make_buf_just_big_enough(void) {
 
 void test_app_file__name_make_buf_too_small_for_suffix(void) {
   char buf[12];
-  cl_assert_passert(app_file_name_make(buf, sizeof(buf), 123, "ab", 2));
+  cl_assert_panic(app_file_name_make(buf, sizeof(buf), 123, "ab", 2));
 }
 
 void test_app_file__name_make_buf_too_small_for_prefix(void) {
   char buf[10];
-  cl_assert_passert(app_file_name_make(buf, sizeof(buf), 123, "", 0));
+  cl_assert_panic(app_file_name_make(buf, sizeof(buf), 123, "", 0));
 }
 
 // Tests for is_app_file_name()

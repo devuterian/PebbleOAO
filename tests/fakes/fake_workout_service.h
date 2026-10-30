@@ -3,11 +3,11 @@
 
 #pragma once
 
-#include "pbl/services/activity/activity.h"
-#include "pbl/services/activity/hr_util.h"
-
 #include <stdint.h>
-#include <stdbool.h>
+
+#include <pbl/services/activity/activity.h>
+#include <pbl/services/activity/hr_util.h>
+#include <pbl/services/activity/workout_service.h>
 
 bool workout_service_is_workout_ongoing(void);
 
@@ -19,12 +19,18 @@ bool workout_service_stop_workout(void);
 
 bool workout_service_is_paused(void);
 
+void workout_service_set_active_kcalories(int32_t active);
+
+void workout_service_set_avg_hr(int32_t bpm);
+void workout_service_set_hr_samples(int32_t samples);
+void workout_service_set_spo2(int32_t last_pct, int32_t min_pct, bool measuring);
+void workout_service_set_hr_zone_time(const int32_t *hr_zone_time_s);
+
 bool workout_service_get_current_workout_type(ActivitySessionType *type_out);
 
 bool workout_service_get_current_workout_info(int32_t *steps_out, int32_t *duration_s_out,
                                               int32_t *distance_m_out, int32_t *current_bpm_out,
                                               HRZone *current_hr_zone_out);
 
-bool workout_service_set_current_workout_info(int32_t steps, int32_t duration_s,
-                                              int32_t distance_m, int32_t current_bpm,
-                                              HRZone current_hr_zone);
+bool workout_service_set_current_workout_info(int32_t steps, int32_t duration_s, int32_t distance_m,
+                                              int32_t current_bpm, HRZone current_hr_zone);

@@ -3,30 +3,38 @@
 
 pbl_clar_test(test_normal_system_app_state_machine
   SOURCES
-    src/fw/shell/normal/system_app_state_machine.c
+    fw/shell/normal/system_app_state_machine.c
 )
 
 pbl_clar_test(test_app_idle_timeout
   SOURCES
-    src/fw/shell/normal/app_idle_timeout.c
+    fw/shell/normal/app_idle_timeout.c
 )
 
 pbl_clar_test(test_battery_ui_fsm
   SOURCES
-    src/fw/shell/normal/battery_ui_fsm.c
-    src/fw/services/battery/voltage/battery_curve.c
-  PLATFORMS obelix
-  DEFINES CONFIG_BATTERY_WARNING_FIRST_PERCENT=0 CONFIG_BATTERY_WARNING_SECOND_PERCENT=0
+    fw/shell/normal/battery_ui_fsm.c
+    fw/services/battery/voltage/battery_curve.c
+  PLATFORMS emery
+  DEFINES
+    CONFIG_BATTERY_WARNING_FIRST_PERCENT=0
+    CONFIG_BATTERY_WARNING_SECOND_PERCENT=0
+    CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT=5
+    CONFIG_SERVICE_BATTERY_CAPACITY_HOURS=144
   OVERRIDES dummy_board
 )
 
 pbl_clar_test(test_battery_ui_fsm_percent
   SOURCE test_battery_ui_fsm.c
   SOURCES
-    src/fw/shell/normal/battery_ui_fsm.c
-    src/fw/services/battery/voltage/battery_curve.c
-  PLATFORMS obelix
-  DEFINES CONFIG_BATTERY_WARNING_FIRST_PERCENT=12 CONFIG_BATTERY_WARNING_SECOND_PERCENT=8
+    fw/shell/normal/battery_ui_fsm.c
+    fw/services/battery/voltage/battery_curve.c
+  PLATFORMS emery
+  DEFINES
+    CONFIG_BATTERY_WARNING_FIRST_PERCENT=12
+    CONFIG_BATTERY_WARNING_SECOND_PERCENT=8
+    CONFIG_SERVICE_BATTERY_LOW_POWER_PERCENT=5
+    CONFIG_SERVICE_BATTERY_CAPACITY_HOURS=144
   OVERRIDES dummy_board
 )
 

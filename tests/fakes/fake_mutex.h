@@ -3,15 +3,12 @@
 
 #pragma once
 
-#include "system/passert.h"
-#include "pbl/util/list.h"
-
-#include <pbl/kernel/mutex.h>
-
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <pbl/kernel/mutex.h>
+#include <pbl/util/list.h>
 
 typedef struct FakePebbleMutex {
   ListNode node;
@@ -36,9 +33,9 @@ static bool prv_find_by_mutex(ListNode *node, void *context) {
 static FakePebbleMutex *prv_get(struct pbl_mutex *m) {
   FakePebbleMutex *fake =
       (FakePebbleMutex *)list_find((ListNode *)s_mutex_list, prv_find_by_mutex, m);
-  if (fake == NULL) {
+  if (fake == nullptr) {
     fake = malloc(sizeof(FakePebbleMutex));
-    *fake = (FakePebbleMutex) { .mutex = m };
+    *fake = (FakePebbleMutex){.mutex = m};
     s_mutex_list = (FakePebbleMutex *)list_prepend((ListNode *)s_mutex_list, (ListNode *)fake);
   }
   return fake;
@@ -49,8 +46,7 @@ static bool prv_list_foreach_assert_unlocked(ListNode *node, void *context) {
   bool *failed = context;
   if (fake->lock_count != 0) {
     // If this is failing, set your breakpoint here to find out which mutex
-    printf("Mutex (%p) was not unlocked when fake_mutex_assert_all_unlocked called\n",
-           fake->mutex);
+    printf("Mutex (%p) was not unlocked when fake_mutex_assert_all_unlocked called\n", fake->mutex);
     s_assert_triggered = true;
     cl_assert(s_asserts_disabled);
     *failed = true;
@@ -73,7 +69,7 @@ void fake_mutex_reset(bool assert_all_unlocked) {
     free(iter);
     iter = next;
   }
-  s_mutex_list = NULL;
+  s_mutex_list = nullptr;
   s_asserts_disabled = false;
   s_assert_triggered = false;
 }
@@ -113,7 +109,7 @@ void pbl_mutex_init(struct pbl_mutex *m) {
 
 void pbl_mutex_deinit(struct pbl_mutex *m) {
   FakePebbleMutex *fake = prv_get(m);
-  list_remove((ListNode *)fake, (ListNode **)&s_mutex_list, NULL);
+  list_remove((ListNode *)fake, (ListNode **)&s_mutex_list, nullptr);
   free(fake);
 }
 

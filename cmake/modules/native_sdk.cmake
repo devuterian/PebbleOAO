@@ -5,7 +5,7 @@
 # the syscall boundary (pebble.auto.c) and the app side (libpebble.a plus
 # the SDK headers), so the firmware build depends on it as well.
 # The rest of the shippable SDK is packaged by the `sdk` target; see
-# cmake/modules/sdk.cmake and docs/development/sdk_export.md.
+# cmake/modules/sdk.cmake and docs/sdk/building.md.
 
 function(pbl_native_sdk)
   set(script ${PBL_BASE}/tools/generate_native_sdk/generate_pebble_native_sdk_files.py)
@@ -19,8 +19,7 @@ function(pbl_native_sdk)
 root = os.getcwd()
 files = json.load(open(sys.argv[1]))['files']
 for f in files:
-    src = os.path.join(root, 'src', f)
-    print(src if os.path.exists(src) else os.path.join(root, f))"
+    print(os.path.join(root, f))"
       ${symbols}
     WORKING_DIRECTORY ${PBL_BASE}
     OUTPUT_VARIABLE headers
@@ -29,9 +28,10 @@ for f in files:
   )
   string(REPLACE "\n" ";" headers "${headers}")
 
-  set(PBL_PEBBLE_AUTO_C ${PROJECT_BINARY_DIR}/src/fw/pebble.auto.c)
+  set(PBL_PEBBLE_AUTO_C ${PROJECT_BINARY_DIR}/fw/pebble.auto.c)
   set(outputs
     ${PBL_PEBBLE_AUTO_C}
+    ${PROJECT_BINARY_DIR}/fw/pebble.auto.json
     ${sdk_dir}/include/pebble.h
     ${sdk_dir}/include/pebble_sdk_version.h
     ${sdk_dir}/include/pebble_process_info.h
@@ -44,9 +44,11 @@ for f in files:
     OUTPUT ${outputs}
     COMMAND ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${script} --sdk-dir=${sdk_dir}
             --autoconf ${PROJECT_BINARY_DIR}/autoconf.h
-            ${symbols} ${PBL_BASE}/src ${PROJECT_BINARY_DIR}/src
+            ${symbols} ${PBL_BASE} ${PROJECT_BINARY_DIR}
             ${PBL_PLATFORM_NAME}
     DEPENDS ${script} ${symbols} ${headers}
+            ${PBL_BASE}/tools/generate_native_sdk/generate_app_shim.py
+            ${PBL_BASE}/sdk/libpebble/entry.c
     WORKING_DIRECTORY ${PBL_BASE}
     COMMENT "Generating native SDK shims"
     VERBATIM

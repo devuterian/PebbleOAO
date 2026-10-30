@@ -1,58 +1,33 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "applib/ui/app_window_stack.h"
-#include "applib/ui/window.h"
-#include "applib/ui/window_manager.h"
-#include "applib/ui/window_stack.h"
-#include "applib/ui/window_stack_private.h"
-#include "kernel/ui/modals/modal_manager.h"
-
-#include "applib/connection_service_private.h"
-#include "applib/battery_state_service_private.h"
-#include "applib/tick_timer_service_private.h"
-
-#include "clar.h"
+#include <applib/battery_state_service_private.h>
+#include <applib/connection_service_private.h>
+#include <applib/tick_timer_service_private.h>
+#include <applib/ui/app_window_stack.h>
+#include <applib/ui/window.h>
+#include <applib/ui/window_manager.h>
+#include <applib/ui/window_stack.h>
+#include <applib/ui/window_stack_private.h>
+#include <clar.h>
+#include <kernel/ui/modals/modal_manager.h>
 
 // Stubs
 ////////////////////////////////////
 
-#include "stubs_sem.h"
-#include "stubs_accel_service.h"
-#include "stubs_app_state.h"
-#include "stubs_app_timer.h"
-#include "stubs_ble_app_support.h"
-#include "stubs_event_service_client.h"
-#include "stubs_fonts.h"
-#include "stubs_irq.h"
-#include "stubs_gbitmap.h"
-#include "stubs_graphics.h"
-#include "stubs_graphics_context.h"
-#include "stubs_heap.h"
-#include "stubs_logging.h"
-#include "stubs_new_timer.h"
-#include "stubs_passert.h"
-#include "stubs_persist.h"
-#include "stubs_plugin_service.h"
-#include "stubs_print.h"
-#include "stubs_process_manager.h"
-#include "stubs_prompt.h"
-#include "stubs_resources.h"
-#include "stubs_syscalls.h"
-#include "stubs_system_theme.h"
-#include "stubs_unobstructed_area.h"
+#include <stubs_app_state.h>
 
 // Fakes
 ////////////////////////////////////
 
-#include "fake_events.h"
-#include "fake_pbl_malloc.h"
-#include "fake_pebble_tasks.h"
-#include "fake_animation.h"
-
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include <fake_animation.h>
+#include <fake_events.h>
+#include <fake_pbl_malloc.h>
+#include <fake_pebble_tasks.h>
 
 // Static Variables
 ////////////////////////////////////
@@ -80,7 +55,7 @@ void tick_timer_service_state_init(TickTimerServiceState *state) {
   return;
 }
 
-void framebuffer_clear(FrameBuffer* f) {
+void framebuffer_clear(FrameBuffer *f) {
   return;
 }
 
@@ -116,13 +91,13 @@ void status_bar_layer_render(GContext *ctx, const GRect *bounds, void *config) {
   return;
 }
 
-GDrawState graphics_context_get_drawing_state(GContext* ctx) {
+GDrawState graphics_context_get_drawing_state(GContext *ctx) {
   GDrawState state;
   memset(&state, 0, sizeof(GDrawState));
   return state;
 }
 
-void graphics_context_set_drawing_state(GContext* ctx, GDrawState draw_state) {
+void graphics_context_set_drawing_state(GContext *ctx, GDrawState draw_state) {
   return;
 }
 
@@ -131,7 +106,7 @@ bool compositor_is_animating(void) {
 }
 
 void *compositor_modal_transition_to_modal_get(bool dest) {
-  return NULL;
+  return nullptr;
 }
 
 void compositor_modal_render_ready(void) {
@@ -262,10 +237,8 @@ static void prv_window_unload(Window *window) {
 static void prv_push_window_load(Window *window) {
   prv_window_load(window);
   Window *new_window = window_create();
-  window_set_window_handlers(new_window, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_window_unload
-  });
+  window_set_window_handlers(
+      new_window, &(WindowHandlers){.load = prv_window_load, .unload = prv_window_unload});
 
   cl_check(window->parent_window_stack);
   cl_assert_equal_i(window->on_screen, true);
@@ -291,10 +264,10 @@ static void prv_push_window_unload(Window *window) {
 
   Window *new_window = window_create();
   window_set_window_handlers(new_window, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_window_unload,
-    .appear = prv_window_appear
-  });
+                                           .load = prv_window_load,
+                                           .unload = prv_window_unload,
+                                           .appear = prv_window_appear
+                                         });
 
   cl_check(stack);
   cl_check(new_window);
@@ -311,10 +284,10 @@ static void prv_pop_window_unload(Window *window) {
 ////////////////////////////////////
 
 void test_window_stack__initialize(void) {
-  s_last_click_configured_window = NULL;
+  s_last_click_configured_window = nullptr;
 
   WindowStack *stack = app_state_get_window_stack();
-  *stack = (WindowStack) {};
+  *stack = (WindowStack){};
 
   modal_manager_reset();
 
@@ -361,8 +334,7 @@ void test_window_stack__basic_app_push(void) {
 
 void test_window_stack__basic_modal_push(void) {
   Window *window = window_create();
-  WindowStack *window_stack =
-      modal_manager_get_window_stack(ModalPriorityGeneric);
+  WindowStack *window_stack = modal_manager_get_window_stack(ModalPriorityGeneric);
 
   cl_check(window_stack);
   cl_check(!window_stack->list_head);
@@ -526,11 +498,11 @@ void test_window_stack__insert_next(void) {
 void test_window_stack__push_during_window_load(void) {
   Window *window = window_create();
   window_set_window_handlers(window, &(WindowHandlers){
-    .load = prv_push_window_load,
-    .unload = prv_window_unload,
-    .appear = prv_window_appear,
-    .disappear = prv_window_disappear
-  });
+                                       .load = prv_push_window_load,
+                                       .unload = prv_window_unload,
+                                       .appear = prv_window_appear,
+                                       .disappear = prv_window_disappear
+                                     });
 
   WindowStack *stack = app_state_get_window_stack();
 
@@ -566,9 +538,7 @@ void test_window_stack__modal_priority(void) {
   do {
     ++idx;
     windows[idx] = window_create();
-    window_set_window_handlers(windows[idx], &(WindowHandlers) {
-      .unload = prv_window_unload
-    });
+    window_set_window_handlers(windows[idx], &(WindowHandlers){.unload = prv_window_unload});
     window_stacks[idx] = modal_manager_get_window_stack(idx);
   } while (idx < NumModalPriorities - 1);
 
@@ -636,9 +606,9 @@ void test_window_stack__modal_properties_transparent(void) {
   // Test: A top window results in Exists
   // Test: One opaque top window removes Transparent and Unfocused
   modal_manager_event_loop_upkeep();
-  cl_assert_equal_i(modal_manager_get_properties(),
-                    ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested);
+  cl_assert_equal_i(modal_manager_get_properties(), ModalProperty_Exists |
+                                                        ModalProperty_CompositorTransitions |
+                                                        ModalProperty_RenderRequested);
   cl_assert_equal_i(windows[2][0]->on_screen, true);
   cl_assert_equal_i(windows[2][0]->is_click_configured, true);
   cl_assert_equal_p(s_last_click_configured_window, windows[2][0]);
@@ -653,7 +623,7 @@ void test_window_stack__modal_properties_transparent(void) {
   modal_manager_event_loop_upkeep();
   cl_assert_equal_i(modal_manager_get_properties(),
                     ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested | ModalProperty_Transparent);
+                        ModalProperty_RenderRequested | ModalProperty_Transparent);
   // Checks are listed from top to bottom
   cl_assert_equal_i(windows[2][1]->on_screen, true);
   cl_assert_equal_i(windows[2][1]->is_click_configured, true);
@@ -670,9 +640,9 @@ void test_window_stack__modal_properties_transparent(void) {
   // Test: An opaque top window above a transparent top window removes Transparent
   //       i.e. A transparent top window below an opaque top window does not result in Transparent
   modal_manager_event_loop_upkeep();
-  cl_assert_equal_i(modal_manager_get_properties(),
-                    ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested);
+  cl_assert_equal_i(modal_manager_get_properties(), ModalProperty_Exists |
+                                                        ModalProperty_CompositorTransitions |
+                                                        ModalProperty_RenderRequested);
   cl_assert_equal_i(windows[3][0]->on_screen, true);
   cl_assert_equal_i(windows[3][0]->is_click_configured, true);
   cl_assert_equal_i(windows[2][1]->on_screen, false);
@@ -688,7 +658,7 @@ void test_window_stack__modal_properties_transparent(void) {
   modal_manager_event_loop_upkeep();
   cl_assert_equal_i(modal_manager_get_properties(),
                     ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested | ModalProperty_Transparent);
+                        ModalProperty_RenderRequested | ModalProperty_Transparent);
   cl_assert_equal_i(windows[3][1]->on_screen, true);
   cl_assert_equal_i(windows[3][1]->is_click_configured, true);
   cl_assert_equal_i(windows[3][0]->on_screen, false);
@@ -705,9 +675,9 @@ void test_window_stack__modal_properties_transparent(void) {
   // Test: An opaque top window below a transparent top window removes Transparent
   //       i.e. A transparent top window above an opaque top window does not result in Transparent
   modal_manager_event_loop_upkeep();
-  cl_assert_equal_i(modal_manager_get_properties(),
-                    ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested);
+  cl_assert_equal_i(modal_manager_get_properties(), ModalProperty_Exists |
+                                                        ModalProperty_CompositorTransitions |
+                                                        ModalProperty_RenderRequested);
   cl_assert_equal_i(windows[3][1]->on_screen, true);
   cl_assert_equal_i(windows[3][1]->is_click_configured, true);
   cl_assert_equal_i(windows[2][1]->on_screen, true);
@@ -759,7 +729,7 @@ void test_window_stack__modal_properties_unfocused(void) {
   modal_manager_event_loop_upkeep();
   cl_assert_equal_i(modal_manager_get_properties(),
                     ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested | ModalProperty_Unfocused);
+                        ModalProperty_RenderRequested | ModalProperty_Unfocused);
   // Checks are listed from top to bottom
   cl_assert_equal_i(windows[2][1]->on_screen, true);
   cl_assert_equal_i(windows[2][1]->is_click_configured, false);
@@ -776,9 +746,9 @@ void test_window_stack__modal_properties_unfocused(void) {
   // Test: An opaque top window above a unfocusable top window removes Unfocusable
   //       i.e. A unfocusable top window below an opaque top window does not result in Unfocusable
   modal_manager_event_loop_upkeep();
-  cl_assert_equal_i(modal_manager_get_properties(),
-                    ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested);
+  cl_assert_equal_i(modal_manager_get_properties(), ModalProperty_Exists |
+                                                        ModalProperty_CompositorTransitions |
+                                                        ModalProperty_RenderRequested);
   cl_assert_equal_i(windows[3][0]->on_screen, true);
   cl_assert_equal_i(windows[3][0]->is_click_configured, true);
   cl_assert_equal_i(windows[2][1]->on_screen, false);
@@ -794,7 +764,7 @@ void test_window_stack__modal_properties_unfocused(void) {
   modal_manager_event_loop_upkeep();
   cl_assert_equal_i(modal_manager_get_properties(),
                     ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested | ModalProperty_Unfocused);
+                        ModalProperty_RenderRequested | ModalProperty_Unfocused);
   cl_assert_equal_i(windows[3][1]->on_screen, true);
   cl_assert_equal_i(windows[3][1]->is_click_configured, false);
   cl_assert_equal_i(windows[3][0]->on_screen, false);
@@ -811,9 +781,9 @@ void test_window_stack__modal_properties_unfocused(void) {
   // Test: An opaque top window below a unfocusable top window removes Unfocusable
   //       i.e. A unfocusable top window above an opaque top window does not result in Unfocusable
   modal_manager_event_loop_upkeep();
-  cl_assert_equal_i(modal_manager_get_properties(),
-                    ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested);
+  cl_assert_equal_i(modal_manager_get_properties(), ModalProperty_Exists |
+                                                        ModalProperty_CompositorTransitions |
+                                                        ModalProperty_RenderRequested);
   cl_assert_equal_i(windows[3][1]->on_screen, true);
   cl_assert_equal_i(windows[3][1]->is_click_configured, false);
   cl_assert_equal_i(windows[2][1]->on_screen, false);
@@ -838,9 +808,9 @@ void test_window_stack__modal_properties_enable_disable(void) {
   modal_window_push(window1, ModalPriorityGeneric, false);
 
   modal_manager_event_loop_upkeep();
-  cl_assert_equal_i(modal_manager_get_properties(),
-                    ModalProperty_Exists | ModalProperty_CompositorTransitions |
-                    ModalProperty_RenderRequested);
+  cl_assert_equal_i(modal_manager_get_properties(), ModalProperty_Exists |
+                                                        ModalProperty_CompositorTransitions |
+                                                        ModalProperty_RenderRequested);
 
   // Disable all modals
   modal_manager_set_min_priority(ModalPriorityMax);
@@ -937,7 +907,7 @@ void test_window_stack__modal_and_app(void) {
   cl_assert_equal_p(s_last_click_configured_window, window2);
 
   // Switch to modal happens via the compositor
-  compositor_transition(NULL);
+  compositor_transition(nullptr);
   // Call the upkeep function so the change in state is handled
   modal_manager_event_loop_upkeep();
 
@@ -960,7 +930,7 @@ void test_window_stack__modal_and_app(void) {
   cl_assert_equal_i(window2->on_screen, false);
 
   // Switch to app happens via the compositor
-  compositor_transition(NULL);
+  compositor_transition(nullptr);
   // Call the upkeep function so the change in state is handled
   modal_manager_event_loop_upkeep();
 
@@ -1021,7 +991,7 @@ void test_window_stack__transparent_modal_and_app(void) {
   cl_assert_equal_p(s_last_click_configured_window, window2);
 
   // Switch to modal happens via the compositor
-  compositor_transition(NULL);
+  compositor_transition(nullptr);
   // Call the upkeep function so the change in state is handled
   modal_manager_event_loop_upkeep();
 
@@ -1044,7 +1014,7 @@ void test_window_stack__transparent_modal_and_app(void) {
   cl_assert_equal_i(window2->on_screen, false);
 
   // Switch to app happens via the compositor
-  compositor_transition(NULL);
+  compositor_transition(nullptr);
   // Call the upkeep function so the change in state is handled
   modal_manager_event_loop_upkeep();
 
@@ -1105,7 +1075,7 @@ void test_window_stack__unfocusable_modal_and_app(void) {
   cl_assert_equal_p(s_last_click_configured_window, window1);
 
   // Switch to modal happens via the compositor
-  compositor_transition(NULL);
+  compositor_transition(nullptr);
   // Call the upkeep function so the change in state is handled
   modal_manager_event_loop_upkeep();
 
@@ -1126,7 +1096,7 @@ void test_window_stack__unfocusable_modal_and_app(void) {
   cl_assert_equal_i(window2->on_screen, false);
 
   // Switch to app happens via the compositor
-  compositor_transition(NULL);
+  compositor_transition(nullptr);
   // Call the upkeep function so the change in state is handled
   modal_manager_event_loop_upkeep();
 
@@ -1158,11 +1128,11 @@ void test_window_stack__window_flow(void) {
   Window *window = window_create();
 
   window_set_window_handlers(window, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_window_unload,
-    .appear = prv_window_appear,
-    .disappear = prv_window_disappear
-  });
+                                       .load = prv_window_load,
+                                       .unload = prv_window_unload,
+                                       .appear = prv_window_appear,
+                                       .disappear = prv_window_disappear
+                                     });
 
   window_set_click_config_provider(window, prv_click_config_provider);
 
@@ -1248,8 +1218,8 @@ void test_window_stack__pop_all_modals(void) {
   modal_manager_pop_all();
   modal_manager_event_loop_upkeep();
 
-  _Static_assert(ModalPriorityMin == ModalPriorityDiscreet,
-                 "Update the test to handle priorities below discreet.");
+  static_assert(ModalPriorityMin == ModalPriorityDiscreet,
+                "Update the test to handle priorities below discreet.");
   // Discreet should not be popped
   cl_assert_equal_b(windows[ModalPriorityDiscreet]->on_screen, true);
 
@@ -1257,7 +1227,6 @@ void test_window_stack__pop_all_modals(void) {
   for (ModalPriority idx = ModalPriorityDiscreet + 1; idx < NumModalPriorities; idx++) {
     cl_assert_equal_b(windows[idx]->on_screen, false);
   }
-
 }
 
 // Edge Case Tests
@@ -1267,10 +1236,8 @@ void test_window_stack__pop_all_modals(void) {
 // During the load handler of a window, we pop it.
 void test_window_stack__pop_during_window_load(void) {
   Window *window = window_create();
-  window_set_window_handlers(window, &(WindowHandlers){
-    .load = prv_pop_window_load,
-    .unload = prv_window_unload
-  });
+  window_set_window_handlers(
+      window, &(WindowHandlers){.load = prv_pop_window_load, .unload = prv_window_unload});
 
   WindowStack *stack = app_state_get_window_stack();
 
@@ -1295,10 +1262,8 @@ void test_window_stack__pop_during_window_load(void) {
 void test_window_stack__push_during_window_unload(void) {
   Window *window = window_create();
 
-  window_set_window_handlers(window, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_push_window_unload
-  });
+  window_set_window_handlers(
+      window, &(WindowHandlers){.load = prv_window_load, .unload = prv_push_window_unload});
 
   WindowStack *stack = app_state_get_window_stack();
 
@@ -1329,18 +1294,18 @@ void test_window_stack__push_during_window_unload_multiple(void) {
   Window *window2 = window_create();
 
   window_set_window_handlers(window1, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_push_window_unload,
-    .appear = prv_window_appear,
-    .disappear = prv_window_disappear
-  });
+                                        .load = prv_window_load,
+                                        .unload = prv_push_window_unload,
+                                        .appear = prv_window_appear,
+                                        .disappear = prv_window_disappear
+                                      });
 
   window_set_window_handlers(window2, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_push_window_unload,
-    .appear = prv_window_appear,
-    .disappear = prv_window_disappear
-  });
+                                        .load = prv_window_load,
+                                        .unload = prv_push_window_unload,
+                                        .appear = prv_window_appear,
+                                        .disappear = prv_window_disappear
+                                      });
 
   WindowStack *stack = app_state_get_window_stack();
 
@@ -1378,11 +1343,11 @@ void test_window_stack__pop_during_window_unload(void) {
   Window *window = window_create();
 
   window_set_window_handlers(window, &(WindowHandlers){
-    .load = prv_window_load,
-    .unload = prv_pop_window_unload,
-    .appear = prv_window_appear,
-    .disappear = prv_window_disappear
-  });
+                                       .load = prv_window_load,
+                                       .unload = prv_pop_window_unload,
+                                       .appear = prv_window_appear,
+                                       .disappear = prv_window_disappear
+                                     });
 
   WindowStack *stack = app_state_get_window_stack();
 
@@ -1404,7 +1369,7 @@ void test_window_stack__pop_during_window_unload(void) {
   cl_assert_equal_i(window_stack_count(stack), 0);
   cl_assert_equal_i(prv_get_load_unload_count(), 0);
   cl_assert_equal_i(prv_get_appear_disappear_count(), 0);
-  // FIXME: PBL-25460
+  // TODO: the transition stays scheduled after the window is unloaded
   //  cl_assert_equal_b(animation_is_scheduled(fake_animation_get_first_animation()), false);
 }
 

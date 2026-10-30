@@ -1,19 +1,21 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
+#include <string.h>
 
-#include "pbl/services/notifications/ancs/ancs_notifications_util.h"
+#include <pbl/services/notifications/ancs/ancs_notifications_util.h>
+
+#include <clar.h>
 
 // Stubs
 ////////////////////////////////////////////////////////////////
-#include "stubs_logging.h"
-#include "stubs_passert.h"
-#include "stubs_pbl_malloc.h"
 
 // Fakes
 ////////////////////////////////////////////////////////////////
-#include "fakes/fake_rtc.h"
+#include <pbl/services/time.h>
+#include <pbl/util/units.h>
+
+#include <fakes/fake_rtc.h>
 
 // Tests
 ////////////////////////////////////////////////////////////////
@@ -36,7 +38,7 @@ static void prv_destroy_ancs_attr(ANCSAttribute *attr) {
 }
 
 void test_ancs_notifications_util__parse_timestamp(void) {
-  struct tm apr_3_13_00 = {
+  struct pbl_tm apr_3_13_00 = {
     .tm_sec = 0,
     .tm_min = 0,
     .tm_hour = 13,
@@ -44,17 +46,17 @@ void test_ancs_notifications_util__parse_timestamp(void) {
     .tm_mon = 3, // Apr
     .tm_year = 2015 - 1900,
     .tm_isdst = 1,
-    .tm_gmtoff = SECONDS_PER_HOUR, // DST offset (base 0 + 1h DST)
+    .tm_gmtoff = PBL_SEC_PER_HOUR, // DST offset (base 0 + 1h DST)
   };
 
   // DST info for US/Canada 2015
   TimezoneInfo tz_info = {
     .dst_start = 1425780000, // Sun, 08 Mar 2015 02:00
-    .dst_end = 1446343200 // Sun, 01 Nov 2015 02:00
+    .dst_end = 1446343200    // Sun, 01 Nov 2015 02:00
   };
   time_util_update_timezone(&tz_info);
 
-  time_t actual = mktime(&apr_3_13_00);
+  time_t actual = pbl_mktime(&apr_3_13_00);
   rtc_set_time(actual);
 
   ANCSAttribute *valid_date = prv_create_ancs_attr("20150403T130000");

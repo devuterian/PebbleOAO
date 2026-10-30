@@ -7,31 +7,42 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_ext"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "PebbleOS"
-copyright = "2025, The PebbleOS Contributors"
+copyright = "2026, The PebbleOS Contributors"
 author = "The PebbleOS Contributors"
-release = "0.1.0"
+release = subprocess.check_output(["git", "describe"], text=True).strip()
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
     "myst_parser",
+    "sphinx_copybutton",
     "sphinx_design",
+    "sphinxcontrib.mermaid",
+    "matplotlib.sphinxext.plot_directive",
+    "pbl_docs",
+    "pbl_playground",
+    "kconfig",
 ]
 
-exclude_patterns = ["_build", "_apidoc", "Thumbs.db", ".DS_Store"]
+exclude_patterns = ["_build", "_apidoc", "_ext", "Thumbs.db", ".DS_Store"]
 
 nitpicky = True
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "sphinx_book_theme"
+html_theme = "shibuya"
+templates_path = ["_templates"]
 html_static_path = ["_static"]
 
 # Doxygen output built by the RTD pre_build job (see .readthedocs.yaml),
@@ -39,19 +50,85 @@ html_static_path = ["_static"]
 if os.path.isdir(os.path.join(os.path.dirname(__file__), "_apidoc")):
     html_extra_path = ["_apidoc"]
 
-html_logo = "_static/images/logo.svg"
+html_favicon = "_static/images/favicon.svg"
 html_css_files = ["css/custom.css"]
 html_theme_options = {
-    "logo": {
-        "text": "PebbleOS",
-    },
-    "repository_url": "https://github.com/coredevices/pebbleos",
-    "repository_branch": "main",
-    "path_to_docs": "docs",
-    "use_repository_button": True,
-    "use_edit_page_button": True,
-    "use_issues_button": True,
+    "light_logo": "_static/images/logo.svg",
+    "dark_logo": "_static/images/logo.svg",
+    "accent_color": "tomato",
+    "github_url": "https://github.com/coredevices/pebbleos",
+    "nav_links": [
+        {"title": "Getting started", "url": "getting_started/index"},
+        {"title": "Architecture", "url": "architecture/index"},
+        {"title": "Boards", "url": "boards/index"},
+        {"title": "API reference", "url": "apidoc/index.html", "resource": True},
+    ],
 }
+html_context = {
+    "source_type": "github",
+    "source_user": "coredevices",
+    "source_repo": "pebbleos",
+    "source_version": "main",
+    "source_docs_path": "/docs/",
+}
+
+# The firmware build behind the playground, left out of Read the Docs pull
+# request previews unless labelled ci:docs-playground (see .readthedocs.yaml)
+pbl_playground = os.environ.get("READTHEDOCS_VERSION_TYPE") != "external" or (
+    os.path.exists(os.path.join(os.path.dirname(__file__), "..", ".pbl_playground"))
+)
+
+# Boards the playground offers, with their label; the first one is the default
+pbl_playground_boards = {
+    "native_emery/wasm": "Pebble Time 2",
+    "native_gabbro/wasm": "Pebble Round 2",
+    "native_flint/wasm": "Pebble 2 Duo",
+}
+
+# Toctree entries only take URLs: placeholders for paths of the build
+pbl_docs_toctree_links = {"apidoc://": "apidoc/index.html"}
+
+# -- Options for the matplotlib plot directive ---------------------------------
+
+# Plots are drawn at build time from code; show only the figure, as SVG on a
+# transparent background with neutral colors that read in both themes
+plot_include_source = False
+plot_html_show_source_link = False
+plot_html_show_formats = False
+plot_formats = ["svg"]
+plot_pre_code = "import matplotlib.pyplot as plt"
+plot_rcparams = {
+    "savefig.transparent": True,
+    "savefig.bbox": "tight",
+    "svg.fonttype": "none",
+    "font.family": "sans-serif",
+    "font.size": 10,
+    "text.color": "#8a8a8a",
+    "axes.labelcolor": "#8a8a8a",
+    "axes.edgecolor": "#8a8a8a",
+    "xtick.color": "#8a8a8a",
+    "ytick.color": "#8a8a8a",
+    "grid.color": "#8a8a8a",
+    "legend.labelcolor": "#8a8a8a",
+}
+
+# -- Options for the mermaid extension ---------------------------------------
+
+# Draw diagrams at their natural size, shrunk only to fit the page
+mermaid_height = "auto"
+mermaid_init_config = {
+    "startOnLoad": False,
+    "flowchart": {"useMaxWidth": False},
+    "block": {"useMaxWidth": False},
+    "sequence": {"useMaxWidth": False},
+    "class": {"useMaxWidth": False},
+}
+
+# -- Options for the kconfig extension ---------------------------------------
+
+kconfig_generate_db = True
+kconfig_gh_link_base_url = "https://github.com/coredevices/pebbleos"
+kconfig_gh_link_revision = "main"
 
 # -- Options for the linkcheck builder ----------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-the-linkcheck-builder
@@ -65,7 +142,13 @@ linkcheck_ignore = [
 # -- Options for myst_parser extension -----------------------------------------
 # https://myst-parser.readthedocs.io/en/latest/configuration.html
 
+# Leave shell prompts and console output out of the copied text
+copybutton_exclude = ".linenos, .gp, .go"
+
 myst_enable_extensions = [
+    "amsmath",
     "colon_fence",
+    "deflist",
+    "dollarmath",
     "fieldlist",
 ]

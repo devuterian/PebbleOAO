@@ -3,241 +3,398 @@
 
 #pragma once
 
-#include "pbl/services/imu/units.h"
-
-#include <stdbool.h>
 #include <stdint.h>
 
-/*! Accelerometer driver interface
- *  ==============================
+#include <pbl/device.h>
+#include <pbl/kernel/mutex.h>
+#include <pbl/services/imu/units.h>
+
+/**
+ * @defgroup drivers_accel Accelerometer
+ * @ingroup drivers
+ * @brief Accelerometer class.
  *
- * The accelerometer driver is simply an interface to the accelerometer
- * hardware. It is dumb; it does not contain any circular buffers, has no
- * knowledge of clients, threads, subsampling or even other hardware. It is up
- * to higher level code (read: the accelerometer service) to deal with
- * that. The reason for that is to maximize code reuse: anything which could
- * possibly need to be copy-pasted from one accel driver to another should be
- * moved outside of the driver.
+ * An accelerometer is a struct pbl_accel device. Drivers are a thin layer over the hardware: they
+ * keep no sample buffers and know nothing about their consumers. They report samples, shakes and
+ * double taps to the class, which hands them to the listener a consumer registered with
+ * pbl_accel_set_listener(), the accelerometer service in practice. Hardware state such as FIFO
+ * modes is hidden: the consumer states its requirements (sampling interval, batch size) and the
+ * driver picks the hardware configuration.
  *
- * The accelerometer knows (almost) nothing about the OS, events, analytics or
- * the vibe motor. It does not even keep around a sample buffer for any reason.
- * All of that code is handled externally. The interface for the accelerometer
- * driver is a set of functions implemented by the accelerometer, and a set of
- * external functions that it will call in response to certain events. While OS
- * services may be employed internally by a driver, they are not part of the
- * public interface.
+ * Every call into the driver, and every report out of it, runs with the device lock held, a
+ * recursive mutex. The listener runs with it held too, so it may call back into the device, and a
+ * consumer that takes the lock around its own state is serialized with the driver without a
+ * second lock to order against it.
  *
- * One of the goals of the accelerometer interface is to hide the state of the
- * accelerometer hardware as much as possible (e.g. FIFO mode) and use
- * higher-level constructs to allow the driver to make its own decisions on what
- * state the hardware should be in. This way the interface is (hopefully)
- * generic enough that accelerometers with vastly different operating and
- * power-saving modes can have all of those details hidden away in the driver,
- * and the higher-level code can work unmodified with different accelerometers.
+ * @code{.c}
+ * static void prv_samples(const struct pbl_accel *accel, const AccelRawBatch *batch,
+ *                         void *user_data) {
+ *   ...
+ * }
+ *
+ * static const struct pbl_accel_listener s_listener = {.samples = prv_samples};
+ *
+ * uint32_t interval_us;
+ *
+ * pbl_accel_set_listener(ACCEL, &s_listener);
+ * pbl_accel_set_sampling_interval(ACCEL, 40000, &interval_us);
+ * pbl_accel_set_num_samples(ACCEL, MIN(25, pbl_accel_get_max_num_samples(ACCEL)));
+ * @endcode
+ * @{
  */
 
+/** @brief Accelerometer sample. */
 typedef struct {
-  //! Timestamp of when the sample was taken in microseconds since the epoch.
-  //! The precision of the timestamp is not guaranteed.
+  /** Sample time in microseconds since the epoch, with no guaranteed precision. */
   uint64_t timestamp_us;
-  //! Acceleration along the x axis.
+  /** Acceleration along the x axis, in milli-g. */
   int16_t x;
-  //! Acceleration along the y axis.
+  /** Acceleration along the y axis, in milli-g. */
   int16_t y;
-  //! Acceleration along the z axis.
+  /** Acceleration along the z axis, in milli-g. */
   int16_t z;
 } AccelDriverSample;
 
-//! Describes a batch of raw samples sitting in a driver-owned buffer, handed to
-//! accel_cb_new_samples() so the service can scale and copy them in place without
-//! a per-sample callback. See accel_cb_new_samples().
+/**
+ * @brief Batch of raw samples in a driver-owned buffer.
+ *
+ * Handed to the listener so it can scale and copy the samples in one pass
+ * instead of taking a callback per sample.
+ */
 typedef struct {
-  //! Pointer to the first raw sample (i.e. already past any per-sample header).
+  /** First raw sample, past any per-sample header. */
   const uint8_t *data;
-  //! Number of samples in the buffer.
+  /** Number of samples in the buffer. */
   uint16_t num_samples;
-  //! Bytes between consecutive samples (lets the service step over e.g. FIFO tags).
+  /** Bytes between consecutive samples, which lets the service skip e.g. FIFO tags. */
   uint8_t stride;
-  //! Per-axis source: byte offset of the little-endian int16 within a sample and its
-  //! sign (+1/-1), indexed by IMUCoordinateAxis. Encodes axis remap and direction.
+  /** Per-axis source, indexed by IMUCoordinateAxis; encodes axis remapping and direction. */
   struct {
+    /** Byte offset of the little-endian int16 value within a sample. */
     uint8_t offset;
+    /** Sign applied to the value, +1 or -1. */
     int8_t sign;
   } axis[3];
-  //! Raw-count to milli-g conversion: mg = raw * scale_num / scale_den.
+  /** Raw-count to milli-g numerator: mg = raw * scale_num / scale_den. */
   int32_t scale_num;
+  /** Raw-count to milli-g denominator. */
   int32_t scale_den;
-  //! Timestamp of the first sample, in microseconds since the epoch.
+  /** Timestamp of the first sample, in microseconds since the epoch. */
   uint64_t first_timestamp_us;
-  //! Interval between samples in microseconds.
+  /** Interval between samples, in microseconds. */
   uint32_t sampling_interval_us;
 } AccelRawBatch;
 
-//! Initialize accelerometer
-void accel_init(void);
+/** @brief Accelerometer event type. */
+enum pbl_accel_event_type {
+  /** Shake, a motion above the shake threshold. */
+  PBL_ACCEL_EVENT_SHAKE,
+  /** Double tap on the watch body. */
+  PBL_ACCEL_EVENT_DOUBLE_TAP,
+};
 
-//! Set the accelerometer axes to be rotated 180deg
-//!
-//! @param rotated Axes are rotated or not (true/false).
-void accel_set_rotated(bool rotated);
+/** @brief Accelerometer event. */
+struct pbl_accel_event {
+  /** Type. */
+  enum pbl_accel_event_type type;
+  /** Axis the event was detected on. */
+  IMUCoordinateAxis axis;
+  /** Direction along the axis: positive or negative. */
+  int32_t direction;
+};
 
-//! Sets the accelerometer sampling interval.
-//!
-//! Not all sampling intervals are supported by all drivers. The driver must
-//! select a sampling interval which is equal to or shorter than the requested
-//! interval, saturating at the shortest interval supported by the hardware.
-//!
-//! The new sampling rate takes effect immediately. The driver may flush any
-//! queued samples before changing the sampling rate to ensure that timestamps
-//! remain accurate.
-//!
-//! @param interval_us The requested sampling interval in microseconds.
-//!
-//! @return The actual sampling interval set by the driver.
-uint32_t accel_set_sampling_interval(uint32_t interval_us);
+struct pbl_accel;
 
-//! Returns the currently set accelerometer sampling interval.
-uint32_t accel_get_sampling_interval(void);
+/**
+ * @brief Consumer of an accelerometer's samples and events.
+ *
+ * Called from thread context with the device lock held. Data passed to the callbacks is only
+ * valid for the duration of the call.
+ */
+struct pbl_accel_listener {
+  /** Optional. New samples, oldest first. */
+  void (*samples)(const struct pbl_accel *accel, const AccelRawBatch *batch, void *user_data);
+  /** Optional. Detected event. */
+  void (*event)(const struct pbl_accel *accel, const struct pbl_accel_event *event,
+                void *user_data);
+  /** Data passed to the callbacks. */
+  void *user_data;
+};
 
-//! Set the max number of samples the driver may batch.
-//!
-//! @param num_samples Maximum number of samples the driver can batch
-//!
-//! When num_samples=0, the accelerometer driver must not call accel_cb_new_sample().
-//!
-//! When n=1, the accelerometer driver must call accel_cb_new_sample() for
-//! each sample as soon as the hardware has acquired it.
-//!
-//! When n>1, the accelerometer driver may batch up to n samples before
-//! calling accel_cb_new_sample() up to n times in rapid succession with
-//! all of the queued samples. The last item in a batch must be the most
-//! recently acquired sample from the hardware. This is used by the driver
-//! as a hint for power saving or other optimizations; it only sets an
-//! upper bound on the number of samples the driver may batch up.
-//!
-//! When n is set to a value smaller than the number of samples already
-//! queued up, the driver must flush all of the queued samples to
-//! accel_cb_new_sample() before the new value of n takes effect. The
-//! accel_cb_new_sample() function may be called from within
-//! accel_set_num_samples().
-//!
-//! @see accel_cb_new_sample
-void accel_set_num_samples(uint32_t num_samples);
+/**
+ * @brief Driver operations.
+ *
+ * Called with the device lock held. See the class functions for their semantics.
+ */
+struct pbl_accel_ops {
+  /** Bring the hardware up. Returns 0, -ENODEV if the part does not answer, or a negative errno. */
+  int (*init)(const struct pbl_accel *accel);
+  /** Optional. Set whether the sensor is mounted rotated by 180 degrees. */
+  int (*set_rotated)(const struct pbl_accel *accel, bool rotated);
+  /** Set the sampling interval, returning the one used in @p actual_us. */
+  int (*set_sampling_interval)(const struct pbl_accel *accel, uint32_t interval_us,
+                               uint32_t *actual_us);
+  /** Get the sampling interval. */
+  uint32_t (*get_sampling_interval)(const struct pbl_accel *accel);
+  /** Set the maximum number of samples to batch. */
+  int (*set_num_samples)(const struct pbl_accel *accel, uint32_t num_samples);
+  /** Get the depth of the hardware FIFO. */
+  uint32_t (*get_max_num_samples)(const struct pbl_accel *accel);
+  /** Read the most recent sample. */
+  int (*peek)(const struct pbl_accel *accel, AccelDriverSample *sample);
+  /** Optional. Enable or disable shake detection. */
+  int (*set_shake_detection)(const struct pbl_accel *accel, bool on);
+  /** Optional. Enable or disable double tap detection. */
+  int (*set_double_tap_detection)(const struct pbl_accel *accel, bool on);
+  /** Optional. Select high or normal shake sensitivity. */
+  int (*set_shake_sensitivity_high)(const struct pbl_accel *accel, bool high);
+  /** Optional. Set the normal shake sensitivity, 0 to 100. */
+  int (*set_shake_sensitivity_percent)(const struct pbl_accel *accel, uint8_t percent);
+};
 
-//! Returns the maximum number of samples the driver can batch.
-//!
-//! This is the depth of the hardware FIFO and the upper bound on the value
-//! that can be passed to accel_set_num_samples().
-//!
-//! @see accel_set_num_samples
-uint32_t accel_get_max_num_samples(void);
+/** @brief Class runtime state. */
+struct pbl_accel_state {
+  /** Device lock. */
+  struct pbl_mutex lock;
+  /** Listener, or NULL. */
+  const struct pbl_accel_listener *listener;
+  /** Shake detection enabled. */
+  bool shake_detection;
+  /** Double tap detection enabled. */
+  bool double_tap_detection;
+};
 
-//! Peek at the most recent accelerometer sample.
-//!
-//! @param[out] data Pointer to a buffer to write accelerometer data
-//!
-//! @return 0 if successful, nonzero on failure
-//!
-//! During the execution of this function, the driver may call
-//! accel_cb_new_sample() one or more times iff accel_set_num_samples(n) was
-//! called most recently with a value of n >= 1.
-int accel_peek(AccelDriverSample *data);
+/** @brief An accelerometer. */
+struct pbl_accel {
+  /** Device. */
+  struct pbl_device dev;
+  /** Driver operations. */
+  const struct pbl_accel_ops *ops;
+  /** Runtime state. */
+  struct pbl_accel_state *state;
+};
 
-//! Enable or disable shake detection
-//!
-//! @param on Enable shake detection when true, disable when false
-//!
-//! When shake detection is enabled, accel_cb_shake_detected must be called every
-//! time the accelerometer hardware detects a shake. When shake detection is
-//! disabled, accel_cb_shake_detected must not be called.
-//!
-//! @see accel_cb_shake_detected
-void accel_enable_shake_detection(bool on);
+/** @brief The board's accelerometer. */
+extern const struct pbl_accel *const ACCEL;
 
-//! Returns whether shake detection is enabled
-bool accel_get_shake_detection_enabled(void);
+/**
+ * @brief Define the class state of accelerometer @p sym, for the @c PBL_*_DEFINE() macro of a
+ * driver.
+ *
+ * @param sym Symbol of the accelerometer instance.
+ */
+#define PBL_ACCEL_STATE_DEFINE(sym) \
+  PBL_DEVICE_STATE_DEFINE(sym);     \
+  static struct pbl_accel_state sym##_accel_state = {.lock = PBL_MUTEX_INITIALIZER}
 
-//! Enable or disable double tap detection
-//!
-//! @param on Enable double tap detection when true, disable when false
-//!
-//! When double tap detection is enabled, accel_cb_double_tap_detected must be called every
-//! time the accelerometer hardware detects a double tap. When double tap detection is
-//! disabled, accel_cb_double_tap_detected must not be called.
-//!
-//! @see accel_cb_double_tap_detected
-void accel_enable_double_tap_detection(bool on);
+/**
+ * @brief Initializer for the struct pbl_accel of accelerometer @p sym.
+ *
+ * @param sym Symbol of the accelerometer instance, with its state defined by
+ *            PBL_ACCEL_STATE_DEFINE().
+ * @param _name Name.
+ * @param _parent Parent device, such as the I2C bus, or NULL.
+ * @param _ops Driver operations.
+ */
+#define PBL_ACCEL_INIT(sym, _name, _parent, _ops)                             \
+  {                                                                           \
+    .dev = PBL_DEVICE_INIT(sym, _name, pbl_accel_dev_init, _parent, nullptr), \
+    .ops = (_ops),                                                            \
+    .state = &sym##_accel_state,                                              \
+  }
 
-//! Returns whether double tap detection is enabled
-bool accel_get_double_tap_detection_enabled(void);
+/**
+ * @brief Device init of every accelerometer: calls the driver's init with the lock held.
+ *
+ * @param dev Accelerometer device.
+ * @return 0 or a negative errno.
+ */
+int pbl_accel_dev_init(const struct pbl_device *dev);
 
-//! Function called by the driver whenever a new accel sample is available.
-//!
-//! @param[in] data pointer to a populated AccelDriverSample struct. The pointer is
-//!   only valid for the duration of the function call.
-//!
-//! This function will always be called with samples monotonically increasing in
-//! time. It will always be called from within a thread context.
-//!
-//! @note This function may be called from within any of the functions in the
-//!   accelerometer driver interface. To prevent reentrancy issues, avoid
-//!   calling accelerometer driver functions from within this function.
-extern void accel_cb_new_sample(AccelDriverSample const *data);
+/**
+ * @brief Take the device lock.
+ *
+ * Recursive. A consumer takes it around its own state to serialize it with the driver.
+ *
+ * @param accel Accelerometer.
+ */
+void pbl_accel_lock(const struct pbl_accel *accel);
 
-//! Function called by the driver whenever a batch of new samples is available.
-//!
-//! @param[in] batch description of the raw samples. The pointers within are only
-//!   valid for the duration of the function call.
-//!
-//! Equivalent to calling accel_cb_new_sample() once per sample (oldest first, the
-//! last sample being the most recently acquired), but lets the service scale and
-//! copy the whole batch in one pass. The same reentrancy notes as
-//! accel_cb_new_sample() apply.
-//!
-//! @see accel_cb_new_sample
-extern void accel_cb_new_samples(AccelRawBatch const *batch);
+/**
+ * @brief Release the device lock.
+ *
+ * @param accel Accelerometer.
+ */
+void pbl_accel_unlock(const struct pbl_accel *accel);
 
-//! Function called by driver whenever shake is detected.
-//!
-//! @param axis      Axis which the shake was detected on
-//! @param direction The sign indicates whether the shake was on the positive or
-//!        negative axis
-//!
-//! @note It is up to the implementer to filter out shake events triggered by the
-//!       vibrate motor.
-extern void accel_cb_shake_detected(IMUCoordinateAxis axis, int32_t direction);
+/**
+ * @brief Set the listener of samples and events.
+ *
+ * @param accel Accelerometer.
+ * @param listener Listener, or NULL to remove it.
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_set_listener(const struct pbl_accel *accel,
+                           const struct pbl_accel_listener *listener);
 
-//! Function called by driver whenever a double tap is detected.
-//!
-//! @param axis      Axis which the double tap was detected on
-//! @param direction The sign indicates whether the double tap was on the positive or
-//!        negative axis
-extern void accel_cb_double_tap_detected(IMUCoordinateAxis axis, int32_t direction);
+/**
+ * @brief Set whether the axes are rotated by 180 degrees.
+ *
+ * @param accel Accelerometer.
+ * @param rotated True if the sensor is mounted rotated by 180 degrees.
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_set_rotated(const struct pbl_accel *accel, bool rotated);
 
-//! Callback to be invoked from a thread context to perform offloaded driver work.
-typedef void (*AccelOffloadCallback)(void);
+/**
+ * @brief Set the sampling interval.
+ *
+ * The driver selects the longest supported interval that is equal to or shorter than the
+ * requested one, saturating at the shortest interval the hardware supports. The new interval
+ * takes effect immediately; the driver may flush queued samples first so that timestamps stay
+ * accurate.
+ *
+ * @param accel Accelerometer.
+ * @param interval_us Requested sampling interval in microseconds.
+ * @param[out] actual_us Sampling interval used, in microseconds, or NULL.
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_set_sampling_interval(const struct pbl_accel *accel, uint32_t interval_us,
+                                    uint32_t *actual_us);
 
-//! Function called by driver when it needs to offload work from an ISR context.
-//! It is up to the implementer to decide how this should work
-//!
-//! @param cb The callback to be invoked from a thread context
-//! @param should_context_switch Set to true if a context switch should be
-//!        performed when returning from the ISR
-extern void accel_offload_work_from_isr(AccelOffloadCallback cb, bool *should_context_switch);
+/**
+ * @brief Get the sampling interval.
+ *
+ * @param accel Accelerometer.
+ * @return Sampling interval in microseconds, 0 if the device is not ready.
+ */
+uint32_t pbl_accel_get_sampling_interval(const struct pbl_accel *accel);
 
-//! Function called by driver when it needs to offload work.
-//! It is up to the implementer to decide how this should work
-//!
-//! @param cb The callback to be invoked from a thread context
-extern void accel_offload_work(AccelOffloadCallback cb);
+/**
+ * @brief Set the maximum number of samples the driver may batch.
+ *
+ * - 0: the driver reports no samples.
+ * - 1: the driver reports every sample as soon as it is acquired.
+ * - n > 1: the driver may queue up to n samples and then report them at once. This is only an
+ *   upper bound, which the driver can use for power saving.
+ *
+ * When n is lowered below the number of samples already queued, the driver reports them before
+ * the new value takes effect, possibly from within this call.
+ *
+ * @param accel Accelerometer.
+ * @param num_samples Maximum number of samples to batch, at most pbl_accel_get_max_num_samples().
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_set_num_samples(const struct pbl_accel *accel, uint32_t num_samples);
 
-//! The accelerometer supports a changeable sensitivity for shake detection. This call will
-//! select whether we want the accelerometer to enter a highly sensitive state with a low
-//! threshold, where any minor amount of motion would trigger the system shake event.
-//! Note: Setting this value does not ensure that shake detection is enabled.
-void accel_set_shake_sensitivity_high(bool sensitivity_high);
+/**
+ * @brief Get the maximum number of samples the driver can batch.
+ *
+ * @param accel Accelerometer.
+ * @return Depth of the hardware FIFO, 0 if the device is not ready.
+ */
+uint32_t pbl_accel_get_max_num_samples(const struct pbl_accel *accel);
 
+/**
+ * @brief Read the most recent sample.
+ *
+ * The driver may report queued samples from within this call.
+ *
+ * @param accel Accelerometer.
+ * @param[out] sample Most recent sample.
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_peek(const struct pbl_accel *accel, AccelDriverSample *sample);
 
-//! Update the accelerometer shake sensitivity as a percentage value from 0 to 100.
-//! Note: Setting this value does not ensure that shake detection is enabled.
-void accel_set_shake_sensitivity_percent(uint8_t percent);
+/**
+ * @brief Enable or disable shake detection.
+ *
+ * @param accel Accelerometer.
+ * @param on True to enable, false to disable.
+ * @return 0 on success, -ENOTSUP if the driver has no shake detection, or a negative errno.
+ */
+int pbl_accel_set_shake_detection(const struct pbl_accel *accel, bool on);
+
+/**
+ * @brief Check whether shake detection is enabled.
+ *
+ * @param accel Accelerometer.
+ * @return True if shake detection is enabled.
+ */
+bool pbl_accel_get_shake_detection(const struct pbl_accel *accel);
+
+/**
+ * @brief Enable or disable double tap detection.
+ *
+ * @param accel Accelerometer.
+ * @param on True to enable, false to disable.
+ * @return 0 on success, -ENOTSUP if the driver has no double tap detection, or a negative errno.
+ */
+int pbl_accel_set_double_tap_detection(const struct pbl_accel *accel, bool on);
+
+/**
+ * @brief Check whether double tap detection is enabled.
+ *
+ * @param accel Accelerometer.
+ * @return True if double tap detection is enabled.
+ */
+bool pbl_accel_get_double_tap_detection(const struct pbl_accel *accel);
+
+/**
+ * @brief Select high or normal shake sensitivity.
+ *
+ * In high sensitivity mode the detection threshold is at its minimum, so that any minor motion
+ * is reported as a shake; otherwise the threshold set by pbl_accel_set_shake_sensitivity_percent()
+ * applies. Does not enable shake detection.
+ *
+ * @param accel Accelerometer.
+ * @param high True for high sensitivity, false for normal.
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_set_shake_sensitivity_high(const struct pbl_accel *accel, bool high);
+
+/**
+ * @brief Set the normal shake sensitivity.
+ *
+ * Does not enable shake detection.
+ *
+ * @param accel Accelerometer.
+ * @param percent Sensitivity from 0 (highest threshold, least sensitive) to 100 (lowest
+ *                threshold, most sensitive).
+ * @return 0 on success, or a negative errno.
+ */
+int pbl_accel_set_shake_sensitivity_percent(const struct pbl_accel *accel, uint8_t percent);
+
+/**
+ * @brief Report a batch of samples to the listener.
+ *
+ * Called by the driver from thread context with the device lock held, samples in increasing time
+ * order.
+ *
+ * @param accel Accelerometer.
+ * @param batch Batch, valid for the duration of the call.
+ */
+void pbl_accel_report_samples(const struct pbl_accel *accel, const AccelRawBatch *batch);
+
+/**
+ * @brief Report a single sample to the listener, as a one-sample batch.
+ *
+ * Same rules as pbl_accel_report_samples().
+ *
+ * @param accel Accelerometer.
+ * @param sample Sample.
+ */
+void pbl_accel_report_sample(const struct pbl_accel *accel, const AccelDriverSample *sample);
+
+/**
+ * @brief Report an event to the listener.
+ *
+ * Called by the driver from thread context with the device lock held, while detection of that
+ * event type is enabled.
+ *
+ * @param accel Accelerometer.
+ * @param event Event.
+ */
+void pbl_accel_report_event(const struct pbl_accel *accel, const struct pbl_accel_event *event);
+
+/** @} */

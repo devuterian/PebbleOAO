@@ -5,9 +5,10 @@ PebbleOS is the operating system running on Pebble smartwatches.
 ## Organization
 
 - `docs`: project documentation
+- `drivers`: hardware drivers
+- `fw`: firmware source
 - `resources`: firmware resources (icons, fonts, etc.)
 - `sdk`: application SDK generation files
-- `src`: firmware source
 - `subsys`: OS subsystems, e.g. logging
 - `tests`: tests
 - `third_party`: third-party code in git submodules, also includes glue code
@@ -22,11 +23,13 @@ PebbleOS is the operating system running on Pebble smartwatches.
 ## Documentation
 
 Contributor documentation lives in `docs/` (published at
-https://pebbleos-core.readthedocs.io). Prefer pointing to or extending those
-pages over duplicating knowledge here: `docs/development/contributing.md`
-(DCO, commit and AI-usage rules), `docs/development/pbl.md` (the `pbl`
-CLI, and how to extend it), `docs/development/sdk_export.md` (SDK export
-machinery), `docs/development/qemu.md` (emulator workflow).
+https://pebbleos.readthedocs.io). Prefer pointing to or extending those
+pages over duplicating knowledge here: `docs/community/contributing.md`
+(DCO, commit and AI-usage rules), `docs/pbl/` (the `pbl`
+CLI, one page per command, and `extending.md` for how to extend it),
+`docs/sdk/exporting.md` (SDK export machinery),
+`docs/development/emulation/emulator.md` (emulator workflow),
+`docs/development/tests/integration.md` (pytest suite on QEMU and devices).
 
 ## Code style
 
@@ -58,12 +61,28 @@ machinery), `docs/development/qemu.md` (emulator workflow).
 - Build firmware: `pbl build`
 - Run tests: `pbl test`
 
+## Submodules in agent workspaces
+
+The submodules are large. In disposable or isolated agent workspaces, do not
+initialize every submodule recursively. Initialize only the submodule needed
+for the current build or task, using a shallow clone:
+
+```
+git submodule update --init --depth 1 -- path/to/submodule
+```
+
+Add `--recursive` only when that specific submodule requires its own nested
+submodules. If a task needs submodule history, deepen only that submodule.
+Workspace providers should reuse local Git object stores and copy-on-write
+checkouts when available; agents must not symlink a writable submodule checkout
+from another workspace because that breaks workspace isolation.
+
 ## Adding a new SDK function
 
 Exposing a function to third-party apps requires three coordinated changes
 (applib wrapper + syscall, `exported_symbols.json` registration, SDK
 revision bump) — the firmware build alone won't surface it to apps. Follow
-`docs/development/sdk_export.md` whenever an `applib/` function should
+`docs/sdk/exporting.md` whenever an `applib/` function should
 become callable from user apps.
 
 ## Git rules
@@ -103,11 +122,13 @@ become callable from user apps.
 Main rules:
 
 - Commit using `-s` git option, so commits have `Signed-Off-By`
-- Always indicate commit is co-authored by the current AI model
+- Always add an `Assisted-by: LLM` trailer; never name the model, tool or vendor
+  (no `Co-Authored-By` lines)
 - Commit in small chunks, trying to preserve bisectability
 - Commit format is `area: short description`, with longer description in the
   body if necessary
 - Run `gitlint` on every commit to verify rules are followed
+- Follow the pull request and AI rules in `docs/community/contributing.md`
 
 Others:
 

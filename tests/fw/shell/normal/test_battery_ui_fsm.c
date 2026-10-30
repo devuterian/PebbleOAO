@@ -1,29 +1,27 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
-
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "applib/ui/vibes.h"
-#include "apps/system_app_ids.h"
-#include "kernel/low_power.h"
-#include "kernel/ui/modals/modal_manager.h"
-#include "kernel/util/standby.h"
-#include "process_management/app_manager.h"
-#include "pbl/services/battery/battery_curve.h"
-#include "shell/normal/battery_ui.h"
-#include "util/ratio.h"
+#include <pbl/services/battery/battery_curve.h>
+#include <pbl/util/ratio.h>
+
+#include <applib/ui/vibes.h>
+#include <apps/system_app_ids.h>
+#include <clar.h>
+#include <fff.h>
+#include <kernel/low_power.h>
+#include <kernel/ui/modals/modal_manager.h>
+#include <kernel/util/standby.h>
+#include <process_management/app_manager.h>
+#include <shell/normal/battery_ui.h>
 
 extern void battery_ui_reset_fsm_for_tests(void);
 
 // Stubs and fakes
 /////////////////////////////////////////////////////////////////////////
-
-#include "stubs_logging.h"
-#include "stubs_vibe_intensity.h"
-#include "stubs_vibe_pattern.h"
 
 typedef enum PowerState {
   PowerGood,
@@ -32,9 +30,6 @@ typedef enum PowerState {
 } PowerState;
 
 static PowerState s_state;
-static bool s_entered_standby;
-static bool s_dnd_on;
-static uint8_t s_vibe_count;
 static bool s_modal_onscreen;
 static uint8_t s_modal_percent;
 static bool s_modal_charging;
@@ -57,17 +52,9 @@ bool low_power_is_active(void) {
   return s_state == PowerLow;
 }
 
-void enter_standby(RebootReasonCode reason) {
-  s_entered_standby = true;
-}
-
-bool do_not_disturb_is_active(void) {
-  return s_dnd_on;
-}
-
-void vibes_short_pulse(void) {
-  s_vibe_count++;
-}
+FAKE_VALUE_FUNC(int, enter_standby, RebootReasonCode);
+FAKE_VALUE_FUNC(bool, do_not_disturb_is_active);
+FAKE_VOID_FUNC(vibes_short_pulse);
 
 void watchface_start_low_power(void) {
   s_low_power = true;
@@ -87,9 +74,12 @@ void app_manager_close_current_app(bool gracefully) {
   s_critical = false;
 }
 
-void battery_ui_display_plugged(void) {
+void battery_ui_display_plugged(uint8_t percent) {
   s_modal_onscreen = true;
   s_modal_charging = true;
+}
+
+void battery_ui_update_charge_level(uint8_t percent) {
 }
 
 void battery_ui_display_fully_charged(void) {
@@ -117,9 +107,10 @@ void modal_manager_pop_all_below_priority(ModalPriority priority) {
 void modal_manager_set_min_priority(ModalPriority priority) {
 }
 
-static PreciseBatteryChargeState prv_make_state(uint8_t percent, bool is_charging, bool is_plugged) {
-  PreciseBatteryChargeState state = (PreciseBatteryChargeState) {
-    .charge_percent = ratio32_from_percent(percent),
+static PreciseBatteryChargeState prv_make_state(uint8_t percent, bool is_charging,
+                                                bool is_plugged) {
+  PreciseBatteryChargeState state = (PreciseBatteryChargeState){
+    .charge_percent = pbl_ratio32_from_percent(percent),
     .pct = percent,
     .is_charging = is_charging,
     .is_plugged = is_plugged
@@ -131,7 +122,7 @@ static PreciseBatteryChargeState prv_make_state(uint8_t percent, bool is_chargin
 bool s_is_charging;
 BatteryChargeState battery_get_charge_state(void) {
   // Don't bother setting other fields, they're not used.
-  return (BatteryChargeState) { .is_charging = s_is_charging };
+  return (BatteryChargeState){.is_charging = s_is_charging};
 }
 
 // Setup
@@ -140,9 +131,9 @@ void test_battery_ui_fsm__initialize(void) {
   s_charge_limit = false;
   prv_set_state(PowerGood);
 
-  s_entered_standby = false;
-  s_dnd_on = false;
-  s_vibe_count = 0;
+  RESET_FAKE(enter_standby);
+  RESET_FAKE(do_not_disturb_is_active);
+  RESET_FAKE(vibes_short_pulse);
   s_modal_onscreen = false;
   s_modal_percent = 0;
   s_modal_charging = false;
@@ -169,9 +160,9 @@ static uint8_t prv_warning_percent(BatteryUIWarningLevel level) {
     CONFIG_BATTERY_WARNING_FIRST_PERCENT,
     CONFIG_BATTERY_WARNING_SECOND_PERCENT,
   };
-  static const uint8_t default_hours[] = { 18, 12 };
-  return configured_percentages[level] ? configured_percentages[level] :
-                                         battery_curve_get_percent_remaining(default_hours[level]);
+  static const uint8_t default_hours[] = {18, 12};
+  return configured_percentages[level] ? configured_percentages[level]
+                                       : battery_curve_get_percent_remaining(default_hours[level]);
 }
 
 // Tests
@@ -224,13 +215,10 @@ void test_battery_ui_fsm__transitions(void) {
   prv_change_state(charging);
   cl_assert(!s_critical && s_modal_onscreen);
 
-  // Shutdown while charging - modal should close, enter standby
-  battery_ui_handle_shut_down();
-  cl_assert(!s_modal_onscreen && s_entered_standby);
-
-  // Shouldn't be able to transition out
-  prv_change_state(first_warning);
-  cl_assert(!s_modal_onscreen);
+  // Shutdown while charging - refused, the modal stays up
+  enter_standby_fake.return_val = -EBUSY;
+  cl_assert_equal_i(battery_ui_handle_shut_down(), -EBUSY);
+  cl_assert(s_modal_onscreen && enter_standby_fake.call_count == 1);
 }
 
 void test_battery_ui_fsm__shutdown(void) {
@@ -240,13 +228,14 @@ void test_battery_ui_fsm__shutdown(void) {
   // Shutdown while normal - enter standby
   prv_change_state(nop);
   battery_ui_handle_shut_down();
-  cl_assert(s_entered_standby);
+  cl_assert_equal_i(enter_standby_fake.call_count, 1);
 
-  // Shutdown while charging - enter standby
-  s_entered_standby = false;
+  // Shutdown while charging - the error is passed on
+  RESET_FAKE(enter_standby);
+  enter_standby_fake.return_val = -EBUSY;
   prv_change_state(charging);
-  battery_ui_handle_shut_down();
-  cl_assert(s_entered_standby);
+  cl_assert_equal_i(battery_ui_handle_shut_down(), -EBUSY);
+  cl_assert_equal_i(enter_standby_fake.call_count, 1);
 }
 
 void test_battery_ui_fsm__warning(void) {
@@ -262,7 +251,7 @@ void test_battery_ui_fsm__warning(void) {
   // We started at the second warning, so only update once
   cl_assert(s_modal_onscreen);
   cl_assert_equal_i(s_modal_percent, prv_warning_percent(BatteryUIWarningLevel_VeryLow));
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 
   // But we can jump around as long as we switch first
   prv_change_state(nop);
@@ -301,74 +290,73 @@ void test_battery_ui_fsm__skip_first_warning_when_next_is_close(void) {
   const uint8_t second_warning_percent = prv_warning_percent(BatteryUIWarningLevel_VeryLow);
   const uint32_t near_second_warning_hours =
       battery_curve_get_hours_remaining(second_warning_percent) + 2;
-  PreciseBatteryChargeState near_second_warning = prv_make_state(
-      battery_curve_get_percent_remaining(near_second_warning_hours), false, false);
-  PreciseBatteryChargeState second_warning =
-      prv_make_state(second_warning_percent, false, false);
+  PreciseBatteryChargeState near_second_warning =
+      prv_make_state(battery_curve_get_percent_remaining(near_second_warning_hours), false, false);
+  PreciseBatteryChargeState second_warning = prv_make_state(second_warning_percent, false, false);
 
   prv_change_state(near_second_warning);
   cl_assert(!s_modal_onscreen);
-  cl_assert_equal_i(s_vibe_count, 0);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 0);
 
   // Dropping below the red threshold should fire red normally.
   prv_change_state(second_warning);
   cl_assert(s_modal_onscreen);
   cl_assert_equal_i(s_modal_percent, second_warning_percent);
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 }
 
 void test_battery_ui_fsm__honor_dnd(void) {
   PreciseBatteryChargeState nop = prv_make_state(50, false, false),
                             charging = prv_make_state(50, true, true),
-                            warning = prv_make_state(
-                                prv_warning_percent(BatteryUIWarningLevel_Low), false, false);
-  s_dnd_on = true;
+                            warning = prv_make_state(prv_warning_percent(BatteryUIWarningLevel_Low),
+                                                     false, false);
+  do_not_disturb_is_active_fake.return_val = true;
   prv_change_state(charging);
   cl_assert(s_modal_onscreen && s_modal_charging);
-  cl_assert_equal_i(s_vibe_count, 0);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 0);
 
   // With DND off, another charging event shouldn't vibe since we didn't update
-  s_dnd_on = false;
+  do_not_disturb_is_active_fake.return_val = false;
   prv_change_state(charging);
-  cl_assert_equal_i(s_vibe_count, 0);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 0);
 
   // Now we should vibe
   prv_change_state(nop);
 
   prv_change_state(charging);
   cl_assert(s_modal_onscreen && s_modal_charging);
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 
   // Same for warnings
-  s_dnd_on = true;
+  do_not_disturb_is_active_fake.return_val = true;
   prv_change_state(warning);
   cl_assert(s_modal_onscreen && s_modal_percent);
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 
-  s_dnd_on = false;
+  do_not_disturb_is_active_fake.return_val = false;
   prv_change_state(warning);
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 
   prv_change_state(nop);
   prv_change_state(warning);
   cl_assert(s_modal_onscreen && s_modal_percent);
-  cl_assert_equal_i(s_vibe_count, 2);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 2);
 }
 
 void test_battery_ui_fsm__no_vibe_complete(void) {
   PreciseBatteryChargeState charging = prv_make_state(50, true, true),
                             fully_charged = prv_make_state(100, false, true);
 
-  s_dnd_on = false;
+  do_not_disturb_is_active_fake.return_val = false;
   // Charging starts
   prv_change_state(charging);
   cl_assert(s_modal_onscreen && s_modal_charging);
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 
   // Charging completes
   prv_change_state(fully_charged);
   cl_assert(s_modal_onscreen && !s_modal_charging);
-  cl_assert_equal_i(s_vibe_count, 1);
+  cl_assert_equal_i(vibes_short_pulse_fake.call_count, 1);
 }
 
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)

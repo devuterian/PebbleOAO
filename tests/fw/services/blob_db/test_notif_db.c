@@ -1,35 +1,24 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "clar.h"
+#include <pbl/services/blob_db/notif_db.h>
+#include <pbl/services/filesystem/pfs.h>
+#include <pbl/services/notifications/notification_storage.h>
+#include <pbl/util/uuid.h>
 
-#include "pbl/util/uuid.h"
-#include "pbl/services/filesystem/pfs.h"
-#include "pbl/services/blob_db/notif_db.h"
-#include "pbl/services/notifications/notification_storage.h"
+#include <clar.h>
 
 // Fixture
 ////////////////////////////////////////////////////////////////
 
 // Fakes
 ////////////////////////////////////////////////////////////////
-#include "fake_spi_flash.h"
-#include "fake_system_task.h"
-#include "fake_kernel_services_notifications.h"
+#include <fake_kernel_services_notifications.h>
+#include <fake_spi_flash.h>
+#include <fake_system_task.h>
 
 // Stubs
 ////////////////////////////////////////////////////////////////
-#include "stubs_analytics.h"
-#include "stubs_hexdump.h"
-#include "stubs_layout_layer.h"
-#include "stubs_logging.h"
-#include "stubs_mutex.h"
-#include "stubs_passert.h"
-#include "stubs_pbl_malloc.h"
-#include "stubs_prompt.h"
-#include "stubs_rand_ptr.h"
-#include "stubs_sleep.h"
-#include "stubs_task_watchdog.h"
 
 void test_notif_db__initialize(void) {
   fake_spi_flash_init(0, 0x1000000);
@@ -98,13 +87,15 @@ void test_notif_db__flush(void) {
   };
   uuid_generate(&hdr3.common.id);
 
-  cl_assert_equal_i(notif_db_insert((uint8_t *)&hdr1, UUID_SIZE, (uint8_t *)&hdr1, sizeof(hdr1)), 0);
-  cl_assert_equal_i(notif_db_insert((uint8_t *)&hdr2, UUID_SIZE, (uint8_t *)&hdr2, sizeof(hdr2)), 0);
-  cl_assert_equal_i(notif_db_insert((uint8_t *)&hdr3, UUID_SIZE, (uint8_t *)&hdr3, sizeof(hdr3)), 0);
+  cl_assert_equal_i(notif_db_insert((uint8_t *)&hdr1, UUID_SIZE, (uint8_t *)&hdr1, sizeof(hdr1)),
+                    0);
+  cl_assert_equal_i(notif_db_insert((uint8_t *)&hdr2, UUID_SIZE, (uint8_t *)&hdr2, sizeof(hdr2)),
+                    0);
+  cl_assert_equal_i(notif_db_insert((uint8_t *)&hdr3, UUID_SIZE, (uint8_t *)&hdr3, sizeof(hdr3)),
+                    0);
   cl_assert_equal_i(notif_db_flush(), 0);
   fake_system_task_callbacks_invoke_pending();
   cl_assert_equal_i(notif_db_get_len((uint8_t *)&hdr1, UUID_SIZE), 0);
   cl_assert_equal_i(notif_db_get_len((uint8_t *)&hdr2, UUID_SIZE), 0);
   cl_assert_equal_i(notif_db_get_len((uint8_t *)&hdr3, UUID_SIZE), 0);
 }
-

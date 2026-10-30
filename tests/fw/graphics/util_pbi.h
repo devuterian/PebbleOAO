@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "applib/graphics/gtypes.h"
-
 #include <stdio.h>
+
+#include <applib/graphics/gtypes.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -16,7 +16,7 @@ extern GBitmapDataRowInfo prv_gbitmap_get_data_row_info(const GBitmap *bitmap, u
 bool write_gbitmap_to_pbi(GBitmap *bmp, const char *filepath, const char *pbi2png_path) {
   char pbi_path[PATH_STRING_LENGTH];
   char png_path[PATH_STRING_LENGTH];
-  char *ext = NULL;
+  char *ext = nullptr;
 
   strncpy(pbi_path, filepath, sizeof(pbi_path));
   ext = strrchr(pbi_path, '.');
@@ -34,18 +34,16 @@ bool write_gbitmap_to_pbi(GBitmap *bmp, const char *filepath, const char *pbi2pn
   // Just in case this output bitmap was created by hand.
   bmp->info.version = GBITMAP_VERSION_CURRENT;
 
-  // PBL-24228 Support Circular PBIs
   uint16_t info_flags = bmp->info_flags;
 #if PBL_ROUND
-  if(bmp->info.format == GBitmapFormat8BitCircular) {
+  if (bmp->info.format == GBitmapFormat8BitCircular) {
     // Have to force output format to 8Bit;
-    ((BitmapInfo*)&info_flags)->format = GBitmapFormat8Bit;
+    ((BitmapInfo *)&info_flags)->format = GBitmapFormat8Bit;
   }
 #endif
 
   // use entire bounds to include entire image
-  GRect entire_bounds = GRect(0, 0, 
-                              bmp->bounds.origin.x + bmp->bounds.size.w, 
+  GRect entire_bounds = GRect(0, 0, bmp->bounds.origin.x + bmp->bounds.size.w,
                               bmp->bounds.origin.y + bmp->bounds.size.h);
 
   fwrite(&bmp->row_size_bytes, sizeof(bmp->row_size_bytes), 1, file);
@@ -53,15 +51,14 @@ bool write_gbitmap_to_pbi(GBitmap *bmp, const char *filepath, const char *pbi2pn
   fwrite(&entire_bounds, sizeof(GRect), 1, file);
 
 #if PBL_ROUND
-  if(bmp->info.format == GBitmapFormat8BitCircular) {
+  if (bmp->info.format == GBitmapFormat8BitCircular) {
     for (int y = 0; y < entire_bounds.size.h; ++y) {
       // 8-Bit circular buffer is centered in padded rows, so just grab row and write DISP_COLS
       const GBitmapDataRowInfo dest_row_info = prv_gbitmap_get_data_row_info(bmp, y);
       uint8_t *bmp_row = dest_row_info.data;
       int x = 0;
       const uint8_t blank = 0;
-      // PBL-24229 missing mask: data outside of circle is garbage from previous and next rows
-      // Pad with blanks before min_x
+      // Data outside of the circle belongs to adjacent rows, pad with blanks before min_x
       while (x < dest_row_info.min_x) {
         fwrite(&blank, 1, 1, file);
         x++;
@@ -95,11 +92,7 @@ bool write_gbitmap_to_pbi(GBitmap *bmp, const char *filepath, const char *pbi2pn
   int pid = fork();
   if (pid == 0) {
     char *args[] = {
-      "python",
-      (char *)pbi2png_path,
-      (char *)pbi_path,
-      (char *)png_path,
-      NULL,
+      "python", (char *)pbi2png_path, (char *)pbi_path, (char *)png_path, nullptr,
     };
     execvp("python", args);
 
@@ -116,4 +109,3 @@ bool write_gbitmap_to_pbi(GBitmap *bmp, const char *filepath, const char *pbi2pn
   }
   return true;
 }
-

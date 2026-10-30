@@ -109,7 +109,9 @@ class Interface:
                 break
             try:
                 splitter.write(self.iostream.read(1))
-            except OSError:
+            except Exception:
+                # Closing a socket:// port under a pending read tears the
+                # socket down mid-call, which is not always an OSError.
                 if self.closed:
                     self.logger.info("Interface closed; receive loop exiting")
                 else:
@@ -172,7 +174,7 @@ class Interface:
             self.iostream.close()
 
     def on_link_up(self):
-        # FIXME PBL-34320 proper MTU/MRU support
+        # TODO: negotiate MTU/MRU
         self._link = Link(self, mtu=1500)
         # Test whether the link is ready to carry traffic
         self.lcp.ping(self._ping_done)

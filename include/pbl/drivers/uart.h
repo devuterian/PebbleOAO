@@ -3,113 +3,244 @@
 
 #pragma once
 
-#include "board/board.h"
-
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef const struct UARTDevice UARTDevice;
+#include <pbl/device.h>
 
-typedef struct UARTRXErrorFlags {
-  union {
-    struct {
-      uint8_t reserved:4;
-      bool parity_error:1;
-      bool overrun_error:1;
-      bool framing_error:1;
-      bool noise_detected:1;
-    };
-    uint8_t error_mask;
-  };
-} UARTRXErrorFlags;
+/**
+ * @defgroup drivers_uart UART
+ * @ingroup drivers
+ * @brief Serial port class.
+ *
+ * A serial port is a struct pbl_uart device. It starts with the baud rate the board gives, 8 data
+ * bits, no parity, one stop bit and no flow control. Bytes are sent polled, and received bytes
+ * are handed to a callback, one at a time, from the port's interrupt while reception is enabled:
+ *
+ * @code{.c}
+ * static void prv_rx(const struct pbl_uart *uart, uint8_t c, void *arg) {
+ *   // interrupt context; may call pbl_uart_rx_disable() to hold further bytes back
+ * }
+ *
+ * const struct pbl_uart_config cfg = {.baudrate = 115200};
+ *
+ * ret = pbl_uart_configure(DBG_UART, &cfg);
+ * ret = pbl_uart_rx_enable(DBG_UART, prv_rx, nullptr);
+ *
+ * pbl_uart_poll_out(DBG_UART, 'A');
+ * pbl_uart_flush(DBG_UART);
+ * @endcode
+ *
+ * A port can also serve as an early console, before the device model is initialized:
+ * pbl_uart_early_init() sets it up for polled transmission only, and the device init takes over
+ * with the same line settings.
+ *
+ * The port may keep the SoC out of its deepest sleep states while reception is enabled. Calls
+ * may be made from interrupt context. They return 0 or a negative errno: @c -ENODEV if the port
+ * is not ready and @c -ENOTSUP for line settings it does not support.
+ * @{
+ */
 
-//! The type of function which can be called from within the UART ISR (@see
-//! uart_set_*_interrupt_handler)
-//! @return Whether or not the ISR should context switch at the end instead of resuming the previous
-//! task (the kernel requests it)
-typedef bool (*UARTRXInterruptHandler)(UARTDevice *dev, uint8_t data,
-                                       const UARTRXErrorFlags *err_flags);
-typedef bool (*UARTTXInterruptHandler)(UARTDevice *dev);
+/** @brief Parity. */
+enum pbl_uart_parity {
+  /** No parity bit. */
+  PBL_UART_PARITY_NONE,
+  /** Odd parity. */
+  PBL_UART_PARITY_ODD,
+  /** Even parity. */
+  PBL_UART_PARITY_EVEN,
+};
 
-//! Initializes the device
-void uart_init(UARTDevice *dev);
+/** @brief Flow control. */
+enum pbl_uart_flow_ctrl {
+  /** None. */
+  PBL_UART_FLOW_CTRL_NONE,
+  /** RTS and CTS lines. */
+  PBL_UART_FLOW_CTRL_RTS_CTS,
+};
 
-//! Initializes the device with open-drain pins instead of push-pull
-void uart_init_open_drain(UARTDevice *dev);
+/** @brief Line settings. */
+struct pbl_uart_config {
+  /** Baud rate, in bits per second. */
+  uint32_t baudrate;
+  /** Parity. */
+  enum pbl_uart_parity parity;
+  /** Flow control. */
+  enum pbl_uart_flow_ctrl flow_ctrl;
+};
 
-//! Same as uart_init() but only enables the TX UART
-void uart_init_tx_only(UARTDevice *dev);
+struct pbl_uart;
 
-//! Same as uart_init() but only enables the RX UART
-void uart_init_rx_only(UARTDevice *dev);
+/**
+ * @brief Receive callback, called from the port's interrupt for each received byte.
+ *
+ * @param uart Port.
+ * @param c Byte.
+ * @param arg Callback argument.
+ */
+typedef void (*pbl_uart_rx_callback_t)(const struct pbl_uart *uart, uint8_t c, void *arg);
 
-//! Deinitializes the device
-void uart_deinit(UARTDevice *dev);
+/** @brief Class of the serial ports. */
+extern const struct pbl_device_class pbl_uart_class;
 
-//! Sets the baud rate of the device
-void uart_set_baud_rate(UARTDevice *dev, uint32_t baud_rate);
+/** @cond INTERNAL_HIDDEN */
+struct pbl_uart_state {
+  struct pbl_uart_config cfg;
+  pbl_uart_rx_callback_t rx_cb;
+  void *rx_arg;
+  bool rx_enabled;
+  bool early;
+};
+/** @endcond */
 
-//! Sets a receive IRQ handler for the device which is called whenever we receive a byte (within an
-//! ISR)
-//! @note This cannot be set at the same time as a raw interrupt handler
-void uart_set_rx_interrupt_handler(UARTDevice *dev, UARTRXInterruptHandler irq_handler);
+/**
+ * @brief Port driver operations.
+ *
+ * Called with interrupts locked, except init().
+ */
+struct pbl_uart_ops {
+  /** Set the port up. Returns 0 or a negative errno. */
+  int (*init)(const struct pbl_uart *uart);
+  /**
+   * Set the port up for polled transmission, before the device model is initialized. Returns 0 or
+   * a negative errno.
+   */
+  int (*early_init)(const struct pbl_uart *uart);
+  /** Apply line settings. Returns 0 or a negative errno. */
+  int (*configure)(const struct pbl_uart *uart, const struct pbl_uart_config *cfg);
+  /** Send a byte, waiting for room. */
+  void (*poll_out)(const struct pbl_uart *uart, uint8_t c);
+  /** Optional. Wait until the bytes sent have left the port. */
+  void (*flush)(const struct pbl_uart *uart);
+  /**
+   * Start reception, handing bytes to pbl_uart_receive(). Returns 0 or a negative errno. May be
+   * called from the port's interrupt.
+   */
+  int (*rx_enable)(const struct pbl_uart *uart);
+  /** Stop reception. May be called from the port's interrupt. */
+  void (*rx_disable)(const struct pbl_uart *uart);
+};
 
-//! Sets a transmit IRQ handler for the device which is called whenever we send a byte (within an
-//! ISR)
-//! @note This cannot be set at the same time as a raw interrupt handler
-void uart_set_tx_interrupt_handler(UARTDevice *dev, UARTTXInterruptHandler irq_handler);
+/** @brief A serial port. */
+struct pbl_uart {
+  /** Device. */
+  struct pbl_device dev;
+  /** Driver operations. */
+  const struct pbl_uart_ops *ops;
+  /** Runtime state. */
+  struct pbl_uart_state *state;
+  /** Initial baud rate, in bits per second. */
+  uint32_t baudrate;
+};
 
-//! Sets whether or not receive/transmit interrupts are enabled
-void uart_set_rx_interrupt_enabled(UARTDevice *dev, bool enabled);
-void uart_set_tx_interrupt_enabled(UARTDevice *dev, bool enabled);
+/**
+ * @brief Define the class state of port @p sym, for the @c PBL_UART_*_DEFINE() macro of a driver.
+ *
+ * @param sym Symbol of the port instance.
+ */
+#define PBL_UART_STATE_DEFINE(sym) \
+  PBL_DEVICE_STATE_DEFINE(sym);    \
+  static struct pbl_uart_state sym##_uart_state
 
-//! Writes a byte to the UART device
-//! @note This will block until the transmit buffer is clear if necessary
-void uart_write_byte(UARTDevice *dev, uint8_t data);
+/**
+ * @brief Initializer for the struct pbl_uart of port @p sym.
+ *
+ * @param sym Symbol of the port instance, with its state defined by PBL_UART_STATE_DEFINE().
+ * @param _name Name.
+ * @param _ops Driver operations.
+ * @param _baudrate Initial baud rate, in bits per second.
+ * @param _deps Dependencies from PBL_DEVICE_DEPS(), or NULL.
+ */
+#define PBL_UART_INIT(sym, _name, _ops, _baudrate, _deps)                                     \
+  {                                                                                           \
+    .dev = PBL_DEVICE_INIT_CLASS(sym, _name, pbl_uart_init, nullptr, _deps, &pbl_uart_class), \
+    .ops = (_ops),                                                                            \
+    .state = &sym##_uart_state,                                                               \
+    .baudrate = (_baudrate),                                                                  \
+  }
 
-//! Reads a byte from the UART device
-//! @note This will cause error flags (framing / overrun) to be cleared
-//! @param[in] dev The UART device to read from
-//! @return The read byte
-uint8_t uart_read_byte(UARTDevice *dev);
+/**
+ * @brief Device init of every port: calls the driver's init, then applies the line settings, the
+ * early console's if the port was one.
+ *
+ * @param dev Port device.
+ * @return 0 or a negative errno.
+ */
+int pbl_uart_init(const struct pbl_device *dev);
 
-//! Starts the use of DMA for receiving (the DMARequest must be configured)
-//! @param[in] dev The UART device
-//! @param buffer The buffer into which received data is written
-//! @param length The size of the buffer in bytes
-void uart_start_rx_dma(UARTDevice *dev, void *buffer, uint32_t length);
+/**
+ * @brief Hand a received byte to the receive callback.
+ *
+ * Called by the port driver from its interrupt.
+ *
+ * @param uart Port.
+ * @param c Byte.
+ * @return true if reception is still enabled, false if the driver must hold further bytes back.
+ */
+bool pbl_uart_receive(const struct pbl_uart *uart, uint8_t c);
 
-//! Stops the use of DMA for receiving (the DMARequest must be configured)
-//! @param[in] dev The UART device
-void uart_stop_rx_dma(UARTDevice *dev);
+/**
+ * @brief Set a port up as an early console, for polled transmission before its device init.
+ *
+ * @param uart Port.
+ * @param cfg Line settings, kept once the device init takes over.
+ * @return 0 or a negative errno.
+ */
+int pbl_uart_early_init(const struct pbl_uart *uart, const struct pbl_uart_config *cfg);
 
-//! Discards any pending data in the RX DMA buffer
-void uart_clear_rx_dma_buffer(UARTDevice *dev);
+/**
+ * @brief Apply line settings.
+ *
+ * @param uart Port.
+ * @param cfg Line settings.
+ * @return 0 or a negative errno.
+ */
+int pbl_uart_configure(const struct pbl_uart *uart, const struct pbl_uart_config *cfg);
 
-//! Returns whether or not the peripheral has a byte ready to be read
-bool uart_is_rx_ready(UARTDevice *dev);
+/**
+ * @brief Get the line settings.
+ *
+ * @param uart Port.
+ * @param[out] cfg Line settings.
+ * @return 0 or a negative errno.
+ */
+int pbl_uart_config_get(const struct pbl_uart *uart, struct pbl_uart_config *cfg);
 
-//! Returns whether or not the peripheral has a byte ready to be read
-//! @note This should be called before reading from the RX buffer as doing so will clear this flag
-bool uart_has_rx_overrun(UARTDevice *dev);
+/**
+ * @brief Send a byte, waiting for room. Does nothing if the port is neither ready nor an early
+ * console.
+ *
+ * @param uart Port.
+ * @param c Byte.
+ */
+void pbl_uart_poll_out(const struct pbl_uart *uart, uint8_t c);
 
-//! Returns whether or not the peripheral has a byte ready to be read
-//! @note This should be called before reading from the RX buffer as doing so will clear this flag
-bool uart_has_rx_framing_error(UARTDevice *dev);
+/**
+ * @brief Wait until the bytes sent have left the port.
+ *
+ * @param uart Port.
+ */
+void pbl_uart_flush(const struct pbl_uart *uart);
 
-//! Returns whether or not the peripheral is ready to send a byte
-bool uart_is_tx_ready(UARTDevice *dev);
+/**
+ * @brief Enable reception.
+ *
+ * Bytes are handed to @p cb until pbl_uart_rx_disable() is called. Enabling it again replaces
+ * the callback.
+ *
+ * @param uart Port.
+ * @param cb Receive callback.
+ * @param arg Callback argument.
+ * @return 0 or a negative errno.
+ */
+int pbl_uart_rx_enable(const struct pbl_uart *uart, pbl_uart_rx_callback_t cb, void *arg);
 
-//! Returns whether or not the peripheral has finished sending the last byte
-bool uart_is_tx_complete(UARTDevice *dev);
+/**
+ * @brief Disable reception. Bytes the port does not hold back are lost.
+ *
+ * @param uart Port.
+ * @return 0 or a negative errno.
+ */
+int pbl_uart_rx_disable(const struct pbl_uart *uart);
 
-//! Waits for the current transmit to complete
-void uart_wait_for_tx_complete(UARTDevice *dev);
-
-//! Checks to see if any errors are pended on the UART. Returns a non-zero
-//! if error_mask if an error has occurred.
-UARTRXErrorFlags uart_has_errored_out(UARTDevice *dev);
-
-//! Clears all interrupt flags
-//! @param[in] dev The UART device
-void uart_clear_all_interrupt_flags(UARTDevice *dev);
+/** @} */

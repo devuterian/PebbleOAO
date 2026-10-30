@@ -4,6 +4,8 @@
 set(nimble mynewt-nimble)
 
 set(includes
+  # Ahead of porting/nimble/include, whose syscfg.h is a placeholder.
+  port/include
   ${nimble}/nimble/include
   ${nimble}/nimble/host/include
   ${nimble}/nimble/host/services/ans/include
@@ -19,7 +21,6 @@ set(includes
   ${nimble}/nimble/transport/include
   ${nimble}/nimble/transport/common/hci_h4/include
   ${nimble}/porting/nimble/include
-  port/include
 )
 
 file(GLOB sources CONFIGURE_DEPENDS
@@ -27,14 +28,18 @@ file(GLOB sources CONFIGURE_DEPENDS
   ${nimble}/nimble/src/*.c
   ${nimble}/nimble/host/src/*.c
   ${nimble}/nimble/host/util/src/*.c
-  ${nimble}/nimble/host/services/bas/src/*.c
   ${nimble}/nimble/host/services/gap/src/*.c
   ${nimble}/nimble/host/services/gatt/src/*.c
-  ${nimble}/nimble/host/services/dis/src/*.c
   ${nimble}/nimble/transport/src/*.c
   ${nimble}/nimble/transport/common/hci_h4/src/*.c
   port/src/npl_os_pebble.c
 )
+if(CONFIG_NIMBLE_BLE_SVC_BAS)
+  list(APPEND sources ${nimble}/nimble/host/services/bas/src/ble_svc_bas.c)
+endif()
+if(CONFIG_NIMBLE_BLE_SVC_DIS)
+  list(APPEND sources ${nimble}/nimble/host/services/dis/src/ble_svc_dis.c)
+endif()
 pbl_filter_sources(sources EXCLUDE
   # has a duplicate define, and is not needed anyway
   ${nimble}/nimble/host/src/ble_gatts_lcl.c
@@ -43,35 +48,47 @@ pbl_filter_sources(sources EXCLUDE
 
 set(defines "")
 
-if(CONFIG_SOC_NRF52)
-  file(GLOB controller_sources CONFIGURE_DEPENDS
-    ${nimble}/nimble/controller/src/*.c
+if(CONFIG_NIMBLE_CONTROLLER)
+  file(GLOB controller_sources CONFIGURE_DEPENDS ${nimble}/nimble/controller/src/*.c)
+  list(APPEND sources ${controller_sources})
+  list(PREPEND includes ${nimble}/nimble/controller/include)
+  list(APPEND defines NIMBLE_CFG_CONTROLLER=1)
+  pbl_compile_definitions(NIMBLE_CFG_CONTROLLER=1)
+endif()
+
+if(CONFIG_NIMBLE_DRIVER_NRF5X)
+  file(GLOB driver_sources CONFIGURE_DEPENDS
     ${nimble}/nimble/drivers/nrf5x/src/*.c
     ${nimble}/nimble/drivers/nrf5x/src/nrf52/*.c
   )
-  list(APPEND sources ${controller_sources}
+  list(APPEND sources ${driver_sources})
+  list(PREPEND includes ${nimble}/nimble/drivers/nrf5x/include)
+endif()
+
+if(CONFIG_BT_HCI_NRF52)
+  list(APPEND sources
     ${nimble}/porting/nimble/src/hal_timer.c
     port/src/nrf52.c
   )
-  list(PREPEND includes
-    port/include/nrf52
-    ${nimble}/nimble/controller/include
-    ${nimble}/nimble/drivers/nrf5x/include
-  )
-  list(APPEND defines FREERTOS=1 PEBBLEOS NRF52_SERIES NIMBLE_CFG_CONTROLLER=1)
-  pbl_compile_definitions(NIMBLE_CFG_CONTROLLER=1)
-elseif(CONFIG_SOC_SF32LB52)
+  list(APPEND defines FREERTOS=1 PEBBLEOS NRF52_SERIES)
+elseif(CONFIG_BT_HCI_SF32LB52)
   list(APPEND sources
     transport/hci_sf32lb52.c
     ../nonfree/pebbleos-nonfree/sf32lb52/lcpu_52x.c
   )
-  list(PREPEND includes port/include/sf32lb52)
-
   if(CONFIG_NIMBLE_HCI_SF32LB52_TRACE_BINARY)
     pbl_compile_definitions(NIMBLE_HCI_SF32LB52_TRACE NIMBLE_HCI_SF32LB52_TRACE_BINARY)
   elseif(CONFIG_NIMBLE_HCI_SF32LB52_TRACE_LOG)
     pbl_compile_definitions(NIMBLE_HCI_SF32LB52_TRACE NIMBLE_HCI_SF32LB52_TRACE_LOG)
   endif()
+elseif(CONFIG_BT_HCI_UART)
+  list(APPEND sources transport/hci_uart.c)
+elseif(CONFIG_BT_HCI_FAKE)
+  list(APPEND sources transport/hci_fake.c)
+endif()
+
+if(CONFIG_NIMBLE_TRNG)
+  list(APPEND sources port/src/trng.c)
 endif()
 
 pbl_include_directories(${includes})
@@ -84,5 +101,6 @@ pbl_library_compile_options(
   -Wno-unused-function
   -Wno-sign-compare
   -Wno-old-style-declaration
+  -Wno-unused-but-set-global
   -Wimplicit-fallthrough=1
 )

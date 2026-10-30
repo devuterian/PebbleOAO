@@ -103,12 +103,13 @@ def build_builtin(ball_path, output_path, resource_id_include):
     with open(output_path, "w") as f:
         f.write(f'#include "{resource_id_include}"\n')
         f.write('#include "resource/resource_storage.h"\n')
-        f.write('#include "resource/resource_storage_builtin.h"\n\n')
+        f.write('#include "resource/resource_storage_builtin.h"\n')
+        f.write('#include "pbl/kernel/compiler.h"\n\n')
 
         for reso in resos:
             # Some resources require 8-byte aligned addresses; aligning them
             # all keeps the handling simple.
-            f.write("__attribute__ ((aligned (8)))\n")
+            f.write("PBL_ALIGNED(8)\n")
             generate_c_byte_array.write(f, reso.data, var_name(reso))
 
         f.write("\n")
@@ -216,7 +217,7 @@ def build_font_header(ball_path, output_path):
             f'#define FONT_KEY_{key} "RESOURCE_ID_{key}"\n'
             for key in font_keys(ball_path)
         )
-        # See PBL-9335. This define was removed as it is no longer a
+        # This define was removed as it is no longer a
         # complete font; it looked like Gothic 14, so use that instead.
         f.write('#define FONT_KEY_FONT_FALLBACK "RESOURCE_ID_GOTHIC_14"\n')
 

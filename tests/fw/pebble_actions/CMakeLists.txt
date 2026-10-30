@@ -2,47 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 pbl_clar_test(test_ancs_pebble_actions
+  MODULES settings timeline_item time rand
   SOURCES
-    src/fw/comm/ble/kernel_le_client/ancs/ancs_util.c
-    src/fw/flash_region/filesystem_regions.c
-    src/fw/flash_region/flash_region.c
-    src/fw/services/blob_db/ios_notif_pref_db.c
-    src/fw/services/filesystem/flash_translation.c
-    src/fw/services/filesystem/pfs.c
-    src/fw/services/notifications/ancs/ancs_filtering.c
-    src/fw/services/notifications/ancs/ancs_item.c
-    src/fw/services/notifications/ancs/ancs_notifications.c
-    src/fw/services/notifications/ancs/ancs_notifications_util.c
-    src/fw/services/notifications/ancs/ancs_phone_call.c
-    src/fw/services/settings/settings_file.c
-    src/fw/services/settings/settings_raw_iter.c
-    src/fw/services/timeline/actions_endpoint.c
-    src/fw/services/timeline/attribute.c
-    src/fw/services/timeline/attribute_group.c
-    src/fw/services/timeline/attributes_actions.c
-    src/fw/services/timeline/item.c
-    src/fw/services/timeline/timeline.c
-    src/fw/services/timeline/timeline_actions.c
-    src/fw/util/buffer.c
-    src/fw/util/crc8.c
-    src/fw/util/legacy_checksum.c
-    src/fw/util/pstring.c
-    src/fw/util/rand/rand.c
-    src/fw/util/time/time.c
-    third_party/tinymt/TinyMT/tinymt/tinymt32.c
-    tests/fakes/fake_spi_flash.c
+    fw/applib/ui/preferred_durations.c
+    fw/comm/ble/kernel_le_client/ancs/ancs_util.c
+    fw/services/blob_db/ios_notif_pref_db.c
+    fw/services/notifications/ancs/ancs_filtering.c
+    fw/services/notifications/ancs/ancs_item.c
+    fw/services/notifications/ancs/ancs_notifications.c
+    fw/services/notifications/ancs/ancs_notifications_util.c
+    fw/services/notifications/ancs/ancs_phone_call.c
+    fw/services/timeline/actions_endpoint.c
+    fw/services/timeline/timeline.c
+    fw/services/timeline/timeline_actions.c
   OVERRIDES dummy_board
 )
 
 pbl_clar_test(test_timeline_actions
+  MODULES timeline_item time
   SOURCES
-    src/fw/services/timeline/actions_endpoint.c
-    src/fw/services/timeline/attribute.c
-    src/fw/services/timeline/attribute_group.c
-    src/fw/services/timeline/attributes_actions.c
-    src/fw/services/timeline/item.c
-    src/fw/services/timeline/timeline.c
-    src/fw/services/timeline/timeline_actions.c
-    src/fw/util/time/time.c
+    fw/applib/ui/preferred_durations.c
+    fw/services/timeline/actions_endpoint.c
+    fw/services/timeline/timeline.c
+    fw/services/timeline/timeline_actions.c
   OVERRIDES dummy_board
 )

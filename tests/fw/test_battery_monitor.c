@@ -1,32 +1,27 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "pbl/services/battery/battery_monitor.h"
-#include "pbl/services/battery/battery_state.h"
-#include "pbl/services/battery/battery_curve.h"
+#include <pbl/services/battery/battery_curve.h>
+#include <pbl/services/battery/battery_monitor.h>
+#include <pbl/services/battery/battery_state.h>
 
-#include "clar.h"
+#include <clar.h>
+#include <fff.h>
 
 void battery_charge_limit_init(void) {}
 void battery_charge_limit_evaluate(PreciseBatteryChargeState state) {}
 
 // Stubs
 ////////////////////////////////////
-#include "stubs_analytics.h"
-#include "stubs_logging.h"
-#include "stubs_passert.h"
-#include "stubs_prompt.h"
-#include "stubs_serial.h"
-#include "fake_new_timer.h"
-#include "fake_battery.h"
-#include "fake_system_task.h"
-#include "fake_rtc.h"
-
-#include "kernel/events.h"
 #include <pbl/logging/logging.h>
-#include "system/reboot_reason.h"
 
-static bool s_entered_standby;
+#include <fake_battery.h>
+#include <fake_new_timer.h>
+#include <fake_rtc.h>
+#include <fake_system_task.h>
+#include <kernel/events.h>
+#include <system/reboot_reason.h>
+
 static bool s_in_low_power;
 static bool s_error_window_shown;
 static bool s_warning_window_shown;
@@ -36,9 +31,7 @@ bool battery_is_usb_connected_raw(void) {
   return false;
 }
 
-void low_power_standby(void) {
-  s_entered_standby = true;
-}
+FAKE_VOID_FUNC(low_power_standby);
 
 void low_power_exit(void) {
   s_in_low_power = false;
@@ -56,13 +49,14 @@ bool firmware_update_is_in_progress(void) {
   return false;
 }
 
-void battery_force_charge_enable(bool is_charging) { }
+void battery_force_charge_enable(bool is_charging) {
+}
 
 static void periodic_timer_trigger(int count) {
   TimerID timer_id = battery_state_get_periodic_timer_id();
   cl_assert(timer_id != TIMER_INVALID_ID);
   cl_assert(stub_new_timer_is_scheduled(timer_id));
-  for (int i=0; i<count; ++i) {
+  for (int i = 0; i < count; ++i) {
     stub_new_timer_fire(timer_id);
     fake_system_task_callbacks_invoke_pending();
   }
@@ -73,7 +67,7 @@ static void standby_timer_trigger(int count) {
 
   cl_assert(timer_id != TIMER_INVALID_ID);
   cl_assert(stub_new_timer_is_scheduled(timer_id));
-  for (int i = 0; i<count; ++i) {
+  for (int i = 0; i < count; ++i) {
     stub_new_timer_fire(timer_id);
     fake_system_task_callbacks_invoke_pending();
   }
@@ -92,11 +86,9 @@ static uint32_t standby_timer_get_timeout() {
   return stub_new_timer_timeout(timer_id);
 }
 
-void enter_standby(RebootReasonCode reason) {
-  s_entered_standby = true;
-}
+FAKE_VALUE_FUNC(int, enter_standby, RebootReasonCode);
 
-void event_put(PebbleEvent* event) {
+void event_put(PebbleEvent *event) {
   s_last_event_put = *event;
 
   if (event->type == PEBBLE_BATTERY_STATE_CHANGE_EVENT) {
@@ -110,10 +102,11 @@ void event_put(PebbleEvent* event) {
 // Setup
 ////////////////////////////////////
 void test_battery_monitor__initialize(void) {
-  //g_pbl_log_enabled = true;
-  //g_pbl_log_level = 255;
+  // g_pbl_log_enabled = true;
+  // g_pbl_log_level = 255;
 
-  s_entered_standby = false;
+  RESET_FAKE(low_power_standby);
+  RESET_FAKE(enter_standby);
   s_error_window_shown = false;
   s_warning_window_shown = false;
   s_in_low_power = false;
@@ -132,8 +125,8 @@ void test_battery_monitor__cleanup(void) {
 // Tests
 ////////////////////////////////////
 
-int32_t battery_curve_lookup_percent_with_scaling_factor(
-    int battery_mv, bool is_charging, uint32_t scaling_factor);
+int32_t battery_curve_lookup_percent_with_scaling_factor(int battery_mv, bool is_charging,
+                                                         uint32_t scaling_factor);
 
 void test_battery_monitor__scaled_reading(void) {
   int32_t scaling_factor = INT32_MAX / 100;
@@ -143,9 +136,7 @@ void test_battery_monitor__scaled_reading(void) {
   // the percentage reported increases. Use the largest scaling factor to check
   // for integer overflows
   for (int mv = 3000; mv < 5000; mv++) {
-
-    int32_t res = battery_curve_lookup_percent_with_scaling_factor(
-        mv, false, scaling_factor);
+    int32_t res = battery_curve_lookup_percent_with_scaling_factor(mv, false, scaling_factor);
 
     cl_assert(prev_reading <= res);
     prev_reading = res;
@@ -153,11 +144,11 @@ void test_battery_monitor__scaled_reading(void) {
 
   // make sure that when we compute the largest possible (100% - 0%) and lowest possible
   // (0% - 100%) battery delta that we don't overflow the computation
-  int32_t start_percent = battery_curve_lookup_percent_with_scaling_factor(
-       2000, false, scaling_factor);
+  int32_t start_percent =
+      battery_curve_lookup_percent_with_scaling_factor(2000, false, scaling_factor);
 
-  int32_t end_percent = battery_curve_lookup_percent_with_scaling_factor(
-       5000, false, scaling_factor);
+  int32_t end_percent =
+      battery_curve_lookup_percent_with_scaling_factor(5000, false, scaling_factor);
 
   int32_t delta_percent = end_percent - start_percent;
   cl_assert(delta_percent > (INT32_MAX - 100));
@@ -184,7 +175,8 @@ void test_battery_monitor__charge_fluctuate_voltage(void) {
   periodic_timer_trigger(10);
   cl_assert_equal_i(battery_get_charge_state().charge_percent, high_percent);
 
-  // Then, when the voltage drops, the percentage should begin to decline - but should not reach the low value yet
+  // Then, when the voltage drops, the percentage should begin to decline - but should not reach the
+  // low value yet
   fake_battery_set_millivolts(low_mv);
   periodic_timer_trigger(1);
   int delta = high_percent - battery_get_charge_state().charge_percent;
@@ -193,7 +185,7 @@ void test_battery_monitor__charge_fluctuate_voltage(void) {
 
   // But, it should approach that value over time
   int last_delta = delta;
-  while(battery_get_charge_state().charge_percent > low_percent) {
+  while (battery_get_charge_state().charge_percent > low_percent) {
     periodic_timer_trigger(1);
     delta = high_percent - battery_get_charge_state().charge_percent;
     cl_assert(delta >= last_delta);
@@ -204,7 +196,7 @@ void test_battery_monitor__charge_fluctuate_voltage(void) {
 }
 
 void test_battery_monitor__connection_reset(void) {
-  // Test for PBL-19951: Reset charge percent on reconnection events
+  // Reset charge percent on reconnection events
   int percent = 10;
   int charge_mv = battery_curve_lookup_voltage_by_percent(percent, true);
   int discharge_mv = battery_curve_lookup_voltage_by_percent(percent, false);
@@ -274,7 +266,7 @@ critical -> lpm
 lpm -> critical
 critical -> good
 */
-// Must mirror the PowerStateID enum in src/fw/services/battery/battery_monitor.c.
+// Must mirror the PowerStateID enum in fw/services/battery/battery_monitor.c.
 // PowerStatePluggedIn was added in 9d3a9548f ("add plugged in status"): whenever
 // the watch is plugged in, it ignores battery level/charge status and operates
 // normally, so the state machine reports PluggedIn rather than Good/LowPower.
@@ -355,7 +347,9 @@ void test_battery_monitor__low_first_run(void) {
 
   cl_assert_equal_i(standby_timer_get_timeout(), 2000);
   standby_timer_trigger(1);
-  cl_assert(s_entered_standby);
+  cl_assert_equal_i(low_power_standby_fake.call_count, 0);
+  cl_assert_equal_i(enter_standby_fake.call_count, 1);
+  cl_assert_equal_i(enter_standby_fake.arg0_val, RebootReasonCode_LowBattery);
 }
 
 void test_battery_monitor__critical(void) {
@@ -374,7 +368,10 @@ void test_battery_monitor__critical(void) {
 
   cl_assert_equal_i(standby_timer_get_timeout(), 30000);
   standby_timer_trigger(1);
-  cl_assert(s_entered_standby);
+  // Low power mode is active by now, so it handles the standby
+  cl_assert(low_power_is_active());
+  cl_assert_equal_i(low_power_standby_fake.call_count, 1);
+  cl_assert_equal_i(enter_standby_fake.call_count, 0);
 }
 
 void test_battery_monitor__critical_plugged_in(void) {
@@ -399,7 +396,8 @@ void test_battery_monitor__critical_plugged_in(void) {
   fake_battery_set_connected(true);
   periodic_timer_trigger(1);
   cl_assert(!standby_timer_is_scheduled());
-  cl_assert(!s_entered_standby);
+  cl_assert_equal_i(low_power_standby_fake.call_count, 0);
+  cl_assert_equal_i(enter_standby_fake.call_count, 0);
 }
 
 void test_battery_monitor__increase_discharging(void) {

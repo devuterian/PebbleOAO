@@ -3,9 +3,7 @@
 
 pbl_clar_test(test_compositor
   SOURCES
-    src/fw/applib/graphics/gtypes.c
-    src/fw/services/compositor/compositor.c
-    tests/stubs/stubs_modal_manager.c
-    tests/stubs/stubs_app_state.c
+    fw/applib/graphics/gtypes.c
+    fw/services/compositor/compositor.c
   OVERRIDES dummy_board
 )
