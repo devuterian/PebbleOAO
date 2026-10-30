@@ -463,8 +463,10 @@ static void prv_show_day_sep(TimelineLayer *timeline_layer, bool slide) {
   TimelineResourceInfo timeline_res = {
     .res_id = TIMELINE_RESOURCE_DAY_SEPARATOR,
   };
-  peek_layer_set_icon_with_size(&timeline_layer->day_separator, &timeline_res,
-                                TimelineResourceSizeLarge, icon_from);
+  // The separator art is black, so invert it to stay visible on the dark background
+  peek_layer_set_icon_with_size_invert(&timeline_layer->day_separator, &timeline_res,
+                                       TimelineResourceSizeLarge, icon_from,
+                                       system_theme_is_dark_mode());
 
   if (slide) {
     const bool align_in_frame = true;
@@ -656,6 +658,10 @@ static void prv_update_proc(struct Layer *layer, GContext *ctx) {
 
   graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   graphics_fill_rect(ctx, &(GRect) { .size = bounds->size });
+
+  // The theme can change while the timeline is open, so keep the stored text color in sync. This
+  // only marks the day separator dirty when the color actually changes.
+  peek_layer_set_text_color(&timeline_layer->day_separator, system_theme_get_fg_color());
 
   AnimationProgress progress;
   if (timeline_layer->animating_intro_or_exit &&

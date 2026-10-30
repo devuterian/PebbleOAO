@@ -49,6 +49,9 @@ void launcher_menu_layer_reload_data(LauncherMenuLayer *launcher_menu_layer);
 //! initialized, keeping the current selection.
 void launcher_menu_layer_update_content_size(LauncherMenuLayer *launcher_menu_layer);
 
+//! Re-apply the theme background and text colors, e.g. after dark mode flipped.
+void launcher_menu_layer_apply_theme_colors(LauncherMenuLayer *launcher_menu_layer);
+
 void launcher_menu_layer_set_selection_state(LauncherMenuLayer *launcher_menu_layer,
                                              const LauncherMenuLayerSelectionState *new_state);
 

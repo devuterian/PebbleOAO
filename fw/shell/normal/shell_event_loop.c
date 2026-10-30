@@ -28,6 +28,7 @@
 #include <process_management/app_manager.h>
 #include <shell/normal/app_idle_timeout.h>
 #include <shell/normal/battery_ui.h>
+#include <shell/normal/dark_mode_updater.h>
 #include <shell/normal/watchface.h>
 #include <shell/prefs.h>
 #include <shell/prefs_private.h>
@@ -52,6 +53,7 @@ static void prv_maybe_run_settings_dbs_compaction_migration(void) {
 
 void shell_event_loop_init(void) {
   shell_prefs_init();
+  dark_mode_updater_init();
   prv_maybe_run_settings_dbs_compaction_migration();
   notification_window_service_init();
   app_inbox_service_init();
@@ -132,6 +134,16 @@ void shell_event_loop_handle_event(PebbleEvent *e) {
     case PEBBLE_REMINDER_EVENT:
       // This handles incoming Reminders
       notification_window_handle_reminder(&e->reminder);
+      return;
+
+    case PEBBLE_SET_TIME_EVENT:
+      dark_mode_updater_handle_clock_change();
+      return;
+
+    case PEBBLE_BACKLIGHT_EVENT:
+      if (e->backlight.is_on) {
+        dark_mode_updater_handle_backlight_on();
+      }
       return;
 
     case PEBBLE_BATTERY_STATE_CHANGE_EVENT:

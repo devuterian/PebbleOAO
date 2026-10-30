@@ -1543,8 +1543,9 @@ static void prv_apply_art_appearance(MusicAppData *data) {
     clock_mode = StatusBarLayerModeClockLargeBold;
   }
 #endif
+  // Over album art the clock is drawn with a dark outline, so it stays white in every theme
   status_bar_layer_set_colors(&data->status_layer, GColorClear,
-                              data->has_album_art ? GColorWhite : GColorBlack);
+                              data->has_album_art ? GColorWhite : system_theme_get_fg_color());
   status_bar_layer_set_mode(&data->status_layer, clock_mode);
 #if MUSIC_ROUND_MEDIA_LAYOUT
   const GRect clock_frame = GRect(0, ART_ROUND_CLOCK_Y, DISP_COLS, 30);

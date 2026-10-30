@@ -21,6 +21,7 @@
 #include <resource/language_pack.h>
 #include <resource/resource_ids.auto.h>
 #include <resource/system_resource.h>
+#include <shell/normal/dark_mode_updater.h>
 #include <shell/normal/prefs_sync.h>
 #include <shell/normal/quick_launch.h>
 #include <shell/normal/watchface.h>
@@ -1049,6 +1050,7 @@ static bool prv_set_s_dark_mode(uint8_t *mode) {
     return false;
   }
   s_dark_mode = *mode;
+  dark_mode_updater_prefs_changed();
   return true;
 }
 
@@ -1058,6 +1060,7 @@ static bool prv_set_s_dark_mode_schedule(DarkModeSchedule *schedule) {
     return false;
   }
   s_dark_mode_schedule = *schedule;
+  dark_mode_updater_prefs_changed();
   return true;
 }
 

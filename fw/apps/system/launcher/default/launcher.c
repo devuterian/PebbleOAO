@@ -16,12 +16,14 @@
 #include <process_state/app_state/app_state.h>
 #include <shell/normal/app_idle_timeout.h>
 #include <shell/prefs.h>
+#include <shell/system_theme.h>
 
 typedef struct LauncherAppWindowData {
   Window window;
   LauncherMenuLayer launcher_menu_layer;
   AppMenuDataSource app_menu_data_source;
   EventServiceInfo pref_change_event_info;
+  EventServiceInfo dark_mode_event_info;
 } LauncherAppWindowData;
 
 typedef struct LauncherAppPersistedData {
@@ -53,6 +55,13 @@ static void prv_will_focus(bool in_focus) {
 static void prv_pref_change_handler([[maybe_unused]] PebbleEvent *event, void *context) {
   LauncherAppWindowData *data = context;
   launcher_menu_layer_update_content_size(&data->launcher_menu_layer);
+}
+
+// The launcher takes its background once, so re-apply it when dark mode flips on its own
+static void prv_dark_mode_change_handler([[maybe_unused]] PebbleEvent *event, void *context) {
+  LauncherAppWindowData *data = context;
+  window_set_background_color(&data->window, system_theme_get_bg_color());
+  launcher_menu_layer_apply_theme_colors(&data->launcher_menu_layer);
 }
 
 ////////////////////////////////
@@ -121,6 +130,13 @@ static void prv_window_load(Window *window) {
     .context = data,
   };
   event_service_client_subscribe(&data->pref_change_event_info);
+
+  data->dark_mode_event_info = (EventServiceInfo){
+    .type = PEBBLE_DARK_MODE_CHANGE_EVENT,
+    .handler = prv_dark_mode_change_handler,
+    .context = data,
+  };
+  event_service_client_subscribe(&data->dark_mode_event_info);
 }
 
 static void prv_window_unload(Window *window) {
@@ -142,6 +158,7 @@ static void prv_window_unload(Window *window) {
                                           &s_launcher_app_persisted_data.selection_state);
 
   event_service_client_unsubscribe(&data->pref_change_event_info);
+  event_service_client_unsubscribe(&data->dark_mode_event_info);
   app_focus_service_unsubscribe();
   launcher_menu_layer_deinit(&data->launcher_menu_layer);
   app_menu_data_source_deinit(&data->app_menu_data_source);

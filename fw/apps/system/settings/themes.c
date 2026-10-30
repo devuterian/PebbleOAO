@@ -227,30 +227,34 @@ static void prv_dark_mode_schedule_window_push(SettingsThemesData *data) {
   app_window_stack_push(&schedule_window->window, true);
 }
 
-static void prv_background_menu_select(OptionMenu *option_menu, int selection, void *context) {
-  shell_prefs_set_theme_dark_background(selection == 1);
-  app_window_stack_remove(&option_menu->window, true);
-}
+// Dark Mode is the only background control: its On and Off already pick the dark or light
+// background, so there is no separate Background row writing the same pref.
+enum {
+  ThemesRowDarkMode,
+  ThemesRowScheduleTime, //!< Only shown while dark mode is scheduled
+  ThemesRowAccentColor,
+};
 
-static void prv_push_background_menu(void) {
-  static const char *names[] = { i18n_noop("Light background"), i18n_noop("Dark background") };
-  const OptionMenuCallbacks callbacks = { .select = prv_background_menu_select };
-  settings_option_menu_push(i18n_noop("Background"), OptionMenuContentType_SingleLine,
-      shell_prefs_get_theme_dark_background() ? 1 : 0, &callbacks,
-      ARRAY_LENGTH(names), true, names, NULL);
+static uint16_t prv_row_to_item(uint16_t row) {
+  const bool has_schedule = (shell_prefs_get_dark_mode() == DarkModeScheduled);
+  if (!has_schedule && row >= ThemesRowScheduleTime) {
+    return row + 1;
+  }
+  return row;
 }
 
 static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
   SettingsThemesData *data = (SettingsThemesData *)context;
-  const bool has_schedule = (shell_prefs_get_dark_mode() == DarkModeScheduled);
-  if (row == 0) {
-    prv_push_dark_mode_menu(data);
-  } else if (row == 1) {
-    prv_push_background_menu();
-  } else if (has_schedule && row == 2) {
-    prv_dark_mode_schedule_window_push(data);
-  } else {
-    prv_push_color_menu();
+  switch (prv_row_to_item(row)) {
+    case ThemesRowDarkMode:
+      prv_push_dark_mode_menu(data);
+      break;
+    case ThemesRowScheduleTime:
+      prv_dark_mode_schedule_window_push(data);
+      break;
+    default:
+      prv_push_color_menu();
+      break;
   }
 }
 
@@ -259,34 +263,36 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx,
   const char *title = NULL;
   const char *subtitle = NULL;
   char time_buf[32];
-  const bool has_schedule = (shell_prefs_get_dark_mode() == DarkModeScheduled);
-  if (row == 0) {
-    title = i18n_noop("Dark Mode");
-    subtitle = s_dark_mode_labels[shell_prefs_get_dark_mode()];
-  } else if (row == 1) {
-    title = i18n_noop("Background");
-    subtitle = shell_prefs_get_theme_dark_background() ? i18n_noop("Dark background") : i18n_noop("Light background");
-  } else if (has_schedule && row == 2) {
-    title = i18n_noop("Schedule Time");
-    DarkModeSchedule schedule;
-    shell_prefs_get_dark_mode_schedule(&schedule);
-    clock_format_time(time_buf, sizeof(time_buf), schedule.from_hour, schedule.from_minute, true);
-    strcat(time_buf, " - ");
-    const size_t len = strlen(time_buf);
-    clock_format_time(time_buf + len, sizeof(time_buf) - len, schedule.to_hour, schedule.to_minute, true);
-    subtitle = time_buf;
-  } else {
-    int idx = shell_prefs_get_theme_highlight_inverted() ? INVERT_ENTRY_INDEX : prv_color_to_index(shell_prefs_get_theme_highlight_color(),
-                                  DEFAULT_THEME_HIGHLIGHT_COLOR);
-    title = i18n_noop("Accent Color");
-    subtitle = s_color_definitions[idx < 0 ? 0 : idx].name;
+  switch (prv_row_to_item(row)) {
+    case ThemesRowDarkMode:
+      title = i18n_noop("Dark Mode");
+      subtitle = s_dark_mode_labels[shell_prefs_get_dark_mode()];
+      break;
+    case ThemesRowScheduleTime: {
+      title = i18n_noop("Schedule Time");
+      DarkModeSchedule schedule;
+      shell_prefs_get_dark_mode_schedule(&schedule);
+      clock_format_time(time_buf, sizeof(time_buf), schedule.from_hour, schedule.from_minute, true);
+      strcat(time_buf, " - ");
+      const size_t len = strlen(time_buf);
+      clock_format_time(time_buf + len, sizeof(time_buf) - len, schedule.to_hour, schedule.to_minute, true);
+      subtitle = time_buf;
+      break;
+    }
+    default: {
+      int idx = shell_prefs_get_theme_highlight_inverted() ? INVERT_ENTRY_INDEX : prv_color_to_index(shell_prefs_get_theme_highlight_color(),
+                                    DEFAULT_THEME_HIGHLIGHT_COLOR);
+      title = i18n_noop("Accent Color");
+      subtitle = s_color_definitions[idx < 0 ? 0 : idx].name;
+      break;
+    }
   }
   menu_cell_basic_draw(ctx, cell_layer, i18n_get(title, context),
                        i18n_get(subtitle, context), NULL);
 }
 
 static uint16_t prv_num_rows_cb(SettingsCallbacks *context) {
-  return (shell_prefs_get_dark_mode() == DarkModeScheduled) ? 4 : 3;
+  return (shell_prefs_get_dark_mode() == DarkModeScheduled) ? 3 : 2;
 }
 
 static void prv_deinit_cb(SettingsCallbacks *context) {

@@ -130,6 +130,9 @@ typedef enum {
   PEBBLE_MIC_CAPTURE_EVENT,
   //! Emitted when an alarm was deleted outside of the alarms app
   PEBBLE_ALARM_UPDATED_EVENT,
+  //! Emitted when the effective dark mode state flips, whether the cause is the mode pref, the
+  //! schedule or the ambient light. Only emitted on changes of \ref system_theme_is_dark_mode.
+  PEBBLE_DARK_MODE_CHANGE_EVENT,
 
   PEBBLE_NUM_EVENTS
 } PebbleEventType;

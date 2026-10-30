@@ -457,7 +457,6 @@ static void prv_settings_clear_history_window_push(NotificationsData *data) {
   data->actionable_dialog = actionable_dialog;
 }
 
-#if PBL_BW
 static GColor prv_invert_bw_color(GColor color) {
   if (gcolor_equal(color, GColorBlack)) {
     return GColorWhite;
@@ -484,7 +483,17 @@ static void prv_draw_pdc_bw_inverted(GContext *ctx, GDrawCommandImage *image, GP
   };
   gdraw_command_image_draw_processed(ctx, image, offset, &processor);
 }
-#endif // PBL_BW
+
+//! The list icons are drawn in black and white. Swap those when the row's text is white (dark
+//! background, dark highlight or BW highlight) so they don't turn into a solid white shape.
+//! Other colors are kept so colored app icons stay as they are.
+static void prv_draw_notification_icon(GContext *ctx, GDrawCommandImage *icon, GPoint origin) {
+  if (gcolor_equal(ctx->draw_state.text_color, GColorWhite)) {
+    prv_draw_pdc_bw_inverted(ctx, icon, origin);
+  } else {
+    gdraw_command_image_draw(ctx, icon, origin);
+  }
+}
 
 //////////////
 // MenuLayer callbacks
@@ -497,13 +506,6 @@ static void prv_draw_notification_cell_rect(GContext *ctx, const Layer *cell_lay
   const GSize icon_size = gdraw_command_image_get_bounds_size(icon);
   const int16_t icon_left_margin = menu_cell_basic_horizontal_inset();
   if (icon) {
-    void (*draw_func)(GContext *, GDrawCommandImage *, GPoint) = gdraw_command_image_draw;
-#if PBL_BW
-    if (menu_cell_layer_is_highlighted(cell_layer)) {
-      draw_func = prv_draw_pdc_bw_inverted;
-    }
-#endif
-
     // Inset the draw box from the left to leave some margin on the icon's left side
     GRect box = cell_layer_bounds;
     box.origin.x += icon_left_margin;
@@ -512,7 +514,7 @@ static void prv_draw_notification_cell_rect(GContext *ctx, const Layer *cell_lay
     GRect icon_rect = (GRect){.size = gdraw_command_image_get_bounds_size(icon)};
     grect_align(&icon_rect, &box, GAlignLeft, false /* clip */);
 
-    draw_func(ctx, icon, icon_rect.origin);
+    prv_draw_notification_icon(ctx, icon, icon_rect.origin);
   }
 
   // Temporarily inset the cell layer's bounds from the left so the text doesn't draw over any
@@ -563,7 +565,7 @@ void prv_draw_notification_cell_round(GContext *ctx, const Layer *cell_layer, GR
     grect_align(&icon_rect, box, GAlignTop, true);
     icon_rect.origin.y += 4;
 
-    gdraw_command_image_draw(ctx, icon, icon_rect.origin);
+    prv_draw_notification_icon(ctx, icon, icon_rect.origin);
 
     // more box by icon + some margin
     const int16_t icon_space = icon_rect.origin.y + icon_rect.size.h - 12;
