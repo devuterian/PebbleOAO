@@ -7,7 +7,7 @@
 #include "pbl/services/regular_timer.h"
 #include "shell/prefs.h"
 #include <pbl/logging/logging.h>
-#include "pbl/util/attributes.h"
+#include <pbl/util/testing.h>
 #include "kernel/event_loop.h"
 
 #define CHARGE_LIMIT_PCT 80
@@ -16,7 +16,7 @@
 
 ////////////////////////
 // State
-T_STATIC bool s_limit_active;
+PBL_T_STATIC bool s_limit_active;
 static RegularTimerInfo s_periodic_timer;
 
 static void prv_evaluate_current(void *data) {
