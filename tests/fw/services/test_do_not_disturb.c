@@ -34,6 +34,7 @@
 
 static int s_num_dnd_events_put = 0;
 static bool s_last_dnd_event_active = false;
+static bool s_work_mode_active = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Fakes
@@ -81,6 +82,10 @@ static const int s_monday_10_30 = 1427106600;
 
 static TimerID s_timer = TIMER_INVALID_ID;
 static bool s_event_ongoing = false;
+
+bool work_mode_is_active(void) {
+  return s_work_mode_active;
+}
 
 void calendar_init() {
   s_timer = new_timer_create();
@@ -182,6 +187,7 @@ void test_do_not_disturb__initialize(void) {
   pfs_format(false);
 
   rtc_set_time(s_thursday_00_00);
+  s_work_mode_active = false;
   alerts_preferences_init();
   pbl_cron_init();
   alerts_preferences_dnd_set_sleep_enabled(false);
@@ -419,6 +425,46 @@ void test_do_not_disturb__schedule_end_keeps_sleep_dnd(void) {
   do_not_disturb_handle_clock_change();
   cl_assert(!do_not_disturb_is_manually_enabled());
   cl_assert(do_not_disturb_is_active());
+}
+
+static void prv_set_work_mode(bool active) {
+  s_work_mode_active = active;
+  do_not_disturb_handle_work_mode_changed();
+}
+
+void test_do_not_disturb__work_mode_ignores_sleep(void) {
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+
+  prv_set_work_mode(true);
+  cl_assert(!do_not_disturb_is_active());
+  // A watch lying still on the desk can look asleep
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep, false);
+  cl_assert(!do_not_disturb_is_active());
+
+  // Leaving work mode, the sleep state is published again
+  prv_set_work_mode(false);
+  cl_assert(!do_not_disturb_is_active());
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+}
+
+void test_do_not_disturb__work_mode_keeps_until_wake_waiting(void) {
+  do_not_disturb_set_until_wake_enabled(true);
+  prv_set_work_mode(true);
+  cl_assert(do_not_disturb_is_active());
+
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(do_not_disturb_is_until_wake_enabled());
+
+  prv_set_work_mode(false);
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(!do_not_disturb_is_until_wake_enabled());
+  cl_assert(!do_not_disturb_is_active());
 }
 
 static void prv_assert_until_wake_state(DndUntilWakeState state) {

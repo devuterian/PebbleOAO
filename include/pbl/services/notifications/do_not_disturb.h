@@ -24,7 +24,7 @@
  * - Scheduled: up to @ref DND_NUM_SCHEDULE_SLOTS daily periods, each on its own set of days.
  * - Smart (calendar aware): active while a calendar event is ongoing.
  * - Sleep aware: active while activity tracking reports light or restful sleep. Turning manual DND
- *   off during sleep overrides it until waking up is confirmed.
+ *   off during sleep overrides it until waking up is confirmed. Sleep is ignored in work mode.
  * - Until wake: active right away, ends once waking up from the next sleep is confirmed, or after
  *   18 hours at the latest.
  *
@@ -261,6 +261,13 @@ void do_not_disturb_handle_calendar_event(PebbleCalendarEvent *e);
  * @param e Activity event.
  */
 void do_not_disturb_handle_activity_event(PebbleActivityEvent *e);
+
+/**
+ * @brief Re-evaluate sleep-aware DND after work mode was turned on or off.
+ *
+ * Sleep is ignored during work mode: Sleep Aware stays off and Until Wake waits.
+ */
+void do_not_disturb_handle_work_mode_changed(void);
 
 /** @brief Push the manual DND toggle prompt, which sets manual DND to the opposite state. */
 void do_not_disturb_manual_toggle_with_dialog(void);

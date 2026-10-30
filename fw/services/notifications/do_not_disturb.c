@@ -14,6 +14,7 @@
 #include <pbl/services/notifications/alerts_preferences_private.h>
 #include <pbl/services/notifications/do_not_disturb.h>
 #include <pbl/services/notifications/do_not_disturb_toggle.h>
+#include <pbl/services/notifications/work_mode.h>
 #include <pbl/services/system_task.h>
 #include <pbl/services/timeline/calendar.h>
 #include <pbl/util/math.h>
@@ -343,8 +344,10 @@ static void prv_until_wake_handle_sleep_state(ActivitySleepState state, bool wak
 }
 
 static void prv_set_sleep_state(ActivitySleepState state, bool wake_confirmed) {
-  if (state > ActivitySleepStateUnknown) {
+  // In work mode the watch is off the wrist, so sleep readings mean nothing
+  if (state > ActivitySleepStateUnknown || work_mode_is_active()) {
     state = ActivitySleepStateUnknown;
+    wake_confirmed = false;
   }
   s_data.sleep_state = state;
   // A manual override lasts for the current sleep
@@ -548,6 +551,13 @@ void do_not_disturb_handle_activity_event(PebbleActivityEvent *e) {
       break;
     case PebbleActivityEventNum:
       break;
+  }
+}
+
+void do_not_disturb_handle_work_mode_changed(void) {
+  // Leaving work mode, activity tracking publishes the sleep state again
+  if (work_mode_is_active()) {
+    prv_set_sleep_state(ActivitySleepStateUnknown, false /* wake_confirmed */);
   }
 }
 
