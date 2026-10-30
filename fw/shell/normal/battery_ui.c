@@ -272,7 +272,13 @@ static void prv_liquid_animation_stop(void) {
 static void prv_set_liquid_processor(Dialog *dialog) {
   if (dialog->icon_id == RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE) {
     kino_layer_set_draw_command_processor(&dialog->icon_layer, &s_liquid.processor);
-    prv_liquid_animation_start();
+    if (s_liquid.percent < prv_charge_target_percent()) {
+      prv_liquid_animation_start();
+    } else {
+      // Held at the charge limit: nothing rises, so don't keep a frame timer running
+      prv_liquid_animation_stop();
+      s_liquid.level = s_liquid.percent;
+    }
   } else {
     kino_layer_set_draw_command_processor(&dialog->icon_layer, nullptr);
     prv_liquid_animation_stop();
