@@ -7,6 +7,7 @@
 #include <pbl/drivers/rtc.h>
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
+#include <pbl/services/activity/activity.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/notifications/alerts_preferences.h>
 #include <pbl/services/notifications/alerts_preferences_private.h>
@@ -32,8 +33,13 @@
 PBL_LOG_MODULE_DECLARE(service_notifications, CONFIG_SERVICE_NOTIFICATIONS_LOG_LEVEL);
 
 typedef struct DoNotDisturbData {
+  ActivitySleepState sleep_state;
   bool is_in_schedule_period;
   bool manually_override_dnd;
+  //! Sleep Aware was turned off by hand until waking up is confirmed
+  bool sleep_dnd_override;
+  //! Last seen Sleep Aware setting, to notice a change synced from the phone
+  bool sleep_dnd_enabled;
   bool was_active;
 } DoNotDisturbData;
 
@@ -47,7 +53,9 @@ static struct pbl_cron_job s_schedule_midnight_jobs[DND_NUM_SCHEDULE_SLOTS];
 
 static bool prv_is_smart_dnd_active(void);
 static bool prv_is_schedule_active(void);
+static bool prv_is_sleep_dnd_active(void);
 static void prv_update_schedule_mode(void);
+static void prv_set_manually_enabled(bool enable, bool by_user);
 
 static void prv_update_active_time(bool is_active) {
   if (is_active) {
@@ -232,7 +240,7 @@ static void prv_update_schedule_mode(void) {
 
   // Coming out of scheduled DND with manual DND on, turning it off
   if (s_data.is_in_schedule_period && !in_period && do_not_disturb_is_manually_enabled()) {
-    do_not_disturb_set_manually_enabled(false);
+    prv_set_manually_enabled(false, false /* by_user */);
   }
   s_data.is_in_schedule_period = in_period;
   PBL_LOG_DBG("%s scheduled period", s_data.is_in_schedule_period ? "In" : "Out of");
@@ -247,6 +255,35 @@ static bool prv_is_smart_dnd_active(void) {
           !s_data.manually_override_dnd);
 }
 
+static bool prv_is_asleep(ActivitySleepState state) {
+  return state == ActivitySleepStateLightSleep || state == ActivitySleepStateRestfulSleep;
+}
+
+static bool prv_is_sleep_dnd_active(void) {
+  return do_not_disturb_is_sleep_dnd_enabled() && prv_is_asleep(s_data.sleep_state) &&
+         !s_data.sleep_dnd_override;
+}
+
+static void prv_clear_sleep_override_if_setting_changed(void) {
+  const bool enabled = do_not_disturb_is_sleep_dnd_enabled();
+  if (enabled != s_data.sleep_dnd_enabled) {
+    s_data.sleep_dnd_enabled = enabled;
+    s_data.sleep_dnd_override = false;
+  }
+}
+
+static void prv_set_sleep_state(ActivitySleepState state, bool wake_confirmed) {
+  if (state > ActivitySleepStateUnknown) {
+    state = ActivitySleepStateUnknown;
+  }
+  s_data.sleep_state = state;
+  // A manual override lasts for the current sleep
+  if (wake_confirmed) {
+    s_data.sleep_dnd_override = false;
+  }
+  prv_do_update();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,7 +294,7 @@ PBL_SYSCALL(bool, sys_do_not_disturb_is_active) {
 
 bool do_not_disturb_is_active(void) {
   if (do_not_disturb_is_manually_enabled() || prv_is_schedule_active() ||
-      prv_is_smart_dnd_active()) {
+      prv_is_smart_dnd_active() || prv_is_sleep_dnd_active()) {
     return true;
   }
   return false;
@@ -267,16 +304,29 @@ bool do_not_disturb_is_manually_enabled(void) {
   return alerts_preferences_dnd_is_manually_enabled();
 }
 
-void do_not_disturb_set_manually_enabled(bool enable) {
+static void prv_set_manually_enabled(bool enable, bool by_user) {
+  const bool was_manually_enabled = do_not_disturb_is_manually_enabled();
+  const bool is_schedule_or_smart_active = prv_is_schedule_active() || prv_is_smart_dnd_active();
   const bool is_auto_dnd = s_data.is_in_schedule_period || do_not_disturb_is_smart_dnd_enabled();
+  const bool is_sleep_dnd_active = prv_is_sleep_dnd_active();
   const bool was_active = do_not_disturb_is_active();
 
   alerts_preferences_dnd_set_manually_enabled(enable);
-  // Turning the manual DND OFF in an active DND mode overrides the automatic mode
-  if (!enable && was_active && is_auto_dnd) {
-    s_data.manually_override_dnd = true;
+  // Turning the manual DND OFF in an active DND mode overrides the automatic mode. Ending Sleep
+  // Aware DND alone leaves the schedule and calendar alone.
+  if (!enable && was_active) {
+    if (is_auto_dnd && (was_manually_enabled || is_schedule_or_smart_active)) {
+      s_data.manually_override_dnd = true;
+    }
+    if (by_user && is_sleep_dnd_active) {
+      s_data.sleep_dnd_override = true;
+    }
   }
   prv_do_update();
+}
+
+void do_not_disturb_set_manually_enabled(bool enable) {
+  prv_set_manually_enabled(enable, true /* by_user */);
 }
 
 void do_not_disturb_toggle_manually_enabled(ManualDNDFirstUseSource source) {
@@ -302,6 +352,16 @@ void do_not_disturb_toggle_smart_dnd(void) {
   } else {
     prv_toggle_smart_dnd(nullptr);
   }
+}
+
+bool do_not_disturb_is_sleep_dnd_enabled(void) {
+  return alerts_preferences_dnd_is_sleep_enabled();
+}
+
+void do_not_disturb_toggle_sleep_dnd(void) {
+  alerts_preferences_dnd_set_sleep_enabled(!alerts_preferences_dnd_is_sleep_enabled());
+  prv_clear_sleep_override_if_setting_changed();
+  prv_do_update();
 }
 
 void do_not_disturb_get_schedule_slot(unsigned int index, DoNotDisturbScheduleSlot *slot) {
@@ -352,7 +412,10 @@ void do_not_disturb_delete_schedule_slot(unsigned int index) {
 }
 
 void do_not_disturb_init(void) {
+  // The sleep state follows on the first activity minute
   s_data = (DoNotDisturbData){
+    .sleep_state = ActivitySleepStateUnknown,
+    .sleep_dnd_enabled = do_not_disturb_is_sleep_dnd_enabled(),
     .was_active = false,
   };
   prv_try_update_schedule_mode((void *)true);
@@ -363,11 +426,29 @@ void do_not_disturb_handle_clock_change(void) {
 }
 
 void do_not_disturb_handle_pref_synced(void) {
+  prv_clear_sleep_override_if_setting_changed();
   prv_try_update_schedule_mode_callback(false);
 }
 
 void do_not_disturb_handle_calendar_event(PebbleCalendarEvent *e) {
   prv_do_update();
+}
+
+void do_not_disturb_handle_activity_event(PebbleActivityEvent *e) {
+  switch (e->type) {
+    case PebbleActivityEvent_TrackingStarted:
+      // The sleep state follows on the first minute
+      break;
+    case PebbleActivityEvent_TrackingStopped:
+      s_data.sleep_dnd_override = false;
+      prv_set_sleep_state(ActivitySleepStateUnknown, false /* wake_confirmed */);
+      break;
+    case PebbleActivityEvent_SleepStateChanged:
+      prv_set_sleep_state(e->sleep_state, e->wake_confirmed);
+      break;
+    case PebbleActivityEventNum:
+      break;
+  }
 }
 
 void do_not_disturb_manual_toggle_with_dialog(void) {

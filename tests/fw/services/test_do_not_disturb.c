@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include <pbl/cron/cron.h>
+#include <pbl/services/activity/activity.h>
 #include <pbl/services/filesystem/pfs.h>
 #include <pbl/services/new_timer/new_timer.h>
 #include <pbl/services/notifications/alerts_preferences_private.h>
@@ -28,8 +29,10 @@
 #include <fake_spi_flash.h>
 
 #define PREF_KEY_DND_MANUALLY_ENABLED "dndManuallyEnabled"
+#define PREF_KEY_DND_SLEEP_ENABLED "dndSleepEnabled"
 
 static int s_num_dnd_events_put = 0;
+static bool s_last_dnd_event_active = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Fakes
@@ -42,6 +45,7 @@ bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
 void event_put(PebbleEvent *event) {
   if (event->type == PEBBLE_DO_NOT_DISTURB_EVENT) {
     s_num_dnd_events_put++;
+    s_last_dnd_event_active = event->do_not_disturb.is_active;
   }
 }
 
@@ -106,6 +110,22 @@ static void prv_assert_seconds_until_update(time_t expected) {
   cl_assert_equal_i(pbl_cron_get_next_execute_time() - rtc_get_time(), expected);
 }
 
+static void prv_send_sleep_state(ActivitySleepState sleep_state, bool wake_confirmed) {
+  PebbleActivityEvent event = {
+    .type = PebbleActivityEvent_SleepStateChanged,
+    .sleep_state = sleep_state,
+    .wake_confirmed = wake_confirmed,
+  };
+  do_not_disturb_handle_activity_event(&event);
+}
+
+static void prv_send_activity_event(PebbleActivityEventType type) {
+  PebbleActivityEvent event = {
+    .type = type,
+  };
+  do_not_disturb_handle_activity_event(&event);
+}
+
 static void prv_assert_manually_dnd_setting_val(bool expected_value) {
   const char *key = "dndManuallyEnabled";
   prv_assert_settings_value((void *)key, strlen("dndManuallyEnabled"), (void *)&expected_value,
@@ -163,7 +183,9 @@ void test_do_not_disturb__initialize(void) {
   rtc_set_time(s_thursday_00_00);
   alerts_preferences_init();
   pbl_cron_init();
+  alerts_preferences_dnd_set_sleep_enabled(false);
   do_not_disturb_init();
+  prv_send_sleep_state(ActivitySleepStateAwake, true /* wake_confirmed */);
 
   do_not_disturb_set_manually_enabled(false);
   for (int i = 0; i < DND_NUM_SCHEDULE_SLOTS; i++) {
@@ -177,10 +199,14 @@ void test_do_not_disturb__initialize(void) {
 
   s_event_ongoing = false;
   s_num_dnd_events_put = 0;
+  s_last_dnd_event_active = false;
 }
 
 void test_do_not_disturb__cleanup(void) {
   // Make sure we start in a common state: everything off
+  if (do_not_disturb_is_sleep_dnd_enabled()) {
+    do_not_disturb_toggle_sleep_dnd();
+  }
   do_not_disturb_set_manually_enabled(false);
   for (int i = 0; i < DND_NUM_SCHEDULE_SLOTS; i++) {
     do_not_disturb_delete_schedule_slot(i);
@@ -244,6 +270,152 @@ void test_do_not_disturb__manual_pref_synced_from_phone(void) {
   cl_assert(do_not_disturb_is_manually_enabled() == false);
   cl_assert(do_not_disturb_is_active() == false);
   cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__sleep_dnd(void) {
+  cl_assert(!do_not_disturb_is_sleep_dnd_enabled());
+
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 0);
+
+  do_not_disturb_toggle_sleep_dnd();
+  cl_assert(do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert(s_last_dnd_event_active);
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+  prv_assert_settings_value(PREF_KEY_DND_SLEEP_ENABLED, strlen(PREF_KEY_DND_SLEEP_ENABLED),
+                            &(bool){true}, sizeof(bool));
+
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep, false);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  // Waking up turns it off without confirming
+  prv_send_sleep_state(ActivitySleepStateAwake, false);
+  cl_assert(!do_not_disturb_is_active());
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+
+  prv_send_sleep_state(ActivitySleepStateUnknown, false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 4);
+}
+
+void test_do_not_disturb__sleep_dnd_override_lasts_until_wake_confirmed(void) {
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert(!s_last_dnd_event_active);
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+
+  // A night waking keeps the override
+  prv_send_sleep_state(ActivitySleepStateAwake, false);
+  prv_send_sleep_state(ActivitySleepStateRestfulSleep, false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+
+  // Manual DND stays on through waking up
+  do_not_disturb_set_manually_enabled(true);
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  cl_assert(do_not_disturb_is_active());
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 4);
+}
+
+void test_do_not_disturb__sleep_dnd_override_cleared_by_setting_change(void) {
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+
+  prv_sync_bool_pref_from_phone(PREF_KEY_DND_SLEEP_ENABLED, false);
+  prv_sync_bool_pref_from_phone(PREF_KEY_DND_SLEEP_ENABLED, true);
+  cl_assert(do_not_disturb_is_active());
+
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+  prv_send_activity_event(PebbleActivityEvent_TrackingStopped);
+  prv_send_activity_event(PebbleActivityEvent_TrackingStarted);
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+}
+
+void test_do_not_disturb__sleep_pref_synced_from_phone(void) {
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  prv_sync_bool_pref_from_phone(PREF_KEY_DND_SLEEP_ENABLED, true);
+  cl_assert(do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 1);
+
+  prv_sync_bool_pref_from_phone(PREF_KEY_DND_SLEEP_ENABLED, false);
+  cl_assert(!do_not_disturb_is_sleep_dnd_enabled());
+  cl_assert(!do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 2);
+}
+
+void test_do_not_disturb__sleep_dnd_tracking_stopped(void) {
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+
+  prv_send_activity_event(PebbleActivityEvent_TrackingStopped);
+  cl_assert(!do_not_disturb_is_active());
+
+  // The sleep state comes back with the first minute of tracking
+  prv_send_activity_event(PebbleActivityEvent_TrackingStarted);
+  cl_assert(!do_not_disturb_is_active());
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  cl_assert(do_not_disturb_is_active());
+  cl_assert_equal_i(s_num_dnd_events_put, 3);
+}
+
+void test_do_not_disturb__ending_sleep_dnd_keeps_calendar_aware(void) {
+  alerts_preferences_check_and_set_first_use_complete(FirstUseSourceSmartDND);
+  do_not_disturb_toggle_smart_dnd();
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+  do_not_disturb_set_manually_enabled(false);
+  cl_assert(!do_not_disturb_is_active());
+
+  prv_send_sleep_state(ActivitySleepStateAwake, true);
+  s_event_ongoing = true;
+  do_not_disturb_handle_calendar_event(&(PebbleCalendarEvent){});
+  cl_assert(do_not_disturb_is_active());
+  s_event_ongoing = false;
+  do_not_disturb_toggle_smart_dnd();
+}
+
+void test_do_not_disturb__schedule_end_keeps_sleep_dnd(void) {
+  DoNotDisturbSchedule schedule = {
+    .from_hour = 1,
+    .from_minute = 0,
+    .to_hour = 12,
+    .to_minute = 30,
+  };
+  prv_set_schedule(WeekdaySlot, &schedule);
+  prv_set_schedule_enabled(WeekdaySlot, true);
+  rtc_set_time(s_thursday_12_00);
+  do_not_disturb_handle_clock_change();
+  do_not_disturb_set_manually_enabled(true);
+  do_not_disturb_toggle_sleep_dnd();
+  prv_send_sleep_state(ActivitySleepStateLightSleep, false);
+
+  // The schedule ending turns manual DND off, but the user is still asleep
+  rtc_set_time(s_thursday_13_00);
+  do_not_disturb_handle_clock_change();
+  cl_assert(!do_not_disturb_is_manually_enabled());
+  cl_assert(do_not_disturb_is_active());
 }
 
 void test_do_not_disturb__manually_enable_active(void) {
