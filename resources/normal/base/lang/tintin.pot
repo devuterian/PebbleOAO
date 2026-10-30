@@ -828,6 +828,22 @@ msgstr ""
 msgid "Once"
 msgstr ""
 
+#. / A frequency option for alarms, i.e. the alarm would go off once and then be deleted.
+#. / Respect capitalization!
+#: fw/services/alarms/alarm.c:1489
+msgid "JUST ONCE THEN DELETE"
+msgstr ""
+
+#. / A frequency option for alarms, i.e. the alarm would go off once and then be deleted.
+#. / Respect capitalization!
+#: fw/applib/ui/day_picker.c:49 fw/services/alarms/alarm.c:1493
+msgid "Just once then delete"
+msgstr ""
+
+#: fw/applib/ui/day_picker.c:48
+msgid "Just Once"
+msgstr ""
+
 #. / A frequency option for alarms, i.e. the alarm would only go off on a custom choice of
 #. / days. Respect capitalization!
 #: src/fw/services/alarms/alarm.c:1380

@@ -3198,6 +3198,18 @@ msgstr "한 번"
 msgid "Once"
 msgstr "한 번"
 
+#: fw/services/alarms/alarm.c:1489
+msgid "JUST ONCE THEN DELETE"
+msgstr "울린 후 삭제"
+
+#: fw/applib/ui/day_picker.c:49 fw/services/alarms/alarm.c:1493
+msgid "Just once then delete"
+msgstr "울린 후 삭제"
+
+#: fw/applib/ui/day_picker.c:48
+msgid "Just Once"
+msgstr "한 번만"
+
 #: src/fw/services/alarms/alarm.c:1380
 msgid "CUSTOM"
 msgstr "사용자 지정"
