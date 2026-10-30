@@ -11,6 +11,7 @@
 #include <applib/ui/animation_interpolate.h>
 #include <kernel/ui/kernel_ui.h>
 #include <resource/resource_ids.auto.h>
+#include <shell/system_theme.h>
 
 // No animations will be shown on the following platforms
 #if defined(CONFIG_RECOVERY_FW)
