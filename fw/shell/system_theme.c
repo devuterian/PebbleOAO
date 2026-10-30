@@ -11,6 +11,9 @@
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/light.h>
+#ifdef CONFIG_SPEAKER
+#include <pbl/services/speaker/speaker_service.h>
+#endif
 #include <pbl/services/system_task.h>
 #include <pbl/util/size.h>
 #include <pbl/util/testing.h>
@@ -117,9 +120,20 @@ static bool prv_ambient_sample_is_stale(void) {
          (rtc_get_ticks() - s_ambient_sampled_ticks) >= AMBIENT_DARK_MODE_MAX_AGE_TICKS;
 }
 
+// The speaker refills its buffer on the system task too, so a slow sensor read would make
+// audio stutter. Keep the old sample while sound plays; the next request retries.
+static bool prv_audio_is_active(void) {
+#ifdef CONFIG_SPEAKER
+  return speaker_service_get_state() != SpeakerStateIdle;
+#else
+  return false;
+#endif
+}
+
 static void prv_dark_mode_check_callback(void *data) {
   s_dark_mode_check_pending = false;
-  if (shell_prefs_get_dark_mode() == DarkModeAmbient && prv_ambient_sample_is_stale()) {
+  if (shell_prefs_get_dark_mode() == DarkModeAmbient && prv_ambient_sample_is_stale() &&
+      !prv_audio_is_active()) {
     prv_sample_ambient();
   }
   // KernelBG counts as system UI, so this is the state system apps draw with
