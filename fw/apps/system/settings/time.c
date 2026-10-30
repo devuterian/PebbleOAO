@@ -87,6 +87,12 @@ static bool prv_row_visible(TimeRow row) {
       return clock_time_source_is_manual();
     case TimeRow_Timezone:
       return clock_timezone_source_is_manual();
+#ifdef CONFIG_SPEAKER
+    case TimeRow_ChimeInterval:
+    case TimeRow_ChimeStart:
+    case TimeRow_ChimeEnd:
+      return hourly_chime_get_settings().enabled;
+#endif
     default:
       return true;
   }
@@ -367,7 +373,9 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
         settings.interval_minutes = settings.interval_minutes == 60 ? 30 : 60;
       }
       hourly_chime_set_settings(&settings);
-      break;
+      // Turning the chime on or off shows or hides its schedule rows.
+      settings_menu_reload_data(SettingsMenuItemDateTime);
+      return;
     }
     case TimeRow_ChimeStart:
     case TimeRow_ChimeEnd:

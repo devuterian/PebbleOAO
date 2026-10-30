@@ -1651,7 +1651,7 @@ msgstr "알람"
 
 #: src/fw/apps/system/settings/vibe_patterns.c:97
 msgid "Hourly Notice"
-msgstr "정각 알림"
+msgstr "정각 진동"
 
 #: src/fw/apps/system/settings/vibe_patterns.c:102
 msgid "On Disconnect"
@@ -3632,16 +3632,16 @@ msgid "the foreseeable future"
 msgstr "당분간"
 
 msgid "Hourly Chime"
-msgstr "정각 알림 소리"
+msgstr "정각 알림음"
 
 msgid "Chime Interval"
-msgstr "알림 간격"
+msgstr "알림음 간격"
 
 msgid "Chime Start"
-msgstr "알림 시작"
+msgstr "알림음 시작"
 
 msgid "Chime End"
-msgstr "알림 종료"
+msgstr "알림음 종료"
 
 #: src/fw/apps/system/settings/themes.c
 msgid "Red"
