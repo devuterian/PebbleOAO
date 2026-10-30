@@ -128,6 +128,8 @@ typedef enum {
   PEBBLE_LANGUAGE_CHANGE_EVENT,
   PEBBLE_MIC_STREAM_EVENT,
   PEBBLE_MIC_CAPTURE_EVENT,
+  //! Emitted when an alarm was deleted outside of the alarms app
+  PEBBLE_ALARM_UPDATED_EVENT,
 
   PEBBLE_NUM_EVENTS
 } PebbleEventType;

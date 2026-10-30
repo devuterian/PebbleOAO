@@ -63,6 +63,8 @@ typedef enum AlarmKind {
   ALARM_KIND_JUST_ONCE,
   /** The specified days of the week. */
   ALARM_KIND_CUSTOM,
+  /** The next time the specified time occurs; the alarm is deleted once it is dismissed. */
+  ALARM_KIND_JUST_ONCE_DELETE,
 } AlarmKind;
 
 /** @brief Alarm type, as shown on its timeline pin. */
@@ -305,8 +307,14 @@ uint16_t alarm_get_snooze_delay(void);
  */
 void alarm_set_snooze_delay(uint16_t delay_m);
 
-/** @brief Dismiss the most recently fired alarm, cancelling its snooze. */
-void alarm_dismiss_alarm(void);
+/**
+ * @brief Dismiss the most recently fired alarm, cancelling its snooze.
+ *
+ * A fired @ref ALARM_KIND_JUST_ONCE_DELETE alarm is deleted.
+ *
+ * @return true if the alarm was deleted.
+ */
+bool alarm_dismiss_alarm(void);
 
 /**
  * @brief Call a function for each configured alarm.
