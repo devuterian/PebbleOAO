@@ -868,10 +868,12 @@ void test_text_resources__emoji_miss_rescued_from_text_extension(void) {
   memset(&missing_emoji, 0, sizeof(missing_emoji));
   cl_assert(text_resources_init_font(0, RESOURCE_ID_GOTHIC_18, 0, &missing_emoji));
   s_test_emoji_font = &missing_emoji;
-  const uint8_t phone[] = {0xfe, 0x81, 0x81, 0x3c, 0x66, 0x42, 0xc3, 0xe7, 0xff, 0, 0, 0};
   GlyphLocation loc = {.baseline_adjust = -1};
   const GlyphData *glyph = text_resources_get_glyph(&s_font_cache, 0x260E, &s_font_info, &loc);
   cl_assert(glyph != NULL);
-  cl_assert_equal_m(phone, glyph->data, glyph_get_size_bytes(glyph));
+  // The test extension is a color font, so only the header is returned; the body streams from loc.
+  cl_assert(loc.font_res == &s_font_info.extension);
+  cl_assert_equal_i(glyph->header.width_px, 8);
+  cl_assert_equal_i(glyph->header.height_px, 9);
   cl_assert_equal_i(loc.baseline_adjust, 0);
 }
