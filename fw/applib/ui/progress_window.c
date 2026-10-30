@@ -14,6 +14,7 @@
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/window_private.h>
 #include <applib/ui/window_stack.h>
+#include <shell/system_theme.h>
 
 #define SCROLL_OUT_MS         250
 #define BAR_HEIGHT            PROGRESS_SUGGESTED_HEIGHT
@@ -28,6 +29,11 @@
 #define FAKE_PROGRESS_UPDATE_AMOUNT   2
 
 #define INITIAL_PERCENT 0
+
+static GColor prv_get_background_color(void) {
+  return PBL_IF_COLOR_ELSE(system_theme_is_dark_mode() ? GColorDarkGray : GColorLightGray,
+                           GColorWhite);
+}
 
 static void prv_finished(ProgressWindow *data, bool success) {
   if (data->callbacks.finished) {
@@ -129,7 +135,8 @@ static void prv_schedule_progress_failure_animation(ProgressWindow *data, uint32
     };
     peek_layer_set_icon(peek_layer, &timeline_res);
     peek_layer_set_title(peek_layer, message);
-    peek_layer_set_background_color(peek_layer, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+    peek_layer_set_text_color(peek_layer, system_theme_get_fg_color());
+    peek_layer_set_background_color(peek_layer, prv_get_background_color());
     data->is_peek_layer_used = true;
   }
 
@@ -261,7 +268,7 @@ void progress_window_init(ProgressWindow *data) {
   // Create and set up the window
   Window *window = &data->window;
   window_init(window, WINDOW_NAME("Progress Window"));
-  window_set_background_color(window, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+  window_set_background_color(window, prv_get_background_color());
 
   const GRect *bounds = &window->layer.bounds;
   GPoint center = grect_center_point(bounds);

@@ -7,6 +7,7 @@
 
 #include <applib/applib_malloc.auto.h>
 #include <applib/ui/window.h>
+#include <shell/system_theme.h>
 
 void dialog_set_fullscreen(Dialog *dialog, bool is_fullscreen) {
   window_set_fullscreen(&dialog->window, is_fullscreen);
@@ -35,11 +36,20 @@ void dialog_set_text_buffer(Dialog *dialog, char *buffer, bool take_ownership) {
 
 void dialog_set_text_color(Dialog *dialog, GColor text_color) {
   dialog->text_color = PBL_IF_COLOR_ELSE(text_color, GColorBlack);
+  dialog->is_text_color_set = true;
   text_layer_set_text_color(&dialog->text_layer, dialog->text_color);
 }
 
 void dialog_set_background_color(Dialog *dialog, GColor background_color) {
   window_set_background_color(&dialog->window, PBL_IF_COLOR_ELSE(background_color, GColorWhite));
+#if PBL_COLOR
+  // The dark mode default text is white, which would be unreadable on the light colored
+  // backgrounds many dialogs use. Light mode keeps its black default.
+  if (!dialog->is_text_color_set && system_theme_is_dark_mode()) {
+    dialog->text_color = gcolor_legible_over(background_color);
+    text_layer_set_text_color(&dialog->text_layer, dialog->text_color);
+  }
+#endif
 }
 
 void dialog_set_icon(Dialog *dialog, uint32_t icon_id) {
