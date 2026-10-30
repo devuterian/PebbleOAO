@@ -25,7 +25,7 @@ typedef struct TimeRangeSelectionWindowData {
 
   TimeData from;
   TimeData to;
-  char buf[3];
+  char buf[DATE_TIME_SELECTION_CELL_BUF_SIZE];
 } TimeRangeSelectionWindowData;
 
 void time_range_selection_window_init(TimeRangeSelectionWindowData *time_range_selection_window,

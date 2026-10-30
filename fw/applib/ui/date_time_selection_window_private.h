@@ -5,6 +5,9 @@
 
 #include <stdint.h>
 
+//! Room for one selection cell: two digits, or a translated AM/PM such as "오전"
+#define DATE_TIME_SELECTION_CELL_BUF_SIZE 16
+
 typedef struct {
   uint8_t hour;
   uint8_t minute;

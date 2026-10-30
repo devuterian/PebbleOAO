@@ -71,9 +71,9 @@ char *date_time_selection_get_text(TimeData *data, TimeInputIndex index, char *b
       return buf;
     case TimeInputIndexAMPM: // We should only get this in 12h style
       if (data->hour < 12) {
-        i18n_get_with_buffer("AM", buf, 3);
+        i18n_get_with_buffer("AM", buf, DATE_TIME_SELECTION_CELL_BUF_SIZE);
       } else {
-        i18n_get_with_buffer("PM", buf, 3);
+        i18n_get_with_buffer("PM", buf, DATE_TIME_SELECTION_CELL_BUF_SIZE);
       }
       return buf;
     default:
