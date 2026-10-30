@@ -767,6 +767,11 @@ void activity_sessions_prv_delete_activity_session(ActivitySession *session);
 void activity_sessions_prv_minute_handler(time_t utc_sec);
 
 /**
+ * @brief Publish the sleep state again on the next minute, even if it didn't change.
+ */
+void activity_sessions_prv_republish_sleep_state(void);
+
+/**
  * @brief Send a session to data logging.
  *
  * @param session Session.

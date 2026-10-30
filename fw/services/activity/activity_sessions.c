@@ -22,6 +22,17 @@
 
 PBL_LOG_MODULE_DECLARE(service_activity, CONFIG_SERVICE_ACTIVITY_LOG_LEVEL);
 
+//! Minutes awake after a sleep session before waking up counts as confirmed, so that a short
+//! night waking doesn't end things that wait for the user to wake up.
+#define ACTIVITY_WAKE_CONFIRM_MIN (20)
+
+//! Last sleep state published in a PebbleActivityEvent_SleepStateChanged event
+static struct {
+  bool valid;
+  uint8_t sleep_state;
+  bool wake_confirmed;
+} s_published_sleep;
+
 // ------------------------------------------------------------------------------------
 // Figure out the cutoff times for sleep and step activities for today given the current time
 static void prv_get_earliest_end_times_utc(time_t utc_sec, time_t *sleep_earliest_end_utc,
@@ -362,6 +373,7 @@ static bool prv_compute_sleep_stats(time_t now_utc, time_t min_end_utc, time_t m
 static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
                                      time_t last_processed_utc) {
   ActivityState *state = activity_private_state();
+  bool publish_sleep_state = false;
   pbl_mutex_lock(&state->mutex, PBL_FOREVER);
   {
     // We will be filling in this structure based on the sleep sessions
@@ -369,11 +381,13 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
 
     // If we detect a change in the sleep metrics, we want to post a health event
     ActivitySleepData prev_sleep_data = *sleep_data;
+    bool wake_confirmed = false;
 
     // Collect stats on sleep
     ActivitySleepStats stats;
     if (!prv_compute_sleep_stats(now_utc, 0 /*min_end_utc*/, max_end_utc, &stats)) {
-      // No sleep session to be in, e.g. it was lost across a reboot or rejected
+      // No sleep session to be in, e.g. it was lost across a reboot or rejected. Awake doesn't
+      // confirm waking up then.
       sleep_data->total_minutes = 0;
       sleep_data->restful_minutes = 0;
       sleep_data->enter_at_minute = 0;
@@ -403,6 +417,9 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
     if (delta_min > 1) {
       // We are awake
       sleep_data->cur_state = ActivitySleepStateAwake;
+      wake_confirmed = (stats.last_exit_utc != 0) &&
+                       (last_processed_utc - stats.last_exit_utc >=
+                        ACTIVITY_WAKE_CONFIRM_MIN * PBL_SEC_PER_MIN);
       if (stats.last_exit_utc != 0) {
         sleep_data->cur_state_elapsed_minutes = (now_utc - stats.last_exit_utc) / PBL_SEC_PER_MIN;
       } else {
@@ -445,8 +462,33 @@ static void prv_update_sleep_metrics(time_t now_utc, time_t max_end_utc,
                   sleep_data->total_minutes, sleep_data->restful_minutes, sleep_data->cur_state,
                   sleep_data->cur_state_elapsed_minutes);
     }
+
+    // Only on changes, so this doesn't wake KernelMain every minute
+    if (!s_published_sleep.valid || sleep_data->cur_state != s_published_sleep.sleep_state ||
+        wake_confirmed != s_published_sleep.wake_confirmed) {
+      s_published_sleep.valid = true;
+      s_published_sleep.sleep_state = sleep_data->cur_state;
+      s_published_sleep.wake_confirmed = wake_confirmed;
+      publish_sleep_state = true;
+    }
   }
   pbl_mutex_unlock(&state->mutex);
+
+  if (publish_sleep_state) {
+    PebbleEvent e = {
+      .type = PEBBLE_ACTIVITY_EVENT,
+      .activity_event = {
+        .type = PebbleActivityEvent_SleepStateChanged,
+        .sleep_state = s_published_sleep.sleep_state,
+        .wake_confirmed = s_published_sleep.wake_confirmed,
+      },
+    };
+    event_put(&e);
+  }
+}
+
+void activity_sessions_prv_republish_sleep_state(void) {
+  s_published_sleep.valid = false;
 }
 
 // --------------------------------------------------------------------------------------------

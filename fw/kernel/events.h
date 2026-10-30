@@ -742,12 +742,18 @@ static_assert(sizeof(PebbleAppCacheEvent) == 5, "PebbleTimelinePeekEvent size mi
 typedef enum PebbleActivityEventType {
   PebbleActivityEvent_TrackingStarted,
   PebbleActivityEvent_TrackingStopped,
+  //! The sleep state, or whether waking up is confirmed, changed
+  PebbleActivityEvent_SleepStateChanged,
 
   PebbleActivityEventNum
 } PebbleActivityEventType;
 
 typedef struct PBL_PACKED PebbleActivityEvent {
   PebbleActivityEventType type : 8;
+  //! ActivitySleepState, for PebbleActivityEvent_SleepStateChanged
+  uint8_t sleep_state;
+  //! Awake long enough after a sleep session that it wasn't a short night waking
+  bool wake_confirmed;
 } PebbleActivityEvent;
 
 typedef enum PebbleWorkoutEventType {
