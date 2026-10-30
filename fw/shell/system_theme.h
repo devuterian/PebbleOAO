@@ -103,8 +103,19 @@ PreferredContentSize system_theme_get_default_content_size_for_runtime_platform(
 PreferredContentSize system_theme_convert_host_content_size_to_runtime_platform(
     PreferredContentSize size);
 
+//! @return true if the caller is system UI (a system app or a kernel task), which follows the
+//! system theme. Third-party apps keep the SDK default colors.
+bool system_theme_is_system_ui(void);
+
 //! @return true if the current app context should render in dark mode (system apps only).
+//! @note In Ambient mode this returns the last ambient light sample and never samples the sensor
+//! itself; a stale sample makes it call \ref system_theme_request_dark_mode_check.
 bool system_theme_is_dark_mode(void);
+
+//! Re-evaluates dark mode on the system task, sampling the ambient light first if Ambient mode
+//! needs a new sample, and puts a PEBBLE_DARK_MODE_CHANGE_EVENT if the result differs from the
+//! last one announced. Doesn't block, so it is safe to call from drawing code.
+void system_theme_request_dark_mode_check(void);
 
 //! @return The background color appropriate for the current theme (black in dark mode on color
 //!         displays, white otherwise).

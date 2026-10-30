@@ -5,6 +5,7 @@
 #include "shell/system_theme.h"
 #include "shell/prefs.h"
 #include "process_management/pebble_process_md.h"
+#include "kernel/events.h"
 #include "kernel/pebble_tasks.h"
 #include <pbl/drivers/rtc.h>
 #include "stubs_fonts.h"
@@ -17,6 +18,7 @@ static int s_hour, s_minute;
 static PebbleTask s_task;
 static ProcessAppSDKType s_sdk;
 static RtcTicks s_ticks;
+static int s_dark_mode_events;
 
 DarkMode shell_prefs_get_dark_mode(void) { return s_mode; }
 void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule) { *schedule = s_schedule; }
@@ -29,6 +31,11 @@ void rtc_get_time_tm(struct pbl_tm *value) {
 }
 PebbleTask pebble_task_get_current(void) { return s_task; }
 ProcessAppSDKType process_metadata_get_app_sdk_type(const PebbleProcessMd *md) { return s_sdk; }
+void event_put(PebbleEvent *event) {
+  if (event->type == PEBBLE_DARK_MODE_CHANGE_EVENT) {
+    s_dark_mode_events++;
+  }
+}
 
 void test_system_dark_mode__initialize(void) {
   s_mode = DarkModeOff;
@@ -90,4 +97,29 @@ void test_system_dark_mode__third_party_app_keeps_its_colors(void) {
   cl_assert(!system_theme_is_dark_mode());
   s_sdk = ProcessAppSDKType_System;
   cl_assert(system_theme_is_dark_mode());
+}
+
+void test_system_dark_mode__check_announces_each_flip_once(void) {
+  // Settle the state announced by earlier tests
+  system_theme_request_dark_mode_check();
+  s_dark_mode_events = 0;
+  s_mode = DarkModeOn;
+  system_theme_request_dark_mode_check();
+  cl_assert_equal_i(s_dark_mode_events, 1);
+  system_theme_request_dark_mode_check();
+  cl_assert_equal_i(s_dark_mode_events, 1);
+  s_mode = DarkModeOff;
+  system_theme_request_dark_mode_check();
+  cl_assert_equal_i(s_dark_mode_events, 2);
+}
+
+void test_system_dark_mode__ambient_flip_is_announced_from_the_sample(void) {
+  s_mode = DarkModeAmbient;
+  system_theme_request_dark_mode_check();
+  s_dark_mode_events = 0;
+  s_light = false;
+  s_ticks += 30 * RTC_TICKS_HZ;
+  // Drawing with a stale sample asks for a new one, which announces the flip
+  cl_assert(system_theme_is_dark_mode());
+  cl_assert_equal_i(s_dark_mode_events, 1);
 }

@@ -11,10 +11,12 @@
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/light.h>
+#include <pbl/services/system_task.h>
 #include <pbl/util/size.h>
 #include <pbl/util/testing.h>
 
 #include <applib/fonts/fonts.h>
+#include <kernel/events.h>
 #include <process_management/pebble_process_md.h>
 #include <process_management/process_manager.h>
 #include <shell/prefs.h>
@@ -86,19 +88,69 @@ static bool prv_is_system_app(void) {
   return sdk_type == ProcessAppSDKType_System;
 }
 
-// Colors are looked up on draw paths, often several times per frame. An unprimed ambient light
-// read polls the sensor for up to 200 ms, so only re-read it this often.
-#define AMBIENT_DARK_MODE_CACHE_TICKS (30 * RTC_TICKS_HZ)
+PBL_SYSCALL(bool, system_theme_is_system_ui) {
+  return prv_is_system_app();
+}
+
+// Colors are looked up on draw paths, often several times per frame, so they never sample the
+// ambient light: an unprimed read polls the sensor for up to 200 ms. They use the last sample and
+// ask the system task for a new one once it is this old.
+#define AMBIENT_DARK_MODE_MAX_AGE_TICKS (30 * RTC_TICKS_HZ)
+
+static volatile bool s_ambient_is_dark;
+static volatile bool s_ambient_sampled;
+static volatile RtcTicks s_ambient_sampled_ticks;
+static volatile bool s_dark_mode_check_pending;
+//! Last state announced with PEBBLE_DARK_MODE_CHANGE_EVENT. Only used on the system task.
+static bool s_announced_is_dark;
+
+static void prv_sample_ambient(void) {
+  // While the backlight is on, the light service keeps returning the reading from before it
+  // turned on, so the backlight itself can't make the room look bright.
+  s_ambient_is_dark = light_get_ambient_gate_lux() <= light_get_dark_threshold();
+  s_ambient_sampled_ticks = rtc_get_ticks();
+  s_ambient_sampled = true;
+}
+
+static bool prv_ambient_sample_is_stale(void) {
+  return !s_ambient_sampled ||
+         (rtc_get_ticks() - s_ambient_sampled_ticks) >= AMBIENT_DARK_MODE_MAX_AGE_TICKS;
+}
+
+static void prv_dark_mode_check_callback(void *data) {
+  s_dark_mode_check_pending = false;
+  if (shell_prefs_get_dark_mode() == DarkModeAmbient && prv_ambient_sample_is_stale()) {
+    prv_sample_ambient();
+  }
+  // KernelBG counts as system UI, so this is the state system apps draw with
+  const bool is_dark = system_theme_is_dark_mode();
+  if (is_dark == s_announced_is_dark) {
+    return;
+  }
+  s_announced_is_dark = is_dark;
+  PebbleEvent event = {
+    .type = PEBBLE_DARK_MODE_CHANGE_EVENT,
+  };
+  event_put(&event);
+}
+
+void system_theme_request_dark_mode_check(void) {
+  if (s_dark_mode_check_pending) {
+    return;
+  }
+  s_dark_mode_check_pending = true;
+  // Droppable: this can be called while drawing, which must not wait for the queue. A dropped
+  // request is retried by the next caller.
+  if (!system_task_add_callback_droppable(prv_dark_mode_check_callback, nullptr)) {
+    s_dark_mode_check_pending = false;
+  }
+}
 
 static bool prv_is_ambient_dark(void) {
-  static RtcTicks s_checked_ticks;
-  static bool s_is_dark;
-  const RtcTicks now = rtc_get_ticks();
-  if (s_checked_ticks == 0 || (now - s_checked_ticks) >= AMBIENT_DARK_MODE_CACHE_TICKS) {
-    s_is_dark = light_get_ambient_gate_lux() <= light_get_dark_threshold();
-    s_checked_ticks = now;
+  if (prv_ambient_sample_is_stale()) {
+    system_theme_request_dark_mode_check();
   }
-  return s_is_dark;
+  return s_ambient_is_dark;
 }
 
 // App metadata is privileged memory, including when dark mode is disabled.
