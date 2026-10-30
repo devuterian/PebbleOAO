@@ -35,6 +35,10 @@ only where smaller. This does not add a new runtime compression scheme.
 Source Han Sans is Copyright 2014–2025 Adobe, licensed under SIL OFL 1.1;
 see LICENSE_SOURCE_HAN_SANS. Galmuri v2.40.4 uses the same license.
 
+Block Elements U+2580–U+259F (except U+2592, which comes from the KS X 1001 rows)
+are drawn pixel by pixel as half-width cells by tools/font/add_block_elements.py,
+so text progress bars such as ▓▓▓░░░ stay sharp on 1-bit screens.
+
 Rebuild with Pillow and fontTools installed:
 
 ```sh
