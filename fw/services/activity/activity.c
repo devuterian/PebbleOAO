@@ -1240,6 +1240,7 @@ static void prv_start_tracking_cb(void *context) {
     activity_algorithm_metrics_changed_notification();
 
     // Register our minutes callback
+    activity_sessions_prv_republish_sleep_state();
     pbl_cron_job_schedule(&s_activity_job);
     s_activity_state.started = true;
     PBL_LOG_INFO("Activity tracking started");
@@ -1522,6 +1523,8 @@ bool activity_stop_tracking(void) {
 // ------------------------------------------------------------------------------------------------
 static void prv_work_mode_changed_system_cb(void *unused) {
   pbl_mutex_lock(&s_activity_state.mutex, PBL_FOREVER);
+  // Sleep listeners ignore the sleep state during work mode, so give them the current one
+  activity_sessions_prv_republish_sleep_state();
   if (s_activity_state.started) {
     const uint32_t now_ts = time_get_uptime_seconds();
     prv_heart_rate_subscription_update(now_ts);

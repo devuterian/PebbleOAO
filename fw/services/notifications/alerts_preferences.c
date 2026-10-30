@@ -87,6 +87,15 @@ static bool s_do_not_disturb_manually_enabled = false;
 #define PREF_KEY_DND_SMART_ENABLED "dndSmartEnabled"
 static bool s_do_not_disturb_smart_dnd_enabled = false;
 
+#define PREF_KEY_DND_SLEEP_ENABLED "dndSleepEnabled"
+static bool s_do_not_disturb_sleep_dnd_enabled = false;
+
+#define PREF_KEY_DND_UNTIL_WAKE_STATE "dndUntilWakeState"
+static DndUntilWakeState s_do_not_disturb_until_wake_state = DndUntilWakeStateDisabled;
+
+#define PREF_KEY_DND_UNTIL_WAKE_DEADLINE "dndUntilWakeDeadline"
+static uint32_t s_do_not_disturb_until_wake_deadline = 0;
+
 static const char *const s_dnd_schedule_slot_keys[] = {DND_SCHEDULE_SLOT_KEYS};
 static_assert(ARRAY_LENGTH(s_dnd_schedule_slot_keys) == DND_NUM_SCHEDULE_SLOTS);
 static DoNotDisturbScheduleSlot s_dnd_schedule_slots[DND_NUM_SCHEDULE_SLOTS];
@@ -455,6 +464,9 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_VIBE_SCORE_ON_DISCONNECT, s_vibe_score_on_disconnect);
   RESTORE_PREF(PREF_KEY_DND_MANUALLY_ENABLED, s_do_not_disturb_manually_enabled);
   RESTORE_PREF(PREF_KEY_DND_SMART_ENABLED, s_do_not_disturb_smart_dnd_enabled);
+  RESTORE_PREF(PREF_KEY_DND_SLEEP_ENABLED, s_do_not_disturb_sleep_dnd_enabled);
+  RESTORE_PREF(PREF_KEY_DND_UNTIL_WAKE_STATE, s_do_not_disturb_until_wake_state);
+  RESTORE_PREF(PREF_KEY_DND_UNTIL_WAKE_DEADLINE, s_do_not_disturb_until_wake_deadline);
   RESTORE_PREF(PREF_KEY_DND_INTERRUPTIONS_MASK, s_dnd_interruptions_mask);
   RESTORE_PREF(PREF_KEY_DND_SHOW_NOTIFICATIONS, s_dnd_show_notifications);
   RESTORE_PREF(PREF_KEY_DND_MOTION_BACKLIGHT, s_dnd_motion_backlight);
@@ -496,6 +508,11 @@ void alerts_preferences_init(void) {
   RESTORE_PREF(PREF_KEY_WORK_MODE_NOTIF_STYLE, s_work_mode_notification_style);
   RESTORE_PREF(PREF_KEY_WORK_MODE_CALL_STYLE, s_work_mode_call_style);
 #undef RESTORE_PREF
+
+  if (s_do_not_disturb_until_wake_state != DndUntilWakeStateWaitingForSleep &&
+      s_do_not_disturb_until_wake_state != DndUntilWakeStateWaitingForWake) {
+    s_do_not_disturb_until_wake_state = DndUntilWakeStateDisabled;
+  }
 
   prv_migrate_legacy_dnd_schedule(&file);
   prv_migrate_notification_content_size(&file);
@@ -875,6 +892,33 @@ void alerts_preferences_dnd_set_smart_enabled(bool enable) {
   SET_PREF(PREF_KEY_DND_SMART_ENABLED, s_do_not_disturb_smart_dnd_enabled);
 }
 
+bool alerts_preferences_dnd_is_sleep_enabled(void) {
+  return s_do_not_disturb_sleep_dnd_enabled;
+}
+
+void alerts_preferences_dnd_set_sleep_enabled(bool enable) {
+  s_do_not_disturb_sleep_dnd_enabled = enable;
+  SET_PREF(PREF_KEY_DND_SLEEP_ENABLED, s_do_not_disturb_sleep_dnd_enabled);
+}
+
+DndUntilWakeState alerts_preferences_dnd_get_until_wake_state(void) {
+  return s_do_not_disturb_until_wake_state;
+}
+
+void alerts_preferences_dnd_set_until_wake_state(DndUntilWakeState state) {
+  s_do_not_disturb_until_wake_state = state;
+  SET_PREF(PREF_KEY_DND_UNTIL_WAKE_STATE, s_do_not_disturb_until_wake_state);
+}
+
+time_t alerts_preferences_dnd_get_until_wake_deadline(void) {
+  return s_do_not_disturb_until_wake_deadline;
+}
+
+void alerts_preferences_dnd_set_until_wake_deadline(time_t deadline_utc) {
+  s_do_not_disturb_until_wake_deadline = deadline_utc;
+  SET_PREF(PREF_KEY_DND_UNTIL_WAKE_DEADLINE, s_do_not_disturb_until_wake_deadline);
+}
+
 void alerts_preferences_lock(void) {
   pbl_mutex_lock(&s_mutex, PBL_FOREVER);
 }
@@ -886,7 +930,8 @@ void alerts_preferences_unlock(void) {
 //! Keys that feed do_not_disturb_is_active() or the DND schedule timer
 static bool prv_is_dnd_state_key(const char *key) {
   if (strcmp(key, PREF_KEY_DND_MANUALLY_ENABLED) == 0 ||
-      strcmp(key, PREF_KEY_DND_SMART_ENABLED) == 0) {
+      strcmp(key, PREF_KEY_DND_SMART_ENABLED) == 0 ||
+      strcmp(key, PREF_KEY_DND_SLEEP_ENABLED) == 0) {
     return true;
   }
   for (int i = 0; i < NumDNDSchedules; i++) {
@@ -1016,6 +1061,7 @@ void alerts_preferences_handle_blob_db_event(PebbleBlobDBEvent *event) {
   RELOAD_IF_MATCH(PREF_KEY_VIBE_SCORE_ALARMS, s_vibe_score_alarms);
   RELOAD_IF_MATCH(PREF_KEY_DND_MANUALLY_ENABLED, s_do_not_disturb_manually_enabled);
   RELOAD_IF_MATCH(PREF_KEY_DND_SMART_ENABLED, s_do_not_disturb_smart_dnd_enabled);
+  RELOAD_IF_MATCH(PREF_KEY_DND_SLEEP_ENABLED, s_do_not_disturb_sleep_dnd_enabled);
   RELOAD_IF_MATCH(s_dnd_schedule_keys[WeekdaySchedule].schedule_pref_key,
                   s_dnd_schedule[WeekdaySchedule].schedule);
   RELOAD_IF_MATCH(s_dnd_schedule_keys[WeekdaySchedule].enabled_pref_key,

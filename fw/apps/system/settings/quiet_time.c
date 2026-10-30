@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include <pbl/kernel/fatal.h>
+#include <pbl/services/activity/activity.h>
 #include <pbl/services/alarms/alarm.h>
 #include <pbl/services/clock.h>
 #include <pbl/services/i18n/i18n.h>
@@ -24,6 +25,7 @@
 #include <applib/ui/menu_layer.h>
 #include <applib/ui/time_range_selection_window.h>
 #include <kernel/pbl_malloc.h>
+#include <popups/health_tracking_ui.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/prefs.h>
 #include <shell/system_theme.h>
@@ -55,7 +57,9 @@ typedef struct {
 
 enum QuietTimeItem {
   QuietTimeItemManual,
+  QuietTimeItemUntilWake,
   QuietTimeItemSmartDnd,
+  QuietTimeItemSleepDnd,
   QuietTimeItemSchedule,
   QuietTimeItemInterruptions,
   QuietTimeItemNotifications,
@@ -589,6 +593,15 @@ static void prv_backlight_submenu_push(void) {
 // Top-level Quiet Time menu
 ///////////////////////////////
 
+//! Turning on a mode that follows sleep explains that it needs Health instead, when it's off
+static bool prv_needs_health(bool enabling) {
+  if (enabling && !activity_prefs_tracking_is_enabled()) {
+    health_tracking_ui_feature_show_disabled();
+    return true;
+  }
+  return false;
+}
+
 static void prv_deinit_cb(SettingsCallbacks *context) {
   SettingsQuietTimeData *data = (SettingsQuietTimeData *)context;
   i18n_free_all(data);
@@ -607,10 +620,22 @@ static void prv_draw_row_cb(SettingsCallbacks *context, GContext *ctx, const Lay
       subtitle =
           do_not_disturb_is_manually_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
       break;
+    case QuietTimeItemUntilWake:
+      /// Quiet Time that ends when the user wakes up from the next sleep
+      title = i18n_get("Until Wake", data);
+      subtitle =
+          do_not_disturb_is_until_wake_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
+      break;
     case QuietTimeItemSmartDnd:
       title = i18n_get("Calendar Aware", data);
       subtitle =
           do_not_disturb_is_smart_dnd_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
+      break;
+    case QuietTimeItemSleepDnd:
+      /// Quiet Time while the user is asleep
+      title = i18n_get("Sleep Aware", data);
+      subtitle =
+          do_not_disturb_is_sleep_dnd_enabled() ? i18n_get("On", data) : i18n_get("Off", data);
       break;
     case QuietTimeItemSchedule:
       title = i18n_get("Schedule", data);
@@ -644,8 +669,20 @@ static void prv_select_click_cb(SettingsCallbacks *context, uint16_t row) {
     case QuietTimeItemManual:
       do_not_disturb_toggle_manually_enabled(ManualDNDFirstUseSourceSettingsMenu);
       break;
+    case QuietTimeItemUntilWake: {
+      const bool enable = !do_not_disturb_is_until_wake_enabled();
+      if (!prv_needs_health(enable)) {
+        do_not_disturb_set_until_wake_enabled(enable);
+      }
+      break;
+    }
     case QuietTimeItemSmartDnd:
       do_not_disturb_toggle_smart_dnd();
+      break;
+    case QuietTimeItemSleepDnd:
+      if (!prv_needs_health(!do_not_disturb_is_sleep_dnd_enabled())) {
+        do_not_disturb_toggle_sleep_dnd();
+      }
       break;
     case QuietTimeItemSchedule:
       prv_schedule_submenu_push();

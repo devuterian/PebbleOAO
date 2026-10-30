@@ -5,13 +5,16 @@
 
 #include <pbl/cron/cron.h>
 #include <pbl/drivers/rtc.h>
+#include <pbl/kernel/mutex.h>
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
+#include <pbl/services/activity/activity.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/notifications/alerts_preferences.h>
 #include <pbl/services/notifications/alerts_preferences_private.h>
 #include <pbl/services/notifications/do_not_disturb.h>
 #include <pbl/services/notifications/do_not_disturb_toggle.h>
+#include <pbl/services/notifications/work_mode.h>
 #include <pbl/services/system_task.h>
 #include <pbl/services/timeline/calendar.h>
 #include <pbl/util/math.h>
@@ -32,12 +35,28 @@
 PBL_LOG_MODULE_DECLARE(service_notifications, CONFIG_SERVICE_NOTIFICATIONS_LOG_LEVEL);
 
 typedef struct DoNotDisturbData {
+  ActivitySleepState sleep_state;
   bool is_in_schedule_period;
   bool manually_override_dnd;
+  //! Sleep Aware was turned off by hand until waking up is confirmed
+  bool sleep_dnd_override;
+  //! Last seen Sleep Aware setting, to notice a change synced from the phone
+  bool sleep_dnd_enabled;
   bool was_active;
 } DoNotDisturbData;
 
 static DoNotDisturbData s_data;
+
+//! Until Wake ends by itself after this long, in case sleep is never seen, e.g. off the wrist
+#define DND_UNTIL_WAKE_MAX_SEC (18 * PBL_SEC_PER_HOUR)
+
+//! Guards Until Wake state changes, which come from the app, KernelMain and KernelBG
+static PBL_MUTEX_DEFINE(s_until_wake_mutex);
+
+static void prv_until_wake_cron_callback(struct pbl_cron_job *job, void *data);
+static struct pbl_cron_job s_until_wake_job = {
+  .cb = prv_until_wake_cron_callback,
+};
 
 //! Cron jobs for the start and end of each schedule slot's period, and for midnight where a
 //! legacy slot's period starts or stops.
@@ -47,7 +66,10 @@ static struct pbl_cron_job s_schedule_midnight_jobs[DND_NUM_SCHEDULE_SLOTS];
 
 static bool prv_is_smart_dnd_active(void);
 static bool prv_is_schedule_active(void);
+static bool prv_is_sleep_dnd_active(void);
+static bool prv_is_until_wake_active(void);
 static void prv_update_schedule_mode(void);
+static void prv_set_manually_enabled(bool enable, bool by_user);
 
 static void prv_update_active_time(bool is_active) {
   if (is_active) {
@@ -232,7 +254,7 @@ static void prv_update_schedule_mode(void) {
 
   // Coming out of scheduled DND with manual DND on, turning it off
   if (s_data.is_in_schedule_period && !in_period && do_not_disturb_is_manually_enabled()) {
-    do_not_disturb_set_manually_enabled(false);
+    prv_set_manually_enabled(false, false /* by_user */);
   }
   s_data.is_in_schedule_period = in_period;
   PBL_LOG_DBG("%s scheduled period", s_data.is_in_schedule_period ? "In" : "Out of");
@@ -247,6 +269,95 @@ static bool prv_is_smart_dnd_active(void) {
           !s_data.manually_override_dnd);
 }
 
+static bool prv_is_asleep(ActivitySleepState state) {
+  return state == ActivitySleepStateLightSleep || state == ActivitySleepStateRestfulSleep;
+}
+
+static bool prv_is_sleep_dnd_active(void) {
+  return do_not_disturb_is_sleep_dnd_enabled() && prv_is_asleep(s_data.sleep_state) &&
+         !s_data.sleep_dnd_override;
+}
+
+static void prv_clear_sleep_override_if_setting_changed(void) {
+  const bool enabled = do_not_disturb_is_sleep_dnd_enabled();
+  if (enabled != s_data.sleep_dnd_enabled) {
+    s_data.sleep_dnd_enabled = enabled;
+    s_data.sleep_dnd_override = false;
+  }
+}
+
+static bool prv_is_until_wake_active(void) {
+  return alerts_preferences_dnd_get_until_wake_state() != DndUntilWakeStateDisabled;
+}
+
+//! Call with s_until_wake_mutex held
+static void prv_until_wake_set_state(DndUntilWakeState state) {
+  if (state == alerts_preferences_dnd_get_until_wake_state()) {
+    return;
+  }
+  PBL_LOG_DBG("Until Wake: %d", state);
+  alerts_preferences_dnd_set_until_wake_state(state);
+  if (state == DndUntilWakeStateDisabled) {
+    pbl_cron_job_unschedule(&s_until_wake_job);
+  }
+}
+
+static void prv_until_wake_expired(void *data) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (prv_is_until_wake_active() &&
+      rtc_get_time() >= alerts_preferences_dnd_get_until_wake_deadline()) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
+  prv_do_update();
+}
+
+static void prv_until_wake_cron_callback(struct pbl_cron_job *job, void *data) {
+  system_task_add_callback(prv_until_wake_expired, nullptr);
+}
+
+//! Call with s_until_wake_mutex held
+static void prv_until_wake_schedule_deadline(void) {
+  time_t deadline = alerts_preferences_dnd_get_until_wake_deadline();
+  const time_t now = rtc_get_time();
+  if (deadline <= now) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+    return;
+  }
+  // The clock was moved back
+  if (deadline - now > DND_UNTIL_WAKE_MAX_SEC) {
+    deadline = now + DND_UNTIL_WAKE_MAX_SEC;
+    alerts_preferences_dnd_set_until_wake_deadline(deadline);
+  }
+  pbl_cron_job_schedule_at(&s_until_wake_job, deadline);
+}
+
+static void prv_until_wake_handle_sleep_state(ActivitySleepState state, bool wake_confirmed) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  const DndUntilWakeState until_wake = alerts_preferences_dnd_get_until_wake_state();
+  if (until_wake == DndUntilWakeStateWaitingForSleep && prv_is_asleep(state)) {
+    prv_until_wake_set_state(DndUntilWakeStateWaitingForWake);
+  } else if (until_wake == DndUntilWakeStateWaitingForWake && wake_confirmed) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
+}
+
+static void prv_set_sleep_state(ActivitySleepState state, bool wake_confirmed) {
+  // In work mode the watch is off the wrist, so sleep readings mean nothing
+  if (state > ActivitySleepStateUnknown || work_mode_is_active()) {
+    state = ActivitySleepStateUnknown;
+    wake_confirmed = false;
+  }
+  s_data.sleep_state = state;
+  // A manual override lasts for the current sleep
+  if (wake_confirmed) {
+    s_data.sleep_dnd_override = false;
+  }
+  prv_until_wake_handle_sleep_state(state, wake_confirmed);
+  prv_do_update();
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //! Public Functions
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,7 +368,7 @@ PBL_SYSCALL(bool, sys_do_not_disturb_is_active) {
 
 bool do_not_disturb_is_active(void) {
   if (do_not_disturb_is_manually_enabled() || prv_is_schedule_active() ||
-      prv_is_smart_dnd_active()) {
+      prv_is_smart_dnd_active() || prv_is_sleep_dnd_active() || prv_is_until_wake_active()) {
     return true;
   }
   return false;
@@ -267,16 +378,29 @@ bool do_not_disturb_is_manually_enabled(void) {
   return alerts_preferences_dnd_is_manually_enabled();
 }
 
-void do_not_disturb_set_manually_enabled(bool enable) {
+static void prv_set_manually_enabled(bool enable, bool by_user) {
+  const bool was_manually_enabled = do_not_disturb_is_manually_enabled();
+  const bool is_schedule_or_smart_active = prv_is_schedule_active() || prv_is_smart_dnd_active();
   const bool is_auto_dnd = s_data.is_in_schedule_period || do_not_disturb_is_smart_dnd_enabled();
+  const bool is_sleep_dnd_active = prv_is_sleep_dnd_active();
   const bool was_active = do_not_disturb_is_active();
 
   alerts_preferences_dnd_set_manually_enabled(enable);
-  // Turning the manual DND OFF in an active DND mode overrides the automatic mode
-  if (!enable && was_active && is_auto_dnd) {
-    s_data.manually_override_dnd = true;
+  // Turning the manual DND OFF in an active DND mode overrides the automatic mode. Ending Sleep
+  // Aware DND alone leaves the schedule and calendar alone.
+  if (!enable && was_active) {
+    if (is_auto_dnd && (was_manually_enabled || is_schedule_or_smart_active)) {
+      s_data.manually_override_dnd = true;
+    }
+    if (by_user && is_sleep_dnd_active) {
+      s_data.sleep_dnd_override = true;
+    }
   }
   prv_do_update();
+}
+
+void do_not_disturb_set_manually_enabled(bool enable) {
+  prv_set_manually_enabled(enable, true /* by_user */);
 }
 
 void do_not_disturb_toggle_manually_enabled(ManualDNDFirstUseSource source) {
@@ -302,6 +426,35 @@ void do_not_disturb_toggle_smart_dnd(void) {
   } else {
     prv_toggle_smart_dnd(nullptr);
   }
+}
+
+bool do_not_disturb_is_sleep_dnd_enabled(void) {
+  return alerts_preferences_dnd_is_sleep_enabled();
+}
+
+void do_not_disturb_toggle_sleep_dnd(void) {
+  alerts_preferences_dnd_set_sleep_enabled(!alerts_preferences_dnd_is_sleep_enabled());
+  prv_clear_sleep_override_if_setting_changed();
+  prv_do_update();
+}
+
+bool do_not_disturb_is_until_wake_enabled(void) {
+  return prv_is_until_wake_active();
+}
+
+void do_not_disturb_set_until_wake_enabled(bool enable) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (!enable) {
+    prv_until_wake_set_state(DndUntilWakeStateDisabled);
+  } else if (!prv_is_until_wake_active()) {
+    alerts_preferences_dnd_set_until_wake_deadline(rtc_get_time() + DND_UNTIL_WAKE_MAX_SEC);
+    prv_until_wake_set_state(prv_is_asleep(s_data.sleep_state)
+                                 ? DndUntilWakeStateWaitingForWake
+                                 : DndUntilWakeStateWaitingForSleep);
+    prv_until_wake_schedule_deadline();
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
+  prv_do_update();
 }
 
 void do_not_disturb_get_schedule_slot(unsigned int index, DoNotDisturbScheduleSlot *slot) {
@@ -352,22 +505,60 @@ void do_not_disturb_delete_schedule_slot(unsigned int index) {
 }
 
 void do_not_disturb_init(void) {
+  // The sleep state follows on the first activity minute
   s_data = (DoNotDisturbData){
+    .sleep_state = ActivitySleepStateUnknown,
+    .sleep_dnd_enabled = do_not_disturb_is_sleep_dnd_enabled(),
     .was_active = false,
   };
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (prv_is_until_wake_active()) {
+    prv_until_wake_schedule_deadline();
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
   prv_try_update_schedule_mode((void *)true);
 }
 
 void do_not_disturb_handle_clock_change(void) {
+  pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
+  if (prv_is_until_wake_active()) {
+    prv_until_wake_schedule_deadline();
+  }
+  pbl_mutex_unlock(&s_until_wake_mutex);
   prv_try_update_schedule_mode_callback(false);
 }
 
 void do_not_disturb_handle_pref_synced(void) {
+  prv_clear_sleep_override_if_setting_changed();
   prv_try_update_schedule_mode_callback(false);
 }
 
 void do_not_disturb_handle_calendar_event(PebbleCalendarEvent *e) {
   prv_do_update();
+}
+
+void do_not_disturb_handle_activity_event(PebbleActivityEvent *e) {
+  switch (e->type) {
+    case PebbleActivityEvent_TrackingStarted:
+      // The sleep state follows on the first minute
+      break;
+    case PebbleActivityEvent_TrackingStopped:
+      s_data.sleep_dnd_override = false;
+      prv_set_sleep_state(ActivitySleepStateUnknown, false /* wake_confirmed */);
+      break;
+    case PebbleActivityEvent_SleepStateChanged:
+      prv_set_sleep_state(e->sleep_state, e->wake_confirmed);
+      break;
+    case PebbleActivityEventNum:
+      break;
+  }
+}
+
+void do_not_disturb_handle_work_mode_changed(void) {
+  // Leaving work mode, activity tracking publishes the sleep state again
+  if (work_mode_is_active()) {
+    prv_set_sleep_state(ActivitySleepStateUnknown, false /* wake_confirmed */);
+  }
 }
 
 void do_not_disturb_manual_toggle_with_dialog(void) {

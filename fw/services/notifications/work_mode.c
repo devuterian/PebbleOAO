@@ -10,6 +10,7 @@
 #include "resource/resource_ids.auto.h"
 #include "pbl/services/activity/activity.h"
 #include "pbl/services/i18n/i18n.h"
+#include "pbl/services/notifications/do_not_disturb.h"
 #include <pbl/logging/logging.h>
 
 #include <stdint.h>
@@ -66,6 +67,7 @@ static void prv_show_ended(void) {
 static void prv_apply_kernel_cb(void *data) {
   const bool active = (bool)(uintptr_t)data;
   activity_handle_work_mode_changed();
+  do_not_disturb_handle_work_mode_changed();
   if (active) {
     prv_show_started();
   } else {

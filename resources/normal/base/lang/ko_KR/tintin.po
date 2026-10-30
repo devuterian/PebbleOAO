@@ -4090,3 +4090,11 @@ msgstr "일출"
 
 msgid "Sunset"
 msgstr "일몰"
+
+#. Quiet Time that ends when the user wakes up from the next sleep
+msgid "Until Wake"
+msgstr "기상 시까지"
+
+#. Quiet Time while the user is asleep
+msgid "Sleep Aware"
+msgstr "수면 연동"
