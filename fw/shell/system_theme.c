@@ -5,11 +5,12 @@
 
 #include "system_theme_style.h"
 
-#include <pbl/drivers/rtc.h>
 #include <pbl/kernel/assert.h>
 #include <pbl/kernel/fatal.h>
 #include <pbl/kernel/syscall.h>
+#include <pbl/kernel/time.h>
 #include <pbl/logging/logging.h>
+#include <pbl/services/clock.h>
 #include <pbl/services/light.h>
 #ifdef CONFIG_SPEAKER
 #include <pbl/services/speaker/speaker_service.h>
@@ -98,11 +99,11 @@ PBL_SYSCALL(bool, system_theme_is_system_ui) {
 // Colors are looked up on draw paths, often several times per frame, so they never sample the
 // ambient light: an unprimed read polls the sensor for up to 200 ms. They use the last sample and
 // ask the system task for a new one once it is this old.
-#define AMBIENT_DARK_MODE_MAX_AGE_TICKS (30 * RTC_TICKS_HZ)
+#define AMBIENT_DARK_MODE_MAX_AGE_TICKS (30 * PBL_TICK_HZ)
 
 static volatile bool s_ambient_is_dark;
 static volatile bool s_ambient_sampled;
-static volatile RtcTicks s_ambient_sampled_ticks;
+static volatile uint64_t s_ambient_sampled_ticks;
 static volatile bool s_dark_mode_check_pending;
 //! Last state announced with PEBBLE_DARK_MODE_CHANGE_EVENT. Only used on the system task.
 static bool s_announced_is_dark;
@@ -111,13 +112,13 @@ static void prv_sample_ambient(void) {
   // While the backlight is on, the light service keeps returning the reading from before it
   // turned on, so the backlight itself can't make the room look bright.
   s_ambient_is_dark = light_get_ambient_gate_lux() <= light_get_dark_threshold();
-  s_ambient_sampled_ticks = rtc_get_ticks();
+  s_ambient_sampled_ticks = pbl_uptime_ticks();
   s_ambient_sampled = true;
 }
 
 static bool prv_ambient_sample_is_stale(void) {
   return !s_ambient_sampled ||
-         (rtc_get_ticks() - s_ambient_sampled_ticks) >= AMBIENT_DARK_MODE_MAX_AGE_TICKS;
+         (pbl_uptime_ticks() - s_ambient_sampled_ticks) >= AMBIENT_DARK_MODE_MAX_AGE_TICKS;
 }
 
 // The speaker refills its buffer on the system task too, so a slow sensor read would make
@@ -167,15 +168,8 @@ static bool prv_is_ambient_dark(void) {
   return s_ambient_is_dark;
 }
 
-// App metadata is privileged memory, including when dark mode is disabled.
-PBL_SYSCALL(bool, system_theme_is_dark_mode) {
-  // Dark mode is only supported on color platforms, so treat all non-color platforms as light mode
-  if (PBL_IF_COLOR_ELSE(false, true)) {
-    return false;
-  }
-  if (!prv_is_system_app()) {
-    return false;
-  }
+//! Effective dark mode, for system UI and the app dark mode service alike
+static bool prv_is_dark_mode_active(void) {
   switch (shell_prefs_get_dark_mode()) {
     case DarkModeOff:
       return false;
@@ -187,7 +181,7 @@ PBL_SYSCALL(bool, system_theme_is_dark_mode) {
       DarkModeSchedule schedule;
       shell_prefs_get_dark_mode_schedule(&schedule);
       struct pbl_tm time_now;
-      rtc_get_time_tm(&time_now);
+      clock_get_time_tm(&time_now);
       const int now_min = time_now.tm_hour * 60 + time_now.tm_min;
       const int start_min = schedule.from_hour * 60 + schedule.from_minute;
       const int end_min = schedule.to_hour * 60 + schedule.to_minute;
@@ -205,12 +199,28 @@ PBL_SYSCALL(bool, system_theme_is_dark_mode) {
   }
 }
 
+// App metadata is privileged memory, including when dark mode is disabled.
+PBL_SYSCALL(bool, system_theme_is_dark_mode) {
+  return prv_is_system_app() && prv_is_dark_mode_active();
+}
+
+PBL_SYSCALL(bool, sys_dark_mode_is_active) {
+  return prv_is_dark_mode_active();
+}
+
 GColor system_theme_get_bg_color(void) {
   return system_theme_is_dark_mode() ? GColorBlack : GColorWhite;
 }
 
 GColor system_theme_get_fg_color(void) {
   return system_theme_is_dark_mode() ? GColorWhite : GColorBlack;
+}
+
+PBL_SYSCALL(GColor, system_theme_get_highlight_color) {
+  if (!prv_is_system_app()) {
+    return GColorBlack;
+  }
+  return shell_prefs_get_theme_highlight_color();
 }
 
 static const PreferredContentSize s_platform_default_content_sizes[] = {

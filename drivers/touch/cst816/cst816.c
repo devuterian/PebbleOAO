@@ -7,6 +7,7 @@
 #include <pbl/drivers/touch/cst816.h>
 #include <pbl/input/input.h>
 #include <pbl/kernel/delay.h>
+#include <pbl/kernel/time.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/analytics/analytics.h>
 #include <pbl/services/system_task.h>
@@ -289,9 +290,9 @@ static int prv_update_if_needed(const struct pbl_cst816 *cst) {
 }
 
 static void prv_count_irq(struct pbl_cst816_state *state) {
-  const RtcTicks now = rtc_get_ticks();
-  const RtcTicks wake_spacing = pbl_ms_to_ticks(CST816_WAKE_SPACING_MS);
-  const RtcTicks gap = now - state->last_irq_ticks;
+  const uint64_t now = pbl_uptime_ticks();
+  const uint64_t wake_spacing = pbl_ms_to_ticks(CST816_WAKE_SPACING_MS);
+  const uint64_t gap = now - state->last_irq_ticks;
 
   if (gap >= wake_spacing) {
     PBL_ANALYTICS_ADD(touch_driver_wake_cnt, 1);
@@ -423,7 +424,7 @@ static void prv_irq_handler(void *arg) {
   }
 }
 
-static int prv_sleep(const struct pbl_cst816 *cst) {
+static int prv_sleep(const struct pbl_cst816 *cst, bool awake) {
   struct pbl_cst816_state *state = cst->state;
   int ret;
 
@@ -435,9 +436,11 @@ static int prv_sleep(const struct pbl_cst816 *cst) {
   }
 
   // The chip only takes the command while awake.
-  ret = prv_hw_reset(cst, CST816_POR_DELAY_TIME_MS);
-  if (ret != 0) {
-    return ret;
+  if (!awake) {
+    ret = prv_hw_reset(cst, CST816_POR_DELAY_TIME_MS);
+    if (ret != 0) {
+      return ret;
+    }
   }
 
   return prv_write(cst, CST816_POWER_MODE_REG, CST816_POWER_MODE_SLEEP);
@@ -493,7 +496,7 @@ static int prv_init(const struct pbl_touch *touch) {
     return ret;
   }
 
-  return prv_sleep(cst);
+  return prv_sleep(cst, true);
 }
 
 static int prv_enable(const struct pbl_touch *touch) {
@@ -512,7 +515,7 @@ static int prv_enable(const struct pbl_touch *touch) {
 }
 
 static int prv_disable(const struct pbl_touch *touch) {
-  return prv_sleep(prv_from_touch(touch));
+  return prv_sleep(prv_from_touch(touch), false);
 }
 
 const struct pbl_touch_ops pbl_cst816_ops = {

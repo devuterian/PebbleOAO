@@ -29,7 +29,7 @@ const LauncherMenuLayerStyle *launcher_menu_layer_get_style(void) {
 
 #if PBL_ROUND
 static int prv_num_unfocused_rows_per_side(const LauncherMenuLayerStyle *style) {
-  return (DISP_ROWS - style->focused_cell_height) / (2 * style->unfocused_cell_height);
+  return (PBL_DISPLAY_HEIGHT - style->focused_cell_height) / (2 * style->unfocused_cell_height);
 }
 #endif
 
@@ -221,10 +221,6 @@ void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
 
   MenuLayer *menu_layer = &launcher_menu_layer->menu_layer;
   menu_layer_init(menu_layer, &menu_layer_frame);
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
   menu_layer_pad_bottom_enable(menu_layer, false);
   menu_layer_set_callbacks(menu_layer, launcher_menu_layer,
                            &(MenuLayerCallbacks){
@@ -264,7 +260,7 @@ void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
       scroll_layer_get_content_indicator(&menu_layer->scroll_layer);
   ContentIndicatorConfig content_indicator_config = (ContentIndicatorConfig){
     .layer = up_arrow_layer,
-    .colors.background = normal_bg,
+    .colors.background = GColorWhite,
     .colors.foreground = GColorDarkGray,
   };
   content_indicator_configure_direction(content_indicator, ContentIndicatorDirectionUp,
@@ -272,6 +268,10 @@ void launcher_menu_layer_init(LauncherMenuLayer *launcher_menu_layer,
   content_indicator_config.layer = down_arrow_layer;
   content_indicator_configure_direction(content_indicator, ContentIndicatorDirectionDown,
                                         &content_indicator_config);
+  content_indicator_set_colors_follow_theme(content_indicator, ContentIndicatorDirectionUp,
+                                            false /* foreground */);
+  content_indicator_set_colors_follow_theme(content_indicator, ContentIndicatorDirectionDown,
+                                            false /* foreground */);
 #endif
 
   // Wait to add the menu layer until after we might have added the content indicators because
@@ -317,16 +317,6 @@ void launcher_menu_layer_reload_data(LauncherMenuLayer *launcher_menu_layer) {
   }
 
   menu_layer_reload_data(&launcher_menu_layer->menu_layer);
-}
-
-void launcher_menu_layer_apply_theme_colors(LauncherMenuLayer *launcher_menu_layer) {
-  if (!launcher_menu_layer) {
-    return;
-  }
-  const GColor normal_bg = system_theme_get_bg_color();
-  menu_layer_set_normal_colors(&launcher_menu_layer->menu_layer, normal_bg,
-                               gcolor_legible_over(normal_bg));
-  layer_mark_dirty(menu_layer_get_layer(&launcher_menu_layer->menu_layer));
 }
 
 void launcher_menu_layer_update_content_size(LauncherMenuLayer *launcher_menu_layer) {

@@ -198,8 +198,9 @@ static void prv_draw_glance_row(GContext *ctx, const Layer *cell_layer,
 #endif
   const bool highlighted = menu_cell_layer_is_highlighted(cell_layer);
   GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  graphics_context_set_text_color(ctx,
-                                  highlighted ? GColorWhite : system_theme_get_fg_color());
+  graphics_context_set_text_color(
+      ctx, highlighted ? PBL_IF_COLOR_ELSE(GColorWhite, system_theme_get_bg_color())
+                       : system_theme_get_fg_color());
 
   char temp_text[12];
   snprintf(temp_text, sizeof(temp_text), "%d°", (int)glance->temp);
@@ -223,9 +224,11 @@ static void prv_draw_glance_row(GContext *ctx, const Layer *cell_layer,
   int title_x = 8;
   GBitmap *icon = prv_glance_icon(glance->weather_type);
   if (icon) {
-    // BW highlight is solid black — the icon ink inverts to stay visible.
-    weather_icon_draw(ctx, icon, GRect(bounds.origin.x + 5, (bounds.size.h - 25) / 2, 25, 25),
-                      PBL_IF_COLOR_ELSE(false, highlighted));
+    // BW highlight is solid black or white depending on the dark mode setting — the icon ink
+    // inverts to stay visible.
+    weather_icon_draw(
+        ctx, icon, GRect(bounds.origin.x + 5, (bounds.size.h - 25) / 2, 25, 25),
+        PBL_IF_COLOR_ELSE(false, system_theme_is_dark_mode() ? !highlighted : highlighted));
     title_x = 5 + 25 + 5;
   }
 
@@ -514,8 +517,8 @@ void saved_locations_push(const SavedLocationsConfig *config) {
     return;
   }
   window_set_user_data(view->window, view);
-  window_set_background_color(view->window, system_theme_get_bg_color());
-  window_set_window_handlers(view->window, (WindowHandlers) {
+  window_set_background_color_follows_theme(view->window, false /* dimmed */);
+  window_set_window_handlers(view->window, (WindowHandlers){
 #ifdef CONFIG_TOUCH
                                              .appear = prv_window_appear,
 #endif
@@ -541,17 +544,17 @@ void saved_locations_push(const SavedLocationsConfig *config) {
     return;
   }
 
-  menu_layer_set_callbacks(view->menu_layer, view, (MenuLayerCallbacks) {
-    .get_num_sections = prv_get_num_sections,
-    .get_num_rows = prv_get_num_rows,
-    .get_cell_height = prv_get_cell_height,
-    .draw_row = prv_draw_row,
-    .select_click = prv_select_click,
-  });
-  menu_layer_set_normal_colors(view->menu_layer, system_theme_get_bg_color(), system_theme_get_fg_color());
-  menu_layer_set_highlight_colors(view->menu_layer,
-                                  PBL_IF_COLOR_ELSE(GColorVividCerulean, system_theme_get_fg_color()),
-                                  system_theme_get_bg_color());
+  menu_layer_set_callbacks(view->menu_layer, view,
+                           (MenuLayerCallbacks){
+                             .get_num_sections = prv_get_num_sections,
+                             .get_num_rows = prv_get_num_rows,
+                             .get_cell_height = prv_get_cell_height,
+                             .draw_row = prv_draw_row,
+                             .select_click = prv_select_click,
+                           });
+#if PBL_COLOR
+  menu_layer_set_highlight_colors(view->menu_layer, GColorVividCerulean, GColorWhite);
+#endif
   menu_layer_set_click_config_onto_window(view->menu_layer, view->window);
   layer_add_child(root, menu_layer_get_layer(view->menu_layer));
 

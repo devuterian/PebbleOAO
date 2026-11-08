@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "pbl/services/speaker/key_sounds.h"
 #include "pbl/services/speaker/speaker_service.h"
-#include "pbl/services/settings/settings_file.h"
+#include "pbl/settings/settings.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/firmware_update.h"
 #include "pbl/services/notifications/do_not_disturb.h"
@@ -34,14 +34,14 @@ uint8_t key_sounds_volume(uint8_t level) {
   return levels[(level >= 1 && level <= 5) ? level - 1 : 2];
 }
 void key_sounds_init(void) {
-  SettingsFile file;
-  if (settings_file_open(&file, "keysounds", 128) == S_SUCCESS) {
+  struct pbl_settings_file file;
+  if (pbl_settings_open(&file, "keysounds", 128) == 0) {
     KeySoundSettings saved;
-    if (settings_file_get(&file, "settings", 8, &saved, sizeof(saved)) == S_SUCCESS &&
+    if (pbl_settings_get(&file, "settings", 8, &saved, sizeof(saved)) == 0 &&
         prv_valid(saved)) {
       s_settings = saved;
     }
-    settings_file_close(&file);
+    pbl_settings_close(&file);
   }
 }
 KeySoundSettings key_sounds_get_settings(void) {
@@ -55,11 +55,11 @@ bool key_sounds_set_settings(KeySoundSettings v) {
     return false;
   }
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
-  SettingsFile file;
+  struct pbl_settings_file file;
   bool saved = false;
-  if (settings_file_open(&file, "keysounds", 128) == S_SUCCESS) {
-    saved = settings_file_set(&file, "settings", 8, &v, sizeof(v)) == S_SUCCESS;
-    settings_file_close(&file);
+  if (pbl_settings_open(&file, "keysounds", 128) == 0) {
+    saved = pbl_settings_set(&file, "settings", 8, &v, sizeof(v)) == 0;
+    pbl_settings_close(&file);
   }
   if (saved) {
     s_settings = v;

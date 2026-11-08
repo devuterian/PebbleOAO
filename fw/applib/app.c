@@ -7,6 +7,7 @@
 
 #include <pbl/logging/logging.h>
 #include <pbl/mcu/fpu.h>
+#include <pbl/profiler/profiler.h>
 
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/layer.h>
@@ -16,15 +17,16 @@
 #include <process_state/app_state/app_state.h>
 #include <shell/system_theme.h>
 #include <syscall/syscall.h>
-#include <system/profiler.h>
+
+PBL_PROFILER_NODE_DEFINE(render_app);
 
 static void prv_render_app(void) {
   WindowStack *stack = app_state_get_window_stack();
   GContext *ctx = app_state_get_graphics_context();
   if (!window_stack_is_animating(stack)) {
-    SYS_PROFILER_NODE_START(render_app);
+    PBL_PROFILER_NODE_START(render_app);
     window_render(app_window_stack_get_top_window(), ctx);
-    SYS_PROFILER_NODE_STOP(render_app);
+    PBL_PROFILER_NODE_STOP(render_app);
   } else {
     WindowTransitioningContext *transition_context = &stack->transition_context;
 

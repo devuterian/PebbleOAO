@@ -10,11 +10,11 @@
 #include <pbl/util/size.h>
 
 #include <applib/app.h>
+#include <applib/app_malloc.h>
 #include <applib/event_service_client.h>
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/ui.h>
 #include <kernel/events.h>
-#include <kernel/pbl_malloc.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/normal/app_idle_timeout.h>
 #include <shell/prefs.h>
@@ -41,9 +41,7 @@ static const uint32_t SETTINGS_MENU_ICON_RESOURCES[SettingsMenuItem_Count] = {
   [SettingsMenuItemDateTime] = RESOURCE_ID_SETTINGS_MENU_ICON_DATE_TIME,
   [SettingsMenuItemDisplay] = RESOURCE_ID_SETTINGS_MENU_ICON_DISPLAY,
   [SettingsMenuItemHealth] = RESOURCE_ID_SETTINGS_MENU_ICON_HEALTH,
-#ifdef CONFIG_THEMING
   [SettingsMenuItemThemes] = RESOURCE_ID_SETTINGS_MENU_ICON_THEMES,
-#endif
   [SettingsMenuItemActivity] = RESOURCE_ID_SETTINGS_MENU_ICON_BACKGROUND_APP,
   [SettingsMenuItemSystem] = RESOURCE_ID_SETTINGS_MENU_ICON_SYSTEM,
 };
@@ -56,7 +54,6 @@ typedef struct {
   GBitmap *icons[SettingsMenuItem_Count];
 #endif
   EventServiceInfo pref_change_event_info; //!< Subscription for pref change notifications
-  EventServiceInfo dark_mode_event_info;   //!< Subscription for dark mode flips
 } SettingsAppData;
 
 static void prv_pref_change_handler(PebbleEvent *event, void *context) {
@@ -64,22 +61,9 @@ static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   // Reload the menu when any pref changes: cell heights are cached by the menu
   // layer and can change with the preferred content size. Re-anchor the
   // selection afterwards so the scroll offset stays within the new geometry.
-  window_set_background_color(&data->window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
   menu_layer_reload_data(&data->menu_layer);
   menu_layer_set_selected_index(&data->menu_layer, menu_layer_get_selected_index(&data->menu_layer),
                                 MenuRowAlignCenter, false /* animated */);
-}
-
-static void prv_apply_theme_colors(SettingsAppData *data) {
-  window_set_background_color(&data->window, system_theme_get_bg_color());
-  menu_layer_set_normal_colors(&data->menu_layer, system_theme_get_bg_color(),
-                               system_theme_get_fg_color());
-  layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
-}
-
-static void prv_dark_mode_change_handler(PebbleEvent *event, void *context) {
-  prv_apply_theme_colors(context);
 }
 
 static uint16_t prv_get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index,
@@ -95,8 +79,6 @@ static void prv_draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIn
 
   const char *category_title = settings_menu_get_submodule_info(cell_index->row)->name;
   const char *title = i18n_get(category_title, data);
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(&(data->menu_layer), normal_bg, gcolor_legible_over(normal_bg));
   GColor highlight_bg = shell_prefs_get_theme_highlight_color();
   menu_layer_set_highlight_colors(&(data->menu_layer), highlight_bg,
                                   gcolor_legible_over(highlight_bg));
@@ -127,7 +109,7 @@ static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *ce
 
   const int16_t focused_cell_height = MENU_CELL_ROUND_FOCUSED_SHORT_CELL_HEIGHT;
   const int16_t unfocused_cell_height =
-      (((DISP_ROWS - focused_cell_height) / 2) -
+      (((PBL_DISPLAY_HEIGHT - focused_cell_height) / 2) -
        SETTINGS_CATEGORY_MENU_CELL_UNFOCUSED_ROUND_VERTICAL_PADDING) /
       SETTINGS_CATEGORY_MENU_NUM_UNFOCUSED_ROWS_PER_SIDE;
   return menu_layer_is_index_selected(menu_layer, cell_index) ? focused_cell_height
@@ -172,10 +154,6 @@ static void prv_window_load(Window *window) {
                              .select_click = prv_select_callback,
                              .get_separator_height = prv_get_separator_height_callback
                            });
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(
@@ -191,25 +169,12 @@ static void prv_window_load(Window *window) {
     .context = data,
   };
   event_service_client_subscribe(&data->pref_change_event_info);
-
-  data->dark_mode_event_info = (EventServiceInfo){
-    .type = PEBBLE_DARK_MODE_CHANGE_EVENT,
-    .handler = prv_dark_mode_change_handler,
-    .context = data,
-  };
-  event_service_client_subscribe(&data->dark_mode_event_info);
-}
-
-static void prv_window_appear(Window *window) {
-  // Refresh background and menu colors in case dark mode changed while away
-  prv_apply_theme_colors(window_get_user_data(window));
 }
 
 static void prv_window_unload(Window *window) {
   SettingsAppData *data = window_get_user_data(window);
 
   event_service_client_unsubscribe(&data->pref_change_event_info);
-  event_service_client_unsubscribe(&data->dark_mode_event_info);
 
 #ifdef CONFIG_SETTINGS_ICONS
   // Free icons
@@ -232,11 +197,8 @@ static void handle_init(void) {
   window_set_user_data(window, data);
   window_set_window_handlers(window, &(WindowHandlers){
                                        .load = prv_window_load,
-                                       .appear = prv_window_appear,
                                        .unload = prv_window_unload,
                                      });
-  window_set_background_color(window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
   app_window_stack_push(window, true);
 }
 

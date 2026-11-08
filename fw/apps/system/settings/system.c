@@ -27,6 +27,7 @@
 #include <pbl/util/size.h>
 #include <pbl/util/time.h>
 
+#include <applib/app_malloc.h>
 #include <applib/fonts/fonts.h>
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/dialogs/actionable_dialog.h>
@@ -38,7 +39,6 @@
 #include <applib/ui/ui.h>
 #include <kernel/core_dump.h>
 #include <kernel/event_loop.h>
-#include <kernel/pbl_malloc.h>
 #include <kernel/ui/modals/modal_manager.h>
 #include <mfg/mfg_info.h>
 #include <mfg/mfg_serials.h>
@@ -179,8 +179,7 @@ static void prv_init_status_bar(StatusBarLayer *status_layer, Window *window, co
   status_bar_layer_init(status_layer);
   status_bar_layer_set_title(status_layer, text, false, false);
   status_bar_layer_set_separator_mode(status_layer, OPTION_MENU_STATUS_SEPARATOR_MODE);
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  status_bar_layer_set_colors(status_layer, normal_bg, gcolor_legible_over(normal_bg));
+  status_bar_layer_set_colors_follow_theme(status_layer, false /* transparent_background */);
   layer_add_child(&window->layer, status_bar_layer_get_layer(status_layer));
 }
 
@@ -271,15 +270,12 @@ static void prv_information_window_load(Window *window) {
   };
   bounds = grect_inset(bounds, menu_layer_insets);
   menu_layer_init(menu_layer, &bounds);
-  menu_layer_set_callbacks(menu_layer, data, &(MenuLayerCallbacks) {
-    .get_num_rows = prv_information_get_num_rows_callback,
-    .get_cell_height = prv_information_get_cell_height_callback,
-    .draw_row = prv_information_draw_row_callback,
-  });
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
+  menu_layer_set_callbacks(menu_layer, data,
+                           &(MenuLayerCallbacks){
+                             .get_num_rows = prv_information_get_num_rows_callback,
+                             .get_cell_height = prv_information_get_cell_height_callback,
+                             .draw_row = prv_information_draw_row_callback,
+                           });
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(
@@ -336,8 +332,6 @@ static void prv_information_window_push(SettingsSystemData *data) {
     .load = prv_information_window_load,
     .unload = prv_information_window_unload,
   });
-  window_set_background_color(&data->window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
 
   app_window_stack_push(&data->window, true);
 }
@@ -622,16 +616,13 @@ static void prv_debugging_window_load(Window *window) {
   };
   bounds = grect_inset(bounds, menu_layer_insets);
   menu_layer_init(menu_layer, &bounds);
-  menu_layer_set_callbacks(menu_layer, data, &(MenuLayerCallbacks) {
-    .get_num_rows = prv_debugging_get_num_rows_callback,
-    .get_cell_height = prv_debugging_get_cell_height_callback,
-    .draw_row = prv_debugging_draw_row_callback,
-    .select_click = prv_debugging_select_callback,
-  });
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
+  menu_layer_set_callbacks(menu_layer, data,
+                           &(MenuLayerCallbacks){
+                             .get_num_rows = prv_debugging_get_num_rows_callback,
+                             .get_cell_height = prv_debugging_get_cell_height_callback,
+                             .draw_row = prv_debugging_draw_row_callback,
+                             .select_click = prv_debugging_select_callback,
+                           });
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(
@@ -655,8 +646,6 @@ static void prv_debugging_window_push(SettingsSystemData *data) {
     .load = prv_debugging_window_load,
     .unload = prv_debugging_window_unload,
   });
-  window_set_background_color(&data->window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
 
   app_window_stack_push(&data->window, true);
 }
@@ -793,9 +782,9 @@ static void prv_draw_fcc_cell_round(GContext *ctx, const GRect *cell_layer_bound
   const uint8_t fcc_number_subtitle_height = fonts_get_font_height(fcc_number_subtitle_font);
   const GTextOverflowMode text_overflow_mode = GTextOverflowModeFill;
 
-  graphics_context_set_text_color(ctx, cell_is_highlighted ?
-    system_theme_get_bg_color() :
-    system_theme_get_fg_color());
+  graphics_context_set_text_color(
+      ctx, cell_is_highlighted ? PBL_IF_COLOR_ELSE(GColorWhite, system_theme_get_bg_color())
+                               : system_theme_get_fg_color());
 
   // Calculate the container of the FCC cell content and center it within the cell
   const int16_t title_and_icon_width = 50;
@@ -894,7 +883,7 @@ static void prv_append_regulatory_compliance_mark(SystemCertificationData *cd, G
   // Determine whether adding this mark overflows the cell, necessitating
   // another cell for this mark.
   uint16_t mark_width = mark->bounds.size.w;
-  if (cd->current_regulatory_marks_cell_width + mark_width >= DISP_COLS) {
+  if (cd->current_regulatory_marks_cell_width + mark_width >= PBL_DISPLAY_WIDTH) {
     // Flush the current marks to a cell and start a new one.
     prv_append_certification_menu(
         cd, &(SystemCertificationMenuItem){
@@ -1144,16 +1133,13 @@ static void prv_certification_window_load(Window *window) {
   };
   bounds = grect_inset(bounds, menu_layer_insets);
   menu_layer_init(menu_layer, &bounds);
-  menu_layer_set_callbacks(menu_layer, data, &(MenuLayerCallbacks) {
-    .get_num_rows = prv_certification_get_num_rows_callback,
-    .get_cell_height = prv_certification_get_cell_height_callback,
-    .draw_row = prv_certification_draw_row_callback,
-    .select_click = prv_certification_select_callback,
-  });
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
+  menu_layer_set_callbacks(menu_layer, data,
+                           &(MenuLayerCallbacks){
+                             .get_num_rows = prv_certification_get_num_rows_callback,
+                             .get_cell_height = prv_certification_get_cell_height_callback,
+                             .draw_row = prv_certification_draw_row_callback,
+                             .select_click = prv_certification_select_callback,
+                           });
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(
@@ -1192,8 +1178,6 @@ static void prv_certification_window_push(SettingsSystemData *data) {
     .load = prv_certification_window_load,
     .unload = prv_certification_window_unload,
   });
-  window_set_background_color(&data->window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
   app_window_stack_push(&data->window, true);
 }
 
@@ -1235,6 +1219,7 @@ static void prv_kcc_window_load(Window *window) {
                                   title, title_text_font,
                                   system_theme_get_fg_color(), GColorClear, GTextAlignmentCenter,
                                   GTextOverflowModeTrailingEllipsis);
+  text_layer_set_text_color_follows_theme(&data->title_text);
   layer_add_child(window_layer, text_layer_get_layer(&data->title_text));
 
   GRect info_text_frame = (GRect){.size = info_text_size};
@@ -1243,6 +1228,7 @@ static void prv_kcc_window_load(Window *window) {
                                   prv_get_korea_kcc_id(), info_text_font,
                                   system_theme_get_fg_color(), GColorClear, GTextAlignmentCenter,
                                   GTextOverflowModeTrailingEllipsis);
+  text_layer_set_text_color_follows_theme(&data->info_text);
   layer_add_child(window_layer, text_layer_get_layer(&data->info_text));
 }
 

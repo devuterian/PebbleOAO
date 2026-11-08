@@ -266,7 +266,7 @@ static uint32_t prv_check(void) {
     if (debugger) {
       PBL_LOG_SYNC_ERR("Task watchdog: expired, not resetting (debugger attached)");
     } else {
-      // The orderly teardown system_reset() performs from thread context could
+      // The orderly teardown pbl_reboot() performs from thread context could
       // block on the stuck thread and lose the core dump; a locked-out
       // scheduler makes it skip straight to the dump.
       pbl_irq_lock();
@@ -297,7 +297,7 @@ void pbl_task_wdt_init(void) {
   struct pbl_thread_attr attr = {
     .name = "TaskWDT",
     .entry = prv_thread_entry,
-    .prio = PBL_PRIO_MAX,
+    .prio = CONFIG_TASK_WDT_THREAD_PRIO,
     .privileged = true,
     .stack = s_stack,
     .stack_size = sizeof(s_stack),

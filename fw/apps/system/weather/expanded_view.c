@@ -12,6 +12,7 @@
 #include <string.h>
 #include <time.h>
 
+#include <pbl/kernel/time.h>
 #include <pbl/services/i18n/i18n.h>
 
 #include <applib/app_timer.h>
@@ -101,7 +102,7 @@ static int prv_sunset_minutes(int16_t lat_e2, int16_t lon_e2, int16_t utc_off_mi
   if (lat_e2 == INT16_MIN || lon_e2 == INT16_MIN) {
     return -1;
   }
-  time_t now = rtc_get_time();
+  time_t now = pbl_realtime();
   struct pbl_tm lt = *localtime(&now);
   const int N = lt.tm_yday + 1; // day of year 1..366
   // The LOCATION's UTC offset when the phone synced one (v4.1) — so a saved city's
@@ -183,7 +184,7 @@ static void prv_build_sunset(char *out, size_t n, int16_t lat_e2, int16_t lon_e2
 }
 
 static void prv_build_time(char *out, size_t n) {
-  time_t now = rtc_get_time();
+  time_t now = pbl_realtime();
   struct pbl_tm *lt = localtime(&now);
   if (!lt) {
     snprintf(out, n, "--:--");
@@ -350,13 +351,15 @@ static void prv_draw_gauge(GContext *ctx, int cx, int cy, int r, const char *lab
     int32_t filled = weather_scale_i32(EV_GAUGE_ARC_SPAN, v, max_val);
     if (filled > 0) {
       graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(fill, system_theme_get_fg_color()));
-      graphics_fill_radial(ctx, ring, GOvalScaleModeFitCircle, EV_GAUGE_RING_W,
-                           EV_GAUGE_ARC_START, EV_GAUGE_ARC_START + filled);
+      graphics_fill_radial(ctx, ring, GOvalScaleModeFitCircle, EV_GAUGE_RING_W, EV_GAUGE_ARC_START,
+                           EV_GAUGE_ARC_START + filled);
     }
   }
   char vbuf[12];
-  if (unknown) snprintf(vbuf, sizeof(vbuf), "--");
-  else         snprintf(vbuf, sizeof(vbuf), "%d%s", value, unit);
+  if (unknown)
+    snprintf(vbuf, sizeof(vbuf), "--");
+  else
+    snprintf(vbuf, sizeof(vbuf), "%d%s", value, unit);
   graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(ctx, vbuf, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                      GRect(cx - r + 2, cy - 12, 2 * r - 4, 24), GTextOverflowModeTrailingEllipsis,
@@ -573,7 +576,8 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     const int arrow_band = 18;
     const GRect down_frame = GRect(0, b.size.h - arrow_band, W, arrow_band);
     content_indicator_draw_arrow(ctx, &down_frame, ContentIndicatorDirectionDown,
-                                 system_theme_get_fg_color(), system_theme_get_bg_color(), GAlignCenter);
+                                 system_theme_get_fg_color(), system_theme_get_bg_color(),
+                                 GAlignCenter);
   }
 #endif
 }
@@ -798,8 +802,9 @@ static void prv_window_appear(Window *window) {
 }
 
 static void prv_window_load(Window *window) {
-  if (!s_ev) return;
-  window_set_background_color(window, system_theme_get_bg_color());
+  if (!s_ev)
+    return;
+  window_set_background_color_follows_theme(window, false /* dimmed */);
   GRect bounds = layer_get_bounds(window_get_root_layer(window));
   GRect frame = bounds;
   // Globe-BACK entrance (BOTH shapes): start the whole card off-screen to the left so its first

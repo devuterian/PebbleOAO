@@ -6,6 +6,8 @@
 #include <string.h>
 #include <time.h>
 
+#include <pbl/services/time.h>
+
 #include <applib/graphics/gdraw_command_sequence.h>
 #include <applib/ui/animation_interpolate.h>
 
@@ -87,7 +89,10 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch, AnimationPr
       uint8_t *dst = ri.data; // absolute-x
       const uint8_t *src = scratch + (uint32_t)y * W;
       for (int x = (int)ri.min_x; x <= (int)ri.max_x; x++) {
-        if (x < vis0 || x >= vis1) { weather_fb_row_set(dst, x, bg_color); continue; }
+        if (x < vis0 || x >= vis1) {
+          weather_fb_row_set(dst, x, bg_color);
+          continue;
+        }
         int sx = (int)((((int32_t)(x - left_edge)) * sx_step) >> 16);
         if (sx < 0)
           sx = 0;
@@ -150,7 +155,8 @@ static void prv_squash_resample(GBitmap *fb, const uint8_t *scratch, AnimationPr
                            (x >= (int)sri.min_x && x <= (int)sri.max_x) ? src[x] : bg_color);
       }
     } else {
-      for (int x = lo; x <= hi; x++) weather_fb_row_set(ri.data, x, bg_color);
+      for (int x = lo; x <= hi; x++)
+        weather_fb_row_set(ri.data, x, bg_color);
     }
   }
 }
@@ -281,7 +287,6 @@ void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst, GRect src_rect,
   int sy = src_rect.origin.y;
   int w = src_rect.size.w;
   int h = src_rect.size.h;
-  const uint8_t bg_argb = system_theme_get_bg_color().argb;
 
   for (int row = 0; row < h; row++) {
     GBitmapDataRowInfo ri = gbitmap_get_data_row_info(fb, (uint16_t)(sy + row));
@@ -290,8 +295,10 @@ void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst, GRect src_rect,
     // The destination is 1-bit on the BW boards (8-bit blanks are refused
     // there), so both sides are packed. dst_x is a byte offset and stays 0
     // for the 1-bit callers.
-    memset(dst_row, bg_argb, dbpr);
+    const bool isDark = system_theme_is_dark_mode();
+    memset(dst_row, isDark ? 0x00 : 0xFF, dbpr);
 #else
+    const uint8_t bg_argb = system_theme_get_bg_color().argb;
     memset(dst_row, bg_argb, (size_t)w);
 #endif
 
@@ -301,7 +308,7 @@ void weather_capture_framebuffer_rect(GBitmap *fb, GBitmap *dst, GRect src_rect,
 #if PBL_BW
       for (int x = xs; x <= xe; x++) {
         pbl_bitset8_update(dst_row, (unsigned)(x - sx), pbl_bitset8_get(ri.data, (unsigned)x));
-        weather_fb_row_set(ri.data, x, bg_argb);
+        weather_fb_row_set(ri.data, x, isDark ? 0x00 : 0xFF);
       }
 #else
       size_t n = (size_t)(xe - xs + 1);
@@ -396,16 +403,71 @@ static bool prv_recolor_pdc_command_cb(GDrawCommand *command, uint32_t index, vo
   return true;
 }
 
-void weather_recolor_pdc_image_for_dark_mode(GDrawCommandImage *image) {
-  if (!image || !system_theme_is_dark_mode()) return;
+void weather_recolor_gbitmap_for_dark_mode(GBitmap *bmp) {
+  if (!bmp) {
+    return;
+  }
+
+  if (!system_theme_is_dark_mode()) {
+    return;
+  }
+
+  GColor *pal = gbitmap_get_palette(bmp);
+  uint32_t entries;
+  switch (gbitmap_get_format(bmp)) {
+    case GBitmapFormat1BitPalette:
+      entries = 2;
+      break;
+    case GBitmapFormat2BitPalette:
+      entries = 4;
+      break;
+    case GBitmapFormat4BitPalette:
+      entries = 16;
+      break;
+    default:
+      return;
+  }
+  if (!pal) {
+    return;
+  }
+
+  // Hoisted: both are syscalls.
+  const GColor fg = system_theme_get_fg_color();
+  const GColor bg = system_theme_get_bg_color();
+
+  for (uint32_t i = 0; i < entries; i++) {
+    if (!pal[i].a) {
+      continue; // keep transparency
+    }
+    const GColor8 gray = gcolor_get_grayscale(pal[i]);
+    pal[i] = (gcolor_equal(gray, GColorBlack) || gcolor_equal(gray, GColorDarkGray)) ? fg : bg;
+  }
+}
+
+void weather_invert_pdc_image(GDrawCommandImage *image) {
+  if (!image)
+    return;
   GDrawCommandList *list = gdraw_command_image_get_command_list(image);
   if (list) {
     gdraw_command_list_iterate(list, prv_recolor_pdc_command_cb, NULL);
   }
 }
 
+void weather_recolor_pdc_image_for_dark_mode(GDrawCommandImage *image) {
+  if (system_theme_is_dark_mode()) {
+    weather_invert_pdc_image(image);
+  }
+}
+
 void weather_recolor_pdc_sequence_for_dark_mode(GDrawCommandSequence *sequence) {
-  if (!sequence || !system_theme_is_dark_mode()) return;
+  if (system_theme_is_dark_mode()) {
+    weather_invert_pdc_sequence(sequence);
+  }
+}
+
+void weather_invert_pdc_sequence(GDrawCommandSequence *sequence) {
+  if (!sequence)
+    return;
   const uint32_t nframes = gdraw_command_sequence_get_num_frames(sequence);
   for (uint32_t i = 0; i < nframes; i++) {
     GDrawCommandFrame *f = gdraw_command_sequence_get_frame_by_index(sequence, i);

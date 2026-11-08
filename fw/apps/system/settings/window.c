@@ -2,7 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "window.h"
-#include "applib/ui/app_window_stack.h"
+
 #include "pbl/services/speaker/key_sounds.h"
 
 #include "bluetooth.h"
@@ -13,16 +13,15 @@
 #include <pbl/kernel/assert.h>
 #include <pbl/services/i18n/i18n.h>
 
+#include <applib/app_malloc.h>
+#include <applib/ui/app_window_stack.h>
 #include <applib/event_service_client.h>
 #include <applib/ui/menu_layer.h>
 #include <applib/ui/option_menu_window.h>
 #include <applib/ui/ui.h>
 #include <kernel/events.h>
-#include <kernel/pbl_malloc.h>
 #include <process_state/app_state/app_state.h>
 #include <shell/prefs.h>
-#include <pbl/services/system_task.h>
-#include <system/bootbits.h>
 #include <shell/system_theme.h>
 
 typedef struct SettingsData {
@@ -46,34 +45,16 @@ typedef struct SettingsData {
   ClickConfigProvider menu_layer_click_config; //! HACK: Used to register a back click.
 
   EventServiceInfo pref_change_event_info; //!< Subscription for pref change notifications
-  EventServiceInfo dark_mode_event_info;   //!< Subscription for dark mode flips
 } SettingsData;
 
 // Pref change handler
 ///////////////////////
 
-static void prv_refresh_theme_colors(SettingsData *data) {
-  const GColor bg = system_theme_get_bg_color();
-  const GColor fg = system_theme_get_fg_color();
-  window_set_background_color(&data->window, bg);
-  status_bar_layer_set_colors(&data->status_layer, bg, fg);
-  menu_layer_set_normal_colors(&data->menu_layer, bg, fg);
-  layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
-}
-
-static void prv_dark_mode_change_handler(PebbleEvent *event, void *context) {
-  prv_refresh_theme_colors(context);
-}
-
 static void prv_pref_change_handler(PebbleEvent *event, void *context) {
   SettingsData *data = context;
-  prv_refresh_theme_colors(data);
   // Reload the menu when any pref changes: cell heights are cached by the menu
   // layer and can change with the preferred content size. Re-anchor the
   // selection afterwards so the scroll offset stays within the new geometry.
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  window_set_background_color(&data->window, normal_bg);
-  status_bar_layer_set_colors(&data->status_layer, normal_bg, gcolor_legible_over(normal_bg));
   menu_layer_reload_data(&data->menu_layer);
   menu_layer_set_selected_index(&data->menu_layer, menu_layer_get_selected_index(&data->menu_layer),
                                 MenuRowAlignCenter, false /* animated */);
@@ -96,9 +77,8 @@ static void prv_set_sub_menu_colors(GContext *ctx, const Layer *cell_layer, bool
     graphics_context_set_fill_color(ctx, highlight_bg);
     graphics_context_set_text_color(ctx, gcolor_legible_over(highlight_bg));
   } else {
-    GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-    graphics_context_set_fill_color(ctx, normal_bg);
-    graphics_context_set_text_color(ctx, gcolor_legible_over(normal_bg));
+    graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
+    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   }
   graphics_fill_rect(ctx, &cell_layer->bounds);
 }
@@ -180,13 +160,14 @@ static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *ce
   const uint16_t row = cell_index->row;
   SettingsCallbacks *callbacks = prv_get_current_callbacks(data);
   const bool is_selected = menu_layer_is_index_selected(menu_layer, cell_index);
-  return (callbacks->row_height) ?
-      callbacks->row_height(callbacks, row, is_selected) :
-      PBL_IF_RECT_ELSE(
-          fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellTitle)) +
-              fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellSubtitle)) + 10,
-                       (is_selected ? MENU_CELL_ROUND_FOCUSED_SHORT_CELL_HEIGHT :
-                                      MENU_CELL_ROUND_UNFOCUSED_TALL_CELL_HEIGHT));
+  return (callbacks->row_height)
+             ? callbacks->row_height(callbacks, row, is_selected)
+             : PBL_IF_RECT_ELSE(
+                   fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellTitle)) +
+                       fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellSubtitle)) +
+                       10,
+                   (is_selected ? MENU_CELL_ROUND_FOCUSED_SHORT_CELL_HEIGHT
+                                : MENU_CELL_ROUND_UNFOCUSED_TALL_CELL_HEIGHT));
 }
 
 // Settings Window:
@@ -200,8 +181,7 @@ static void prv_settings_window_load(Window *window) {
   const char *title = data->title_override ? data->title_override
                                            : settings_menu_get_status_name(data->current_category);
   status_bar_layer_set_title(status_layer, i18n_get(title, data), false, false);
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  status_bar_layer_set_colors(status_layer, normal_bg, gcolor_legible_over(normal_bg));
+  status_bar_layer_set_colors_follow_theme(status_layer, false /* transparent_background */);
   status_bar_layer_set_separator_mode(status_layer, OPTION_MENU_STATUS_SEPARATOR_MODE);
   layer_add_child(&data->window.layer, status_bar_layer_get_layer(status_layer));
 
@@ -214,17 +194,15 @@ static void prv_settings_window_load(Window *window) {
   // Create the menu
   MenuLayer *menu_layer = &data->menu_layer;
   menu_layer_init(menu_layer, &bounds);
-  menu_layer_set_callbacks(menu_layer, data, &(MenuLayerCallbacks) {
-    .get_num_rows = prv_get_num_rows_callback,
-    .get_cell_height = prv_get_cell_height_callback,
-    .draw_row = prv_draw_row_callback,
-    .select_click = prv_select_callback,
-    .selection_changed = prv_selection_changed_callback,
-    .selection_will_change = prv_selection_will_change_callback,
-  });
-  menu_layer_set_normal_colors(menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(menu_layer, highlight_bg, gcolor_legible_over(highlight_bg));
+  menu_layer_set_callbacks(menu_layer, data,
+                           &(MenuLayerCallbacks){
+                             .get_num_rows = prv_get_num_rows_callback,
+                             .get_cell_height = prv_get_cell_height_callback,
+                             .draw_row = prv_draw_row_callback,
+                             .select_click = prv_select_callback,
+                             .selection_changed = prv_selection_changed_callback,
+                             .selection_will_change = prv_selection_will_change_callback,
+                           });
   menu_layer_set_click_config_onto_window(menu_layer, &data->window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(
@@ -251,19 +229,10 @@ static void prv_settings_window_load(Window *window) {
     .context = data,
   };
   event_service_client_subscribe(&data->pref_change_event_info);
-
-  data->dark_mode_event_info = (EventServiceInfo){
-    .type = PEBBLE_DARK_MODE_CHANGE_EVENT,
-    .handler = prv_dark_mode_change_handler,
-    .context = data,
-  };
-  event_service_client_subscribe(&data->dark_mode_event_info);
 }
 
 static void prv_settings_window_appear(Window *window) {
   SettingsData *data = window_get_user_data(window);
-  // Refresh colors in case the theme changed while this window was hidden
-  prv_refresh_theme_colors(data);
   SettingsCallbacks *callbacks = prv_get_current_callbacks(data);
   if (callbacks->appear) {
     callbacks->appear(data->callbacks);
@@ -275,7 +244,6 @@ static void prv_settings_window_unload(Window *window) {
 
   // Unsubscribe from pref change events
   event_service_client_unsubscribe(&data->pref_change_event_info);
-  event_service_client_unsubscribe(&data->dark_mode_event_info);
 
   // Call the hide callback for the currently open category.
   SettingsCallbacks *callbacks = prv_get_current_callbacks(data);
@@ -308,12 +276,10 @@ static Window *prv_create(SettingsMenuItem category, const char *title_override,
   window_init(&data->window, WINDOW_NAME("Settings Window"));
   window_set_user_data(&data->window, data);
   window_set_window_handlers(&data->window, &(WindowHandlers){
-    .load = prv_settings_window_load,
-    .appear = prv_settings_window_appear,
-    .unload = prv_settings_window_unload,
-  });
-  window_set_background_color(&data->window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
+                                              .load = prv_settings_window_load,
+                                              .appear = prv_settings_window_appear,
+                                              .unload = prv_settings_window_unload,
+                                            });
 
   return &data->window;
 }
@@ -345,7 +311,7 @@ void settings_window_destroy(Window *window) {
 void settings_menu_mark_dirty(SettingsMenuItem category) {
   SettingsData *data = app_state_get_user_data();
   if (data->current_category == category) {
-    prv_refresh_theme_colors(data);
+    layer_mark_dirty(menu_layer_get_layer(&data->menu_layer));
   }
 }
 

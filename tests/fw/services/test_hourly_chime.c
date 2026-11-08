@@ -2,7 +2,9 @@
 #include "clar.h"
 #include "pbl/services/hourly_chime.h"
 #include "pbl/services/notifications/work_mode.h"
-#include "pbl/services/settings/settings_file.h"
+#include "pbl/settings/settings.h"
+
+#include <errno.h>
 #include "pbl/services/speaker/speaker_service.h"
 #include "pbl/services/system_task.h"
 #include "pbl/services/time.h"
@@ -26,7 +28,7 @@ static SystemTaskEventCallback s_pending;
 static void *s_context;
 static unsigned s_plays, s_queued, s_writes;
 
-time_t rtc_get_time(void) {
+time_t pbl_realtime(void) {
   return s_now;
 }
 bool do_not_disturb_is_active(void) {
@@ -61,27 +63,27 @@ bool system_task_add_callback(SystemTaskEventCallback cb, void *data) {
   s_queued++;
   return true;
 }
-status_t settings_file_open(SettingsFile *file, const char *name, int max) {
-  return S_SUCCESS;
+int pbl_settings_open(struct pbl_settings_file *file, const char *name, int max_used_space) {
+  return 0;
 }
-void settings_file_close(SettingsFile *file) {}
-status_t settings_file_get(SettingsFile *file, const void *key, size_t keylen, void *value,
-                           size_t size) {
+void pbl_settings_close(struct pbl_settings_file *file) {}
+int pbl_settings_get(struct pbl_settings_file *file, const void *key, size_t key_len,
+                     void *val_out, size_t val_out_len) {
   if (!s_has_saved) {
-    return E_DOES_NOT_EXIST;
+    return -ENOENT;
   }
-  memcpy(value, &s_saved, size);
-  return S_SUCCESS;
+  memcpy(val_out, &s_saved, val_out_len);
+  return 0;
 }
-status_t settings_file_set(SettingsFile *file, const void *key, size_t keylen, const void *value,
-                           size_t size) {
+int pbl_settings_set(struct pbl_settings_file *file, const void *key, size_t key_len,
+                     const void *val, size_t val_len) {
   if (s_write_fails) {
-    return E_INTERNAL;
+    return -EIO;
   }
-  memcpy(&s_saved, value, size);
+  memcpy(&s_saved, val, val_len);
   s_has_saved = true;
   s_writes++;
-  return S_SUCCESS;
+  return 0;
 }
 static void prv_drain(void) {
   if (s_pending) {

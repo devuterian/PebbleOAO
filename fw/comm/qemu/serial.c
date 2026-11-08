@@ -7,10 +7,11 @@
 #ifdef CONFIG_BATTERY_QEMU
 #include <pbl/drivers/battery/qemu.h>
 #endif
-#ifdef CONFIG_MIC_QEMU
-#include <pbl/drivers/mic/qemu/mic_definitions.h>
+#ifdef CONFIG_AUDIO_HOST_MIC
+#include <pbl/drivers/audio/qemu.h>
 #endif
 
+#include <pbl/board.h>
 #include <pbl/drivers/uart.h>
 #include <pbl/kernel/assert.h>
 #include <pbl/logging/logging.h>
@@ -19,9 +20,9 @@
 #include <pbl/services/clock.h>
 #include <pbl/services/hrm/hrm_manager.h>
 #include <pbl/util/byteorder.h>
+#include <pbl/util/math.h>
 #include <pbl/util/size.h>
 
-#include <board/board.h>
 #include <comm/qemu/serial.h>
 #include <comm/qemu/serial_private.h>
 #include <comm/qemu/transport.h>
@@ -30,7 +31,8 @@
 #include <popups/timeline/peek.h>
 #include <process_management/app_manager.h>
 #include <shell/system_theme.h>
-#include <system/hexdump.h>
+
+PBL_LOG_MODULE_DEFINE(qemu_serial, CONFIG_QEMU_SERIAL_LOG_LEVEL);
 
 static void prv_uart_rx(const struct pbl_uart *uart, uint8_t byte, void *arg);
 
@@ -200,10 +202,18 @@ static void prv_heart_rate_msg_callback(const uint8_t *data, uint32_t len) {
 
   PBL_LOG_DBG("Got heart rate msg: bpm: %d, quality: %d", hdr->bpm, hdr->quality);
 #if defined(CONFIG_HRM)
+  // The protocol carries a grade, -1 (off wrist) or 0 (worst) to 4 (excellent); map it to a
+  // representative algorithm confidence.
+  static const uint8_t s_confidence_for_grade[] = {20, 50, 70, 85, 95};
+  const bool off_wrist = (hdr->quality < 0);
   HRMData hrm_data = {
     .features = HRMFeature_BPM,
+    .off_wrist = off_wrist,
     .hrm_bpm = hdr->bpm,
-    .hrm_quality = (HRMQuality)hdr->quality,
+    .hrm_confidence = off_wrist
+                          ? 0
+                          : s_confidence_for_grade[MIN(
+                                hdr->quality, (int8_t)ARRAY_LENGTH(s_confidence_for_grade) - 1)],
   };
   hrm_manager_new_data_cb(&hrm_data);
 #else
@@ -230,7 +240,7 @@ static const QemuMessageHandler s_qemu_endpoints[] = {
   {QemuProtocol_ContentSize, prv_content_size_msg_callback},
   {QemuProtocol_HealthMetric, prv_health_metric_msg_callback},
   {QemuProtocol_HeartRate, prv_heart_rate_msg_callback},
-#ifdef CONFIG_MIC_QEMU
+#ifdef CONFIG_AUDIO_HOST_MIC
   {QemuProtocol_MicAudio, qemu_mic_msg_callback},
 #endif
   // Button messages are handled by QEMU directly
@@ -345,7 +355,7 @@ static void prv_uart_rx(const struct pbl_uart *uart, uint8_t byte, void *arg) {
 // -----------------------------------------------------------------------------------------
 static void prv_send(const uint8_t *data, uint32_t len) {
   PBL_LOG_VERBOSE("Sending data:");
-  PBL_HEXDUMP(LOG_LEVEL_DEBUG_VERBOSE, data, len);
+  PBL_LOG_HEXDUMP_VERBOSE(data, len);
 
   while (len--) {
     pbl_uart_poll_out(QEMU_UART, *data++);

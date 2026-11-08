@@ -131,15 +131,7 @@ pbl_clar_test(test_tick)
 pbl_clar_test(test_heap
   SOURCES
     fw/applib/app_heap_util.c
-)
-
-pbl_clar_test(test_flash_logging
-  SOURCES
-    fw/debug/flash_logging.c
-    fw/flash_region/flash_region.c
-    tests/fakes/fake_spi_flash.c
-  DEFINES DUMA_DISABLED
-  OVERRIDES dummy_board
+    kernel/heap.c
 )
 
 pbl_clar_test(test_data_logging
@@ -158,9 +150,9 @@ pbl_clar_test(test_data_logging
   OVERRIDES dummy_board
 )
 
-pbl_clar_test(test_memory_layout
+pbl_clar_test(test_mpu_region
   SOURCES
-    fw/kernel/memory_layout.c
+    kernel/mpu_region.c
 )
 
 pbl_clar_test(test_app_manager
@@ -172,8 +164,10 @@ pbl_clar_test(test_app_manager
     fw/process_management/app_manager.c
     fw/process_management/pebble_process_md.c
     fw/process_management/process_runtime.c
-    fw/kernel/memory_layout.c
+    fw/process_management/process_regions.c
     fw/kernel/util/segment.c
+    kernel/heap.c
+    kernel/mpu_region.c
     tests/fakes/fake_rtc.c
   OVERRIDES dummy_board
 )

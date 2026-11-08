@@ -3,6 +3,7 @@
 
 #include <pbl/kernel/assert.h>
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/mpu.h>
 #include <pbl/services/touch/touch.h>
 
 #include <applib/app_message/app_message_internal.h>
@@ -33,7 +34,7 @@
 #endif
 
 typedef struct {
-  Heap heap;
+  struct pbl_heap heap;
 
   struct pbl_tm gmtime_tm;
   struct pbl_tm localtime_tm;
@@ -75,6 +76,7 @@ typedef struct {
   LogState log_state;
 
   BatteryStateServiceState battery_state_service_state;
+  DarkModeServiceState dark_mode_service_state;
 
   BacklightServiceState backlight_service_state;
 
@@ -142,7 +144,8 @@ KERNEL_READONLY_DATA static AppState *s_app_state_ptr;
 
 bool app_state_configure(MemorySegment *app_state_ram, ProcessAppSDKType sdk_type,
                          int16_t obstruction_origin_y) {
-  s_app_state_ptr = memory_segment_split(app_state_ram, nullptr, sizeof(AppState));
+  KERNEL_READONLY_DATA_SET(s_app_state_ptr,
+                           memory_segment_split(app_state_ram, nullptr, sizeof(AppState)));
   if (!s_app_state_ptr) {
     return false;
   }
@@ -308,6 +311,8 @@ PBL_NOINLINE void app_state_init(void) {
 
   battery_state_service_state_init(app_state_get_battery_state_service_state());
 
+  dark_mode_service_state_init(app_state_get_dark_mode_service_state());
+
   backlight_service_state_init(app_state_get_backlight_service_state());
 
   connection_service_state_init(app_state_get_connection_service_state());
@@ -347,7 +352,7 @@ PBL_NOINLINE void app_state_deinit(void) {
   unobstructed_area_service_deinit(app_state_get_unobstructed_area_state());
 }
 
-Heap *app_state_get_heap(void) {
+struct pbl_heap *app_state_get_heap(void) {
   return &s_app_state_ptr->heap;
 }
 
@@ -426,6 +431,10 @@ LogState *app_state_get_log_state(void) {
 
 BatteryStateServiceState *app_state_get_battery_state_service_state(void) {
   return &s_app_state_ptr->battery_state_service_state;
+}
+
+DarkModeServiceState *app_state_get_dark_mode_service_state(void) {
+  return &s_app_state_ptr->dark_mode_service_state;
 }
 
 BacklightServiceState *app_state_get_backlight_service_state(void) {
@@ -609,8 +618,12 @@ void app_state_set_current_timeline_item_action_source(TimelineItemActionSource 
 }
 
 #if defined(CONFIG_MALLOC_INSTRUMENTATION) && defined(CONFIG_SHELL)
+static void prv_heap_dump_line(const char *line, void *arg) {
+  pbl_shell_print(arg, "%s", line);
+}
+
 static int prv_cmd_heap_app(const struct pbl_shell *sh, size_t argc, char **argv) {
-  heap_dump_malloc_instrumentation_to_dbgserial(app_state_get_heap());
+  pbl_heap_dump(app_state_get_heap(), prv_heap_dump_line, (void *)sh);
   return 0;
 }
 

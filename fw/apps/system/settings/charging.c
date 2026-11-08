@@ -2,7 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "charging.h"
 #include "window.h"
-#include "kernel/pbl_malloc.h"
+#include <applib/app_malloc.h>
 #include "applib/ui/menu_layer.h"
 #include "applib/ui/ui.h"
 #include "pbl/services/i18n/i18n.h"

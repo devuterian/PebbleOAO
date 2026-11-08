@@ -1,9 +1,11 @@
 /* SPDX-FileCopyrightText: 2024 Google LLC */
 /* SPDX-License-Identifier: Apache-2.0 */
 
+#include <pbl/drivers/display.h>
 #include <pbl/util/size.h>
 
 #include <applib/app.h>
+#include <applib/app_malloc.h>
 #include <applib/graphics/graphics.h>
 #include <applib/graphics/text.h>
 #include <applib/tick_timer_service.h>
@@ -12,7 +14,6 @@
 #include <applib/ui/window.h>
 #include <apps/prf/mfg_test_result.h>
 #include <kernel/event_loop.h>
-#include <kernel/pbl_malloc.h>
 #include <mfg/mfg_mode/mfg_factory_mode.h>
 #include <process_management/app_manager.h>
 #include <process_management/pebble_process_md.h>
@@ -48,7 +49,7 @@ static void prv_draw_solid(Layer *layer, GContext *ctx, GColor color) {
 
 static void prv_draw_round_border(Layer *layer, GContext *ctx, uint8_t radial_padding_size) {
   for (int i = 0; i < layer->bounds.size.h / 2 - radial_padding_size; ++i) {
-    const int16_t mask = display_round_mask_inset(i) + radial_padding_size;
+    const int16_t mask = pbl_display_round_inset(DISPLAY, i) + radial_padding_size;
     const int offset = i + radial_padding_size;
     // Draw both row-wise and column-wise to fill in any discontinuities
     // in the border circle.
@@ -191,7 +192,7 @@ static void prv_config_provider(void *data) {
 
 static void prv_handle_init(void) {
   AppData *data = app_malloc_check(sizeof(AppData));
-  *data = (AppData){.test_pattern = (TestPattern)app_manager_get_task_context()->args};
+  *data = (AppData){.test_pattern = (TestPattern)(uintptr_t)app_manager_get_task_context()->args};
 
   app_state_set_user_data(data);
 
@@ -232,7 +233,7 @@ const PebbleProcessMd *mfg_display_app_get_info(void) {
 static void prv_change_pattern(void *data) {
   AppData *app_data = app_state_get_user_data();
 
-  app_data->test_pattern = (TestPattern)data;
+  app_data->test_pattern = (TestPattern)(uintptr_t)data;
 
   layer_mark_dirty(&app_data->window.layer);
 }

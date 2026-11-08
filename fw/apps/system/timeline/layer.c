@@ -21,6 +21,7 @@
 #include <pbl/util/struct.h>
 #include <pbl/util/trig.h>
 
+#include <applib/app_malloc.h>
 #include <applib/fonts/fonts.h>
 #include <applib/graphics/gpath.h>
 #include <applib/graphics/graphics.h>
@@ -28,7 +29,6 @@
 #include <applib/ui/kino/kino_layer.h>
 #include <applib/ui/property_animation.h>
 #include <applib/ui/window.h>
-#include <kernel/pbl_malloc.h>
 #include <kernel/ui/kernel_ui.h>
 #include <kernel/ui/system_icons.h>
 #include <popups/timeline/peek_animations.h>
@@ -463,7 +463,6 @@ static void prv_show_day_sep(TimelineLayer *timeline_layer, bool slide) {
   TimelineResourceInfo timeline_res = {
     .res_id = TIMELINE_RESOURCE_DAY_SEPARATOR,
   };
-  // The separator art is black, so invert it to stay visible on the dark background
   peek_layer_set_icon_with_size_invert(&timeline_layer->day_separator, &timeline_res,
                                        TimelineResourceSizeLarge, icon_from,
                                        system_theme_is_dark_mode());
@@ -629,7 +628,7 @@ Animation *timeline_layer_create_up_down_animation(TimelineLayer *layer, uint32_
 #if PBL_ROUND
 static void prv_draw_round_flip(GContext *ctx, const GRect *layer_bounds, const int sidebar_x) {
   // Use a radius larger than the screen's radius so we don't see the top/bottom of the circle
-  int16_t circle_radius = DISP_COLS * 3 / 4;
+  int16_t circle_radius = PBL_DISPLAY_WIDTH * 3 / 4;
   const int16_t flip_overlap_region_width = layer_bounds->size.w / 5;
   const GPoint bounds_center = grect_center_point(layer_bounds);
   const int16_t flip_point_x = bounds_center.x - (flip_overlap_region_width / 2);
@@ -657,7 +656,7 @@ static void prv_update_proc(struct Layer *layer, GContext *ctx) {
   const GRect *bounds = &layer->bounds;
 
   graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
-  graphics_fill_rect(ctx, &(GRect) { .size = bounds->size });
+  graphics_fill_rect(ctx, &(GRect){.size = bounds->size});
 
   // The theme can change while the timeline is open, so keep the stored text color in sync. This
   // only marks the day separator dirty when the color actually changes.
@@ -666,8 +665,10 @@ static void prv_update_proc(struct Layer *layer, GContext *ctx) {
   AnimationProgress progress;
   if (timeline_layer->animating_intro_or_exit &&
       animation_get_progress(timeline_layer->animation, &progress)) {
-    const GPoint offset = { PEEK_ANIMATIONS_SPEED_LINES_OFFSET_X,
-                            interpolate_int64_linear(progress, 0, -DISP_ROWS) };
+    const GPoint offset = {
+      PEEK_ANIMATIONS_SPEED_LINES_OFFSET_X,
+      interpolate_int64_linear(progress, 0, -PBL_DISPLAY_HEIGHT)
+    };
     graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     peek_animations_draw_timeline_speed_lines(ctx, offset);
   }

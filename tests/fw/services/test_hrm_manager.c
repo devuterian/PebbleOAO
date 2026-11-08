@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include <pbl/drivers/hrm.h>
+#include <pbl/kernel/time.h>
 #include <pbl/kernel/types.h>
 #include <pbl/services/hrm/hrm_manager.h>
 #include <pbl/services/hrm/hrm_manager_private.h>
@@ -168,11 +169,6 @@ bool activity_prefs_spo2_is_enabled(void) {
   return s_activity_prefs_spo2_is_enabled;
 }
 
-static bool s_activity_prefs_spo2_activity_tracking_is_enabled = false;
-bool activity_prefs_spo2_activity_tracking_is_enabled(void) {
-  return s_activity_prefs_spo2_activity_tracking_is_enabled;
-}
-
 bool battery_is_usb_connected(void) {
   return false;
 }
@@ -185,7 +181,7 @@ bool battery_is_usb_connected(void) {
 static const HRMData s_hrm_event_data = {
   .features = HRMFeature_BPM,
   .hrm_bpm = 82,
-  .hrm_quality = HRMQuality_Excellent,
+  .hrm_confidence = 95,
 };
 
 static void prv_fake_send_new_data(void) {
@@ -259,7 +255,7 @@ void test_hrm_manager__subscription(void) {
   HRMSubscriberState *subscriber = prv_get_subscriber_state_from_ref(session_ref);
   cl_assert(subscriber);
   cl_assert(subscriber->session_ref == session_ref);
-  cl_assert(subscriber->expire_utc == rtc_get_time() + expire_s);
+  cl_assert(subscriber->expire_utc == pbl_realtime() + expire_s);
   cl_assert(subscriber->update_interval_s == update_interval_s);
   cl_assert(subscriber->features == HRMFeature_BPM);
   cl_assert_equal_b(hrm_is_enabled(HRM), true);
@@ -484,7 +480,6 @@ void test_hrm_manager__spo2_preempts_green(void) {
   const HRMData spo2_data = {
     .features = HRMFeature_SpO2,
     .spo2_percent = 97,
-    .spo2_quality = HRMQuality_Good,
   };
   hrm_manager_new_data_cb(&spo2_data);
   hrm_manager_handle_prefs_changed();
@@ -600,7 +595,7 @@ void test_hrm_manager__app_expiration(void) {
   cl_assert(new_session_ref == session_ref);
 
   // Now advance time past the expiration time
-  rtc_set_time(rtc_get_time() + expire_s + 1);
+  pbl_realtime_set(pbl_realtime() + expire_s + 1);
 
   // Send more data, the subscription should get expired now
   prv_fake_send_new_data();
@@ -629,10 +624,10 @@ void test_hrm_manager__kernel_expiration(void) {
   cl_assert_equal_i(s_num_cb_events_1, 1);
   cl_assert_equal_i(s_cb_events_1[0].event_type, HRMEvent_BPM);
   cl_assert_equal_i(s_cb_events_1[0].bpm.bpm, s_hrm_event_data.hrm_bpm);
-  cl_assert_equal_i(s_cb_events_1[0].bpm.quality, s_hrm_event_data.hrm_quality);
+  cl_assert(!s_cb_events_1[0].bpm.off_wrist);
 
   // Now advance time to just before the expiration time
-  rtc_set_time(rtc_get_time() + expire_s - 1);
+  pbl_realtime_set(pbl_realtime() + expire_s - 1);
 
   // Send more data, the callback should get the expiring event
   prv_fake_send_new_data();
@@ -643,7 +638,7 @@ void test_hrm_manager__kernel_expiration(void) {
   cl_assert_equal_i(s_cb_events_1[2].event_type, HRMEvent_BPM);
 
   // Now advance time to past expiration time
-  rtc_set_time(rtc_get_time() + expire_s + 1);
+  pbl_realtime_set(pbl_realtime() + expire_s + 1);
 
   // Send more data, the subscription should go away now
   prv_fake_send_new_data();
@@ -782,7 +777,7 @@ void test_hrm_manager__system_task_data_callback(void) {
   cl_assert_equal_i(s_num_cb_events_1, 1);
   cl_assert_equal_i(s_cb_events_1[0].event_type, HRMEvent_BPM);
   cl_assert_equal_i(s_cb_events_1[0].bpm.bpm, s_hrm_event_data.hrm_bpm);
-  cl_assert_equal_i(s_cb_events_1[0].bpm.quality, s_hrm_event_data.hrm_quality);
+  cl_assert(!s_cb_events_1[0].bpm.off_wrist);
 
   sys_hrm_manager_unsubscribe(session_ref);
 }
@@ -815,12 +810,12 @@ void test_hrm_manager__multiple_system_task_data_callbacks(void) {
   cl_assert_equal_i(s_num_cb_events_1, 1);
   cl_assert_equal_i(s_cb_events_1[0].event_type, HRMEvent_BPM);
   cl_assert_equal_i(s_cb_events_1[0].bpm.bpm, s_hrm_event_data.hrm_bpm);
-  cl_assert_equal_i(s_cb_events_1[0].bpm.quality, s_hrm_event_data.hrm_quality);
+  cl_assert(!s_cb_events_1[0].bpm.off_wrist);
 
   cl_assert_equal_i(s_num_cb_events_1, 1);
   cl_assert_equal_i(s_cb_events_1[0].event_type, HRMEvent_BPM);
   cl_assert_equal_i(s_cb_events_1[0].bpm.bpm, s_hrm_event_data.hrm_bpm);
-  cl_assert_equal_i(s_cb_events_1[0].bpm.quality, s_hrm_event_data.hrm_quality);
+  cl_assert(!s_cb_events_1[0].bpm.off_wrist);
 
   sys_hrm_manager_unsubscribe(session_ref_1);
   sys_hrm_manager_unsubscribe(session_ref_2);
@@ -853,7 +848,7 @@ void test_hrm_manager__set_update_internal(void) {
       sys_hrm_manager_app_subscribe(app_id, update_interval_a_s, expire_a_s, HRMFeature_BPM);
   HRMSubscriberState *state = prv_get_subscriber_state_from_ref(session_ref);
   cl_assert(state->update_interval_s == update_interval_a_s);
-  cl_assert(state->expire_utc == rtc_get_time() + expire_a_s);
+  cl_assert(state->expire_utc == pbl_realtime() + expire_a_s);
 
   // Change update interval and expiration
   const uint16_t expire_b_s = 2 * PBL_SEC_PER_MIN;
@@ -861,7 +856,7 @@ void test_hrm_manager__set_update_internal(void) {
   sys_hrm_manager_set_update_interval(session_ref, update_interval_b_s, expire_b_s);
   cl_assert(prv_get_subscriber_state_from_ref(session_ref) == state);
   cl_assert(state->update_interval_s == update_interval_b_s);
-  cl_assert(state->expire_utc == rtc_get_time() + expire_b_s);
+  cl_assert(state->expire_utc == pbl_realtime() + expire_b_s);
 }
 
 #define NUM_TEST_EVENTS 1
@@ -874,7 +869,7 @@ void test_hrm_manager__circular_buffer_event_copy(void) {
   circular_buffer_init(&cb, buffer, buf_size);
 
   PebbleHRMEvent event[NUM_TEST_EVENTS] = {
-    {.event_type = HRMEvent_BPM, .bpm = {.bpm = 65, .quality = 5}},
+    {.event_type = HRMEvent_BPM, .bpm = {.bpm = 65, .confidence = 95}},
   };
   { // These events will insert properly aligned in the buffer
     for (int i = 0; i < NUM_TEST_EVENTS; ++i) {
@@ -931,9 +926,9 @@ void test_hrm_manager__enable_disable(void) {
 
 // Advance time the given number of milliseconds
 static void prv_advance_time_ms(uint32_t ms) {
-  RtcTicks delta_ticks = pbl_ms_to_ticks(ms);
-  fake_rtc_set_ticks(rtc_get_ticks() + delta_ticks);
-  rtc_set_time(rtc_get_time() + ms / PBL_MSEC_PER_SEC);
+  uint64_t delta_ticks = pbl_ms_to_ticks(ms);
+  fake_rtc_set_ticks(pbl_uptime_ticks() + delta_ticks);
+  pbl_realtime_set(pbl_realtime() + ms / PBL_MSEC_PER_SEC);
 }
 
 // Test that we handle different update intervals correctly
@@ -1089,7 +1084,7 @@ void test_hrm_manager__app_queue_full_drops_without_panic(void) {
   sys_hrm_manager_unsubscribe(session_ref);
 }
 
-// A subscriber the sensor cannot serve (quality never reaches Good) must not pin the sensor on
+// A subscriber the sensor cannot serve (confidence never gets high) must not pin the sensor on
 // indefinitely: after HRM_MAX_UNSERVED_TIME_SEC it is deferred to its next interval.
 void test_hrm_manager__unserved_subscriber_timeout(void) {
   HRMSessionRef session_ref = sys_hrm_manager_app_subscribe(1 /*app_id*/, 600 /*interval_s*/,
@@ -1099,11 +1094,11 @@ void test_hrm_manager__unserved_subscriber_timeout(void) {
   // Never served, so the sensor turns on right away
   cl_assert_equal_b(hrm_is_enabled(HRM), true);
 
-  // Sub-Good readings don't serve the subscriber; the sensor stays on before the timeout
+  // Low-confidence readings don't serve the subscriber; the sensor stays on before the timeout
   const HRMData poor_data = {
     .features = HRMFeature_BPM,
     .hrm_bpm = 70,
-    .hrm_quality = HRMQuality_Acceptable,
+    .hrm_confidence = HRM_CONFIDENCE_HIGH - 1,
   };
   for (int i = 0; i < 2 * HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
     hrm_manager_new_data_cb(&poor_data);
@@ -1137,7 +1132,7 @@ void test_hrm_manager__unserved_timeout_keeps_live_hr_on(void) {
   const HRMData poor_data = {
     .features = HRMFeature_BPM,
     .hrm_bpm = 70,
-    .hrm_quality = HRMQuality_Acceptable,
+    .hrm_confidence = HRM_CONFIDENCE_HIGH - 1,
   };
   prv_advance_time_ms((HRM_MAX_UNSERVED_TIME_SEC + 1) * PBL_MSEC_PER_SEC);
   for (int i = 0; i <= HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
@@ -1149,7 +1144,7 @@ void test_hrm_manager__unserved_timeout_keeps_live_hr_on(void) {
   sys_hrm_manager_unsubscribe(session_ref);
 }
 
-// Test that OffWrist quality is delivered immediately without delay
+// Test that off-wrist readings are delivered immediately without delay
 void test_hrm_manager__immediate_off_wrist(void) {
   stub_pebble_tasks_set_current(PebbleTask_KernelBackground);
   s_num_cb_events_1 = 0;
@@ -1164,7 +1159,7 @@ void test_hrm_manager__immediate_off_wrist(void) {
   HRMData off_wrist_data = {
     .features = HRMFeature_BPM,
     .hrm_bpm = 0,
-    .hrm_quality = HRMQuality_OffWrist,
+    .off_wrist = true,
   };
   hrm_manager_new_data_cb(&off_wrist_data);
   fake_system_task_callbacks_invoke_pending();
@@ -1172,7 +1167,7 @@ void test_hrm_manager__immediate_off_wrist(void) {
   // OffWrist should be delivered immediately
   cl_assert_equal_i(s_num_cb_events_1, 1);
   cl_assert_equal_i(s_cb_events_1[0].event_type, HRMEvent_BPM);
-  cl_assert_equal_i(s_cb_events_1[0].bpm.quality, HRMQuality_OffWrist);
+  cl_assert(s_cb_events_1[0].bpm.off_wrist);
 
   sys_hrm_manager_unsubscribe(session_ref);
 }
@@ -1210,7 +1205,7 @@ void test_hrm_manager__live_off_wrist_subscription_keeps_sensor_on(void) {
   const HRMData off_wrist_data = {
     .features = HRMFeature_BPM,
     .hrm_bpm = 0,
-    .hrm_quality = HRMQuality_OffWrist,
+    .off_wrist = true,
   };
   prv_advance_time_ms(20 * PBL_SEC_PER_MIN * PBL_MSEC_PER_SEC);
   for (int i = 0; i <= HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
@@ -1227,7 +1222,7 @@ void test_hrm_manager__poor_reports_do_not_extend_serve_deadline(void) {
   const HRMData poor_data = {
     .features = HRMFeature_BPM,
     .hrm_bpm = 70,
-    .hrm_quality = HRMQuality_Acceptable,
+    .hrm_confidence = HRM_CONFIDENCE_HIGH - 1,
   };
   for (int elapsed_s = 30; elapsed_s < HRM_MAX_UNSERVED_TIME_SEC; elapsed_s += 30) {
     prv_advance_time_ms(30 * PBL_MSEC_PER_SEC);
@@ -1383,7 +1378,7 @@ void test_hrm_manager__periodic_timeout_does_not_stop_another_live_reader(void) 
   fake_system_task_callbacks_invoke_pending();
   cl_assert(hrm_is_enabled(HRM));
   cl_assert_equal_i(prv_get_subscriber_state_from_ref(periodic_ref)->last_valid_bpm_ticks,
-                    rtc_get_ticks());
+                    pbl_uptime_ticks());
   sys_hrm_manager_unsubscribe(live_ref);
   fake_system_task_callbacks_invoke_pending();
   cl_assert(!hrm_is_enabled(HRM));
@@ -1414,7 +1409,6 @@ void test_hrm_manager__silent_live_reader_does_not_delay_next_periodic_optical_p
   const HRMData spo2_data = {
     .features = HRMFeature_SpO2,
     .spo2_percent = 97,
-    .spo2_quality = HRMQuality_Good,
   };
   for (int i = 0; i < HRM_CHECK_SENSOR_DISABLE_COUNT; ++i) {
     hrm_manager_new_data_cb(&spo2_data);
@@ -1454,7 +1448,7 @@ void test_hrm_manager__serve_window_starts_when_subscriber_is_due(void) {
   fake_system_task_callbacks_invoke_pending();
   cl_assert(hrm_is_enabled(HRM));
   cl_assert_equal_i(prv_get_subscriber_state_from_ref(periodic_ref)->last_valid_bpm_ticks,
-                    rtc_get_ticks());
+                    pbl_uptime_ticks());
   sys_hrm_manager_unsubscribe(periodic_ref);
   sys_hrm_manager_unsubscribe(live_ref);
 }

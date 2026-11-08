@@ -14,6 +14,7 @@
 #include <applib/graphics/graphics.h>
 #include <kernel/ui/kernel_ui.h>
 #include <kernel/ui/system_icons.h>
+#include <shell/system_theme.h>
 
 #if defined(CONFIG_RECOVERY_FW) || defined(CONFIG_MFG)
 #define NUMBER_FONT_KEY FONT_KEY_GOTHIC_24_BOLD
@@ -90,7 +91,7 @@ static GRect prv_get_text_frame(Layer *window_layer) {
 //! Drawing function for our Window's base Layer. Draws the background, the label, and the value,
 //! which is everything on screen with the exception of the child ActionBarLayer
 void prv_update_proc(Layer *layer, GContext *ctx) {
-  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   graphics_fill_rect(ctx, &layer->bounds);
 
   // This is safe because Layer is the first member in Window and Window is the first member in

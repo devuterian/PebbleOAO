@@ -4,11 +4,11 @@
 #include <errno.h>
 
 #include <pbl/cron/cron.h>
-#include <pbl/drivers/rtc.h>
 #include <pbl/kernel/mutex.h>
 #include <pbl/kernel/syscall.h>
 #include <pbl/logging/logging.h>
 #include <pbl/services/activity/activity.h>
+#include <pbl/services/clock.h>
 #include <pbl/services/i18n/i18n.h>
 #include <pbl/services/notifications/alerts_preferences.h>
 #include <pbl/services/notifications/alerts_preferences_private.h>
@@ -16,6 +16,7 @@
 #include <pbl/services/notifications/do_not_disturb_toggle.h>
 #include <pbl/services/notifications/work_mode.h>
 #include <pbl/services/system_task.h>
+#include <pbl/services/time.h>
 #include <pbl/services/timeline/calendar.h>
 #include <pbl/util/math.h>
 #include <pbl/util/time.h>
@@ -235,7 +236,7 @@ static void prv_schedule_slot_jobs(unsigned int index, const DoNotDisturbSchedul
 
 static void prv_update_schedule_mode(void) {
   struct pbl_tm now;
-  rtc_get_time_tm(&now);
+  clock_get_time_tm(&now);
 
   bool in_period = false;
   for (unsigned int i = 0; i < DND_NUM_SCHEDULE_SLOTS; i++) {
@@ -305,7 +306,7 @@ static void prv_until_wake_set_state(DndUntilWakeState state) {
 static void prv_until_wake_expired(void *data) {
   pbl_mutex_lock(&s_until_wake_mutex, PBL_FOREVER);
   if (prv_is_until_wake_active() &&
-      rtc_get_time() >= alerts_preferences_dnd_get_until_wake_deadline()) {
+      pbl_realtime() >= alerts_preferences_dnd_get_until_wake_deadline()) {
     prv_until_wake_set_state(DndUntilWakeStateDisabled);
   }
   pbl_mutex_unlock(&s_until_wake_mutex);
@@ -319,7 +320,7 @@ static void prv_until_wake_cron_callback(struct pbl_cron_job *job, void *data) {
 //! Call with s_until_wake_mutex held
 static void prv_until_wake_schedule_deadline(void) {
   time_t deadline = alerts_preferences_dnd_get_until_wake_deadline();
-  const time_t now = rtc_get_time();
+  const time_t now = pbl_realtime();
   if (deadline <= now) {
     prv_until_wake_set_state(DndUntilWakeStateDisabled);
     return;
@@ -447,7 +448,7 @@ void do_not_disturb_set_until_wake_enabled(bool enable) {
   if (!enable) {
     prv_until_wake_set_state(DndUntilWakeStateDisabled);
   } else if (!prv_is_until_wake_active()) {
-    alerts_preferences_dnd_set_until_wake_deadline(rtc_get_time() + DND_UNTIL_WAKE_MAX_SEC);
+    alerts_preferences_dnd_set_until_wake_deadline(pbl_realtime() + DND_UNTIL_WAKE_MAX_SEC);
     prv_until_wake_set_state(prv_is_asleep(s_data.sleep_state)
                                  ? DndUntilWakeStateWaitingForWake
                                  : DndUntilWakeStateWaitingForSleep);

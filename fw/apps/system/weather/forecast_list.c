@@ -9,8 +9,10 @@
 #include <time.h>
 
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/time.h>
 #include <pbl/services/clock.h> // clock_copy_time_string — notification-style top time
 #include <pbl/services/i18n/i18n.h>
+#include <pbl/services/time.h>
 #include <pbl/util/math_fixed.h>
 #include <pbl/util/trig.h>
 
@@ -270,11 +272,11 @@ static uint32_t prv_official_weather_pdc_res_small(WeatherType t) {
 static WeatherType prv_header_type(void);
 #endif
 static void prv_load_icons(void) {
-  if (!s_list) return;
-#if defined(CONFIG_TOUCH) && !PBL_ROUND
-  s_list->today_header_dirty = true;   // today's date/condition changed → recompute layout
-#endif
-#if defined(CONFIG_TOUCH)
+  if (!s_list)
+    return;
+#ifdef CONFIG_TOUCH
+  s_list->today_header_dirty = true; // today's date/condition changed → recompute layout
+
   // Round 5-day uses the official PebbleOS weather PDC icons, cloned into RAM
   // (a system-app resource is mmap'd READ-ONLY, so draw of the raw would fault).
   for (int i = 0; i < (int)s_list->num_days; i++) {
@@ -287,7 +289,6 @@ static void prv_load_icons(void) {
     s_list->pdc_icons[i] = raw ? gdraw_command_image_clone(raw) : nullptr;
     if (raw)
       gdraw_command_image_destroy(raw);
-    weather_recolor_pdc_image_for_dark_mode(s_list->pdc_icons[i]);
   }
   // Larger today icon for the summary header: official SMALL (50px) PDC scaled down.
   if (s_list->today_pdc) {
@@ -314,6 +315,7 @@ static void prv_load_icons(void) {
     }
     s_list->icons[i] =
         gbitmap_create_with_resource(prv_icon_res(s_list->days[i].current_weather_type));
+    weather_recolor_gbitmap_for_dark_mode(s_list->icons[i]);
   }
 #endif
 }
@@ -1122,7 +1124,7 @@ static void prv_start_report_stage3(void) {
     gdraw_command_image_destroy(raw);
   weather_recolor_pdc_image_for_dark_mode(s_list->fly_pdc);
   // Frozen fan start-ray (Timeline picks a random ray per unfold; RTC seconds vary plenty).
-  s_list->report_angle = (int32_t)(rtc_get_time() % TRIG_MAX_ANGLE);
+  s_list->report_angle = (int32_t)(pbl_realtime() % TRIG_MAX_ANGLE);
   if (!s_list->fly_pdc) { // resource missing: skip straight to the handoff
     prv_report_stage4_stopped(nullptr, true, nullptr);
     return;
@@ -1198,8 +1200,10 @@ static void prv_draw_report_ball(GContext *ctx) {
   graphics_fill_circle(ctx, GPoint(cx, cy), R5_REPORT_BALL_R);
   const int32_t a = -(int32_t)(mb.size.w + R5_REPORT_BALL_R + 1 - cx) * (TRIG_MAX_ANGLE / 82);
   graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
-  graphics_fill_circle(ctx, GPoint(cx + (int)((int32_t)sin_lookup(a) * 7 / TRIG_MAX_RATIO),
-                                   cy - (int)((int32_t)cos_lookup(a) * 7 / TRIG_MAX_RATIO)), 3);
+  graphics_fill_circle(ctx,
+                       GPoint(cx + (int)((int32_t)sin_lookup(a) * 7 / TRIG_MAX_RATIO),
+                              cy - (int)((int32_t)cos_lookup(a) * 7 / TRIG_MAX_RATIO)),
+                       3);
 }
 
 // Timeline day-separator unfold, hand-rolled in the prv_draw_flying_icon idiom (clone per
@@ -1233,7 +1237,7 @@ static void prv_draw_unfolding_paper(GContext *ctx) {
     up = ANIMATION_NORMALIZED_MAX; // at 500/1000ms, then hold
   const GRect mb = layer_get_bounds(s_list->canvas);
   const GPoint origin = GPoint((mb.size.w - nsz.w) / 2, R5_SCREEN_CY - nsz.h / 2);
-  if (4 * up < ANIMATION_NORMALIZED_MAX) {   // dot phase: keep the ball UNDER the fat stroke
+  if (4 * up < ANIMATION_NORMALIZED_MAX) { // dot phase: keep the ball UNDER the fat stroke
     graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_fill_circle(ctx, GPoint(mb.size.w / 2, R5_SCREEN_CY), R5_REPORT_BALL_R);
   }
@@ -1552,9 +1556,9 @@ static void prv_draw_flying_content(GContext *ctx) {
 #define R5_STAT_PILL_H 18 // thinner than Health's ~35px pill
 static void prv_draw_stat_pill(GContext *ctx, const char *label, int y, int W, GColor fill) {
   // Pebble Health's pill geometry EXACTLY: a full-width rect inset on each side by
-  // HEALTH_INSET = 18 + HEALTH_X_OFFSET/5, where HEALTH_X_OFFSET = (DISP_COLS - 144)/2 — i.e. 23px
-  // on emery's 200px width (health/ui.c). Corner radius 3, GCornersAll. `fill` is per-metric
-  // (grey for wind, light blue for precip); black bold label.
+  // HEALTH_INSET = 18 + HEALTH_X_OFFSET/5, where HEALTH_X_OFFSET = (PBL_DISPLAY_WIDTH - 144)/2 —
+  // i.e. 23px on emery's 200px width (health/ui.c). Corner radius 3, GCornersAll. `fill` is
+  // per-metric (grey for wind, light blue for precip); black bold label.
   const int inset = 18 + (W - 144) / 2 / 5;
   const GRect pill = GRect(inset, y, W - 2 * inset, R5_STAT_PILL_H);
   graphics_context_set_fill_color(ctx, fill);
@@ -1608,8 +1612,8 @@ static void prv_draw_bottom_stats(GContext *ctx, const WeatherLocationForecast *
   if (!s_list->clock_fx) {
     // Timeline's day-separator peek dot (the one that unwinds into "Tomorrow"/"Tuesday"): a 12px
     // black circle, horizontally centred, the same 30px above the bottom edge as Timeline. On emery
-    // (>=200px height -> s_style_large) its centre lands at y = future_top_margin(7) + fat_pin(131) +
-    // future_dot_offset(16) + thin_pin(88)/2 = 198 on the 228px screen.
+    // (>=200px height -> s_style_large) its centre lands at y = future_top_margin(7) + fat_pin(131)
+    // + future_dot_offset(16) + thin_pin(88)/2 = 198 on the 228px screen.
     graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
     graphics_fill_circle(ctx, GPoint(W / 2, R5_DOT_REST_Y + slide), 6);
   }
@@ -1665,7 +1669,7 @@ static void prv_draw_sun_body(GContext *ctx, GPoint c, int scale_pct, GColor out
     {(int16_t)-d, (int16_t)a},  {(int16_t)d, (int16_t)a},   {(int16_t)a, (int16_t)d},
     {(int16_t)a, (int16_t)-d},  {(int16_t)d, (int16_t)-a},
   };
-  GPath path = { .num_points = 8, .points = pts, .offset = c };
+  GPath path = {.num_points = 8, .points = pts, .offset = c};
   graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   gpath_draw_filled(ctx, &path);
   graphics_context_set_stroke_color(ctx, outline_col);
@@ -1947,8 +1951,8 @@ static void prv_draw_flake(GContext *ctx, GPoint c, int r) {
 
 static void prv_draw_animated_precip(GContext *ctx, GPoint pdc_offset, int32_t phase,
                                      const PrecipStyle *st) {
-  const GColor main_col = system_theme_get_fg_color();   // one ink for all precip — flakes included
-  const GColor pale_col = main_col;      // (white flakes vanished on the white page)
+  const GColor main_col = system_theme_get_fg_color(); // one ink for all precip — flakes included
+  const GColor pale_col = main_col;                    // (white flakes vanished on the white page)
   // phase is the sun-angle accumulator -> back to a tick count (sun-speed independent).
   const int tick = phase / R5_SUN_ANGLE_STEP;
   const int32_t ay = (int32_t)(tick % st->bob_ticks) * (TRIG_MAX_ANGLE / st->bob_ticks);
@@ -2082,10 +2086,10 @@ static void prv_draw_series_links(GContext *ctx, const int *colx, const int *y, 
 
 #if !PBL_ROUND
 // Hollow ring dot: coloured ring, white centre (emery graph).
-static void prv_draw_ring_dot(GContext *ctx, GPoint p, GColor ring) {
+static void prv_draw_ring_dot(GContext *ctx, GPoint p, GColor ring, GColor center) {
   graphics_context_set_fill_color(ctx, ring);
   graphics_fill_circle(ctx, p, 4);
-  graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
+  graphics_context_set_fill_color(ctx, center);
   graphics_fill_circle(ctx, p, 2);
 }
 
@@ -2148,8 +2152,8 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     }
     GFont sb_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
     const int sb_fh = fonts_get_font_height(sb_font);
-    const int sb_ty = (STATUS_BAR_LAYER_HEIGHT - 2 * STATUS_BAR_LAYER_SEPARATOR_Y_OFFSET - sb_fh)
-                      - hs;
+    const int sb_ty =
+        (STATUS_BAR_LAYER_HEIGHT - 2 * STATUS_BAR_LAYER_SEPARATOR_Y_OFFSET - sb_fh) - hs;
     graphics_context_set_text_color(ctx, system_theme_get_fg_color());
     if (s_list->clock_loc_show || s_list->clock_swap_active) {
       // First entry: the active location holds the slot, then swaps out exactly like
@@ -2343,8 +2347,9 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     snprintf(tnow, sizeof(tnow), "--\xC2\xB0");
   }
   // Large temp, sized + vertically aligned to balance the 40px today icon.
+  const GColor page_fg = system_theme_get_fg_color(); // syscall: once per frame
+  graphics_context_set_text_color(ctx, page_fg);
 #if PBL_ROUND
-  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(ctx, tnow, fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS),
                      GRect(112, 22 - hs, 120, 44), // -hs: ride the header scroll off the top
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, nullptr);
@@ -2352,7 +2357,6 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
   // Emery: FLAT BLACK LECO on the white page — the Timeline sloth-screen grammar: black
   // type directly on the field, white reserved for fills inside the black-inked artwork.
   // Right margin equals the icon's left margin (R5_TODAY_X).
-  graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(
       ctx, tnow, fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS),
       GRect(W - R5_TODAY_X - 120, R5_TODAY_Y - 2 - hs, 120, 44), // -2: LECO parks low
@@ -2366,7 +2370,7 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
   // Title-case (e.g. "Partly Cloudy") — Pebble reserves ALL CAPS for terse labels/units.
   // Condition matches the date: same font/size/weight, same baseline (date is on
   // the left under the icon, condition on the right under the temp).
-  graphics_context_set_text_color(ctx, system_theme_get_fg_color());   // foreground on the page
+  graphics_context_set_text_color(ctx, page_fg); // foreground on the page
   // Condition: right-anchored at x=230 (mirrors the left date, aligned to the fan's
   // 30/230 columns), growing LEFT as it lengthens down to x=110 (just clear of the
   // date). Length-dependent: measure the phrase + step the font down one size if even
@@ -2375,7 +2379,7 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
   GFont cond_font = (GFont)s_list->today_cond_font; // measured once on data change, not per frame
   graphics_draw_text(ctx, cond, cond_font, GRect(cond_l, R5_DAYDATE_Y - hs, cond_r - cond_l, 16),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, nullptr);
-  graphics_context_set_text_color(ctx, system_theme_get_fg_color()); // foreground on the page
+  graphics_context_set_text_color(ctx, page_fg); // foreground on the page
   // Date: left box, left-aligned (the today icon above is centred over this string).
   graphics_draw_text(ctx, daydate, day_font, // day_font IS GOTHIC_14_BOLD — no re-lookup
                      GRect(PBL_IF_ROUND_ELSE(30, R5_TODAY_X), R5_DAYDATE_Y - hs,
@@ -2393,9 +2397,9 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     const WeatherLocationForecast *f = &fan[i];
     const int cx = col_icon[i];
 
-    const char *weekday = s_list->weekday_cache[i];   // built in the date-cache block above
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
-    const int bow = R5_BOW_DY(i, n, ss);   // slight follow-the-glass curve (round only)
+    const char *weekday = s_list->weekday_cache[i]; // built in the date-cache block above
+    graphics_context_set_text_color(ctx, page_fg);
+    const int bow = R5_BOW_DY(i, n, ss); // slight follow-the-glass curve (round only)
     if (!R5_DAYNAME_SCROLL_HIDE || ss * 4 < R5_SECTION_TRAVEL) {
       graphics_draw_text(ctx, weekday, day_font,
                          GRect(cx - box_w / 2, R5_DAYNAME_Y - ss + bow, box_w, 22),
@@ -2534,17 +2538,18 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     graphics_context_set_stroke_width(ctx, 2);
     prv_draw_series_links(ctx, col_low, yl, okl, n, GColorBlue);
     prv_draw_series_links(ctx, col_high, yh, okh, n, GColorWindsorTan);
-    // Low dots match the high dots: hollow ring with a white centre — blue ring for the lows.
+    // Low dots match the high dots: hollow ring with a black/white centre — blue ring for the lows.
+    const GColor dot_center = system_theme_get_bg_color(); // syscall: once
     for (int i = 0; i < n; i++) {
       if (okl[i])
-        prv_draw_ring_dot(ctx, GPoint(col_low[i], yl[i]), GColorBlue);
+        prv_draw_ring_dot(ctx, GPoint(col_low[i], yl[i]), GColorBlue, dot_center);
     }
     for (int i = 0; i < n; i++) {
       if (okh[i])
-        prv_draw_ring_dot(ctx, GPoint(col_high[i], yh[i]), GColorOrange);
+        prv_draw_ring_dot(ctx, GPoint(col_high[i], yh[i]), GColorOrange, dot_center);
     }
-    // Numerals: both bold — high ABOVE its dot, low BELOW its dot.
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
+    // Numerals: both bold black/white — high ABOVE its dot, low BELOW its dot.
+    graphics_context_set_text_color(ctx, page_fg);
     for (int i = 0; i < n; i++) {
       if (okh[i])
         prv_draw_temp_centered(ctx, th[i], day_font, col_high[i], yh[i] - 4 - 16);
@@ -2608,6 +2613,7 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     y_lo[i] = okl[i] ? gbot - (fan[i].today_low - lmin) * band / lrange - ss : 0;
   }
 
+  const GColor page_bg = system_theme_get_bg_color(); // syscall: once
   graphics_context_set_antialiased(ctx, true);
   graphics_context_set_stroke_width(ctx, 2);
   // Muted connector lines — quiet links so the saturated dots + labels read as the data.
@@ -2618,20 +2624,20 @@ static void prv_canvas_draw_round_5day(Layer *layer, GContext *ctx) {
     if (okh[i]) {
       graphics_context_set_fill_color(ctx, GColorOrange);
       graphics_fill_circle(ctx, GPoint(col_high[i], y_hi[i]), R5_DOT_R);
-      graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
+      graphics_context_set_fill_color(ctx, page_bg);
       graphics_fill_circle(ctx, GPoint(col_high[i], y_hi[i]), R5_DOT_INNER);
     }
     if (okl[i]) {
       graphics_context_set_fill_color(ctx, GColorVividCerulean);
       graphics_fill_circle(ctx, GPoint(col_low[i], y_lo[i]), R5_DOT_R);
-      graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
+      graphics_context_set_fill_color(ctx, page_bg);
       graphics_fill_circle(ctx, GPoint(col_low[i], y_lo[i]), R5_DOT_INNER);
     }
   }
   // Temperature labels: high ABOVE its warm dot, low BELOW its cool dot.
   for (int i = 0; i < n; i++) {
     char hs[16], ls[16];
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());  // numerals; dots/lines stay coloured
+    graphics_context_set_text_color(ctx, page_fg); // numerals; dots/lines stay coloured
     if (okh[i]) {
       snprintf(hs, sizeof(hs), "%d\xC2\xB0", fan[i].today_high);
       graphics_draw_text(ctx, hs, small_font,
@@ -2681,7 +2687,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     // prv_render_squash_in below overwrites every pixel from it — re-rendering the scene
     // here would be pure per-frame waste. Skip it.
   } else if (s_list->report_fx >= 2 && !PBL_IF_ROUND_ELSE(0, s_list->squash_mode)) {
-    // Report scene, content cleared off-left: a title-card backdrop (matches the
+    /// Report scene, content cleared off-left: a title-card backdrop (matches the
     // squash memset and the report window bg — seamless at both cuts).
     graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
     graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
@@ -2717,11 +2723,13 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     const int arrow_band = 18;
     const GRect up_frame = GRect(0, 0, ab.size.w, arrow_band);
     content_indicator_draw_arrow(ctx, &up_frame, ContentIndicatorDirectionUp,
-                                 system_theme_get_fg_color(), system_theme_get_bg_color(), GAlignCenter);
+                                 system_theme_get_fg_color(), system_theme_get_bg_color(),
+                                 GAlignCenter);
     if (s_list->header_shown) {
       const GRect down_frame = GRect(0, ab.size.h - arrow_band, ab.size.w, arrow_band);
       content_indicator_draw_arrow(ctx, &down_frame, ContentIndicatorDirectionDown,
-                                   system_theme_get_fg_color(), system_theme_get_bg_color(), GAlignCenter);
+                                   system_theme_get_fg_color(), system_theme_get_bg_color(),
+                                   GAlignCenter);
     }
   }
 #endif
@@ -2734,8 +2742,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     // Shared: it is the subject of the transition on both shapes.
     GRect mb = layer_get_bounds(layer);
     graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
-    graphics_fill_circle(ctx, GPoint(mb.size.w / 2 + s_list->fx_shake_dx,
-                                     s_list->fx_dot_y + s_list->fx_shake_dy), 6);
+    graphics_fill_circle(
+        ctx, GPoint(mb.size.w / 2 + s_list->fx_shake_dx, s_list->fx_dot_y + s_list->fx_shake_dy),
+        6);
   }
 #if !PBL_ROUND
   // Report scene: the ball (parked on the nub's spot during stage 1, rolling in stage 2)
@@ -2779,8 +2788,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, system_theme_get_bg_color());
   graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
-  // Hoist context state changes outside the row loop.
-  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, system_theme_get_fg_color()));
+  // Hoist context state changesand syscalls outside the row loop.
+  const GColor page_fg = system_theme_get_fg_color();
+  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, page_fg));
   graphics_context_set_compositing_mode(ctx, GCompOpSet);
 
   int rh = s_list->row_height;
@@ -2823,7 +2833,7 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
     // Day label
     char weekday_label[16];
     prv_fill_weekday_label(i, f->label, weekday_label, sizeof(weekday_label));
-    graphics_context_set_text_color(ctx, system_theme_get_fg_color());
+    graphics_context_set_text_color(ctx, page_fg);
     graphics_draw_text(ctx, weekday_label, s_list->day_font,
                        GRect(day_label_x, ty, DAY_LABEL_W, 20), GTextOverflowModeTrailingEllipsis,
                        GTextAlignmentLeft, nullptr);
@@ -2863,9 +2873,9 @@ static void prv_canvas_draw(Layer *layer, GContext *ctx) {
   }
 
   // Location bar drawn last (covers any row that scrolled under it).
-  graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorVividCerulean, system_theme_get_fg_color()));
-  graphics_fill_rect(ctx, GRect(0, LOCATION_BAR_Y, W, LOCATION_BAR_H),
-                     0, GCornerNone);
+  graphics_context_set_fill_color(
+      ctx, PBL_IF_COLOR_ELSE(GColorVividCerulean, system_theme_get_fg_color()));
+  graphics_fill_rect(ctx, GRect(0, LOCATION_BAR_Y, W, LOCATION_BAR_H), 0, GCornerNone);
   graphics_context_set_text_color(ctx, system_theme_get_bg_color());
   GFont bar_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
   const int bar_inset = ROUND_BAR_INSET;
@@ -3201,7 +3211,7 @@ void forecast_list_start_select_exit(void (*done_cb)(void *ctx), void *ctx) {
   // The slide moves the CANVAS FRAME, exposing window pixels nobody paints now that the
   // window bg is transparent (step 3) — the vacated strip would smear stale frames. Restore
   // the bg for just this rare 115ms fallback; prv_select_exit_stopped re-clears it.
-  window_set_background_color(s_list->window, system_theme_get_bg_color());
+  window_set_background_color_follows_theme(s_list->window, false /* dimmed */);
 #endif
   s_select_exit_anim = prv_start_anim(interpolate_moook_duration() / 2, // 115ms (Timeline)
                                       AnimationCurveLinear,             // moook is the shaping
@@ -3796,7 +3806,11 @@ static void prv_forecast_list_push(const WeatherLocationForecast *days, size_t n
   // on the 260px glass), and every branch of prv_canvas_draw already paints every pixel
   // (scene white-fill first / report white card / squash resample full-coverage), so the
   // window fill was pure duplicate work. The !s_list early-return keeps a white guard.
-  window_set_background_color(s_list->window, PBL_IF_ROUND_ELSE(GColorClear, system_theme_get_bg_color()));
+#if PBL_ROUND
+  window_set_background_color(s_list->window, GColorClear);
+#else
+  window_set_background_color_follows_theme(s_list->window, false /* dimmed */);
+#endif
   window_set_window_handlers(s_list->window, (WindowHandlers){
                                                .load = prv_window_load,
                                                .appear = prv_window_appear,

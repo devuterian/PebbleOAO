@@ -36,6 +36,7 @@ jobs:
               - 'tests/**'
               - 'third_party/**'
               - 'tools/**'
+              - 'Kconfig.platform'
               - 'SDK_VERSION'
               - 'requirements.txt'
 
@@ -77,6 +78,9 @@ jobs:
             cmake --build build-test -- -k 0
             exit 1
           }
+
+      - name: Run console host tests
+        run: python -m pytest tools/libs/pbl-console/tests
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v6

@@ -12,10 +12,10 @@
 
 #include <pbl/services/i18n/i18n.h>
 
+#include <applib/app_malloc.h>
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/option_menu_window.h>
 #include <apps/system/timeline/timeline.h>
-#include <kernel/pbl_malloc.h>
 #include <process_management/app_install_manager.h>
 #include <process_management/app_menu_data_source.h>
 #include <shell/prefs.h>
@@ -180,23 +180,28 @@ void quick_launch_app_menu_window_push(ButtonId button, bool is_tap,
   const uint16_t app_index =
       app_menu_data_source_get_index_of_app_with_install_id(&data->data_source, install_id);
 
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
   GColor highlight_bg = shell_prefs_get_theme_highlight_color();
   const OptionMenuConfig config = {
     .title = i18n_get(s_category_titles[category], data),
     .choice = prv_choice(install_id, app_index),
-    .status_colors = { normal_bg, gcolor_legible_over(normal_bg) },
-    .highlight_colors = { highlight_bg, gcolor_legible_over(highlight_bg) },
+    .status_colors =
+        {
+          GColorWhite,
+          GColorBlack,
+        },
+    .highlight_colors = {highlight_bg, gcolor_legible_over(highlight_bg)},
     .icons_enabled = true,
   };
   option_menu_configure(option_menu, &config);
-  option_menu_set_normal_colors(option_menu, normal_bg, gcolor_legible_over(normal_bg));
-  option_menu_set_callbacks(option_menu, &(OptionMenuCallbacks) {
-    .select = prv_menu_select,
-    .get_num_rows = prv_menu_get_num_rows,
-    .draw_row = prv_menu_draw_row,
-    .unload = prv_menu_unload,
-  }, data);
+  option_menu_set_colors_follow_theme(option_menu);
+  option_menu_set_callbacks(option_menu,
+                            &(OptionMenuCallbacks){
+                              .select = prv_menu_select,
+                              .get_num_rows = prv_menu_get_num_rows,
+                              .draw_row = prv_menu_draw_row,
+                              .unload = prv_menu_unload,
+                            },
+                            data);
 
   const bool animated = true;
   app_window_stack_push(&option_menu->window, animated);

@@ -6,29 +6,28 @@
 #include "menu_layer.h"
 
 #include <pbl/kernel/compiler.h>
+#include <pbl/kernel/time.h>
 
 #include <applib/app.h>
 #include <applib/app_focus_service.h>
+#include <applib/app_malloc.h>
 #include <applib/event_service_client.h>
 #include <applib/ui/app_window_stack.h>
 #include <kernel/events.h>
-#include <kernel/pbl_malloc.h>
 #include <process_state/app_state/app_state.h>
 #include <shell/normal/app_idle_timeout.h>
 #include <shell/prefs.h>
-#include <shell/system_theme.h>
 
 typedef struct LauncherAppWindowData {
   Window window;
   LauncherMenuLayer launcher_menu_layer;
   AppMenuDataSource app_menu_data_source;
   EventServiceInfo pref_change_event_info;
-  EventServiceInfo dark_mode_event_info;
 } LauncherAppWindowData;
 
 typedef struct LauncherAppPersistedData {
   bool valid;
-  RtcTicks leave_time;
+  uint64_t leave_time;
   LauncherMenuLayerSelectionState selection_state;
   LauncherDrawState draw_state;
 } LauncherAppPersistedData;
@@ -55,13 +54,6 @@ static void prv_will_focus(bool in_focus) {
 static void prv_pref_change_handler([[maybe_unused]] PebbleEvent *event, void *context) {
   LauncherAppWindowData *data = context;
   launcher_menu_layer_update_content_size(&data->launcher_menu_layer);
-}
-
-// The launcher takes its background once, so re-apply it when dark mode flips on its own
-static void prv_dark_mode_change_handler([[maybe_unused]] PebbleEvent *event, void *context) {
-  LauncherAppWindowData *data = context;
-  window_set_background_color(&data->window, system_theme_get_bg_color());
-  launcher_menu_layer_apply_theme_colors(&data->launcher_menu_layer);
 }
 
 ////////////////////////////////
@@ -130,13 +122,6 @@ static void prv_window_load(Window *window) {
     .context = data,
   };
   event_service_client_subscribe(&data->pref_change_event_info);
-
-  data->dark_mode_event_info = (EventServiceInfo){
-    .type = PEBBLE_DARK_MODE_CHANGE_EVENT,
-    .handler = prv_dark_mode_change_handler,
-    .context = data,
-  };
-  event_service_client_subscribe(&data->dark_mode_event_info);
 }
 
 static void prv_window_unload(Window *window) {
@@ -150,7 +135,7 @@ static void prv_window_unload(Window *window) {
   // Save the current state of the launcher so we can know its draw state and restore it later
   s_launcher_app_persisted_data = (LauncherAppPersistedData){
     .valid = true,
-    .leave_time = rtc_get_ticks(),
+    .leave_time = pbl_uptime_ticks(),
     .draw_state.selection_vertical_range = launcher_selection_vertical_range,
     .draw_state.selection_background_color = shell_prefs_get_theme_highlight_color(),
   };
@@ -158,7 +143,6 @@ static void prv_window_unload(Window *window) {
                                           &s_launcher_app_persisted_data.selection_state);
 
   event_service_client_unsubscribe(&data->pref_change_event_info);
-  event_service_client_unsubscribe(&data->dark_mode_event_info);
   app_focus_service_unsubscribe();
   launcher_menu_layer_deinit(&data->launcher_menu_layer);
   app_menu_data_source_deinit(&data->app_menu_data_source);
@@ -174,12 +158,10 @@ static void prv_launcher_menu_window_push(void) {
   Window *window = &data->window;
   window_init(window, WINDOW_NAME("Launcher Menu"));
   window_set_user_data(window, data);
-  window_set_window_handlers(window, &(WindowHandlers) {
-    .load = prv_window_load,
-    .unload = prv_window_unload,
-  });
-  window_set_background_color(window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
+  window_set_window_handlers(window, &(WindowHandlers){
+                                       .load = prv_window_load,
+                                       .unload = prv_window_unload,
+                                     });
 
   const bool animated = false;
   app_window_stack_push(window, animated);
@@ -190,7 +172,7 @@ static void prv_main(void) {
   // Reset the selection state of the launcher if we're visiting it for the first time or if
   // it has been more than RETURN_TIMEOUT_TICKS since we were last in the launcher
   if (args && args->reset_scroll) {
-    if ((s_launcher_app_persisted_data.leave_time + RETURN_TIMEOUT_TICKS) <= rtc_get_ticks()) {
+    if ((s_launcher_app_persisted_data.leave_time + RETURN_TIMEOUT_TICKS) <= pbl_uptime_ticks()) {
       s_launcher_app_persisted_data.valid = false;
     }
   }

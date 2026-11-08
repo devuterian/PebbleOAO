@@ -36,8 +36,9 @@ typedef struct {
 //! A newly created Dialog will have the following defaults:
 //! * Fullscreen: True,
 //! * Show Status Layer: False,
-//! * Text Color: GColorBlack (GColorWhite in dark mode),
-//! * Background Color: GColorLightGray (GColorDarkGray in dark mode, GColorWhite for tintin)
+//! * Text Color: GColorBlack,
+//! * Background Color: GColorLightGray or GColorDarkGray depending on light/dark mode (GColorWhite
+//! for tintin)
 //! * Vibe: False
 
 // Dialog object used as the core of other dialog types. The Dialog object shouldn't be used
@@ -70,8 +71,6 @@ typedef struct Dialog {
 
   // Color of the dialog text.
   GColor text_color;
-  // True once the text color was set explicitly, so a background change keeps it.
-  bool is_text_color_set;
 
   // Callbacks and context for unloading the dialog. The user is allowed to set these callbacks to
   // perform actions (such as freeing resources) when the dialog window has appeared or is unloaded.
@@ -80,6 +79,9 @@ typedef struct Dialog {
   void *callback_context;
 
   bool destroy_on_pop;
+
+  // True while the text uses the system theme's foreground, resolved when drawing.
+  bool text_follows_theme;
 } Dialog;
 
 // If set to true, sets the dialog window to fullscreen.
@@ -108,6 +110,11 @@ void dialog_set_text_color(Dialog *dialog, GColor text_color);
 // the new background.
 // if CONFIG_SCREEN_COLOR_DEPTH_BITS == 1 then the color will always be set to white
 void dialog_set_background_color(Dialog *dialog, GColor background_color);
+
+// Uses the system theme's colors, resolved when drawing so the dialog follows dark mode flips.
+// This is the default. Undone by dialog_set_text_color and dialog_set_background_color.
+// dimmed: use the dimmed background on color displays (light or dark gray), as by default
+void dialog_set_colors_follow_theme(Dialog *dialog, bool dimmed);
 
 // Sets the icon displayed by the dialog.
 void dialog_set_icon(Dialog *dialog, uint32_t icon_id);

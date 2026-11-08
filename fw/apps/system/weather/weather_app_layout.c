@@ -98,7 +98,7 @@
 // layer's origin is (12,0)). Emery flows each row from its measured height,
 // which cannot be chord-checked at compile time; on a circle every ink band has
 // to be proven against BOTH edges of its own row, so round pins them instead.
-// Every band below was checked against display_gabbro.c's real 260-row mask.
+// Every band below was checked against the panel's real 260-row mask.
 #define WEATHER_APP_LAYOUT_ROUND_TEXT_RAIL 16 // + off->x (2) -> content 18 -> screen 30
 // 28_BOLD ink 46..63. This is as high as the day name can go: 'WEDNESDAY' is
 // 113px, and between the glass on its left and the today disc's white halo on
@@ -375,8 +375,7 @@ static int prv_round_rail(int ink_top_y) {
 // the glass centre). The bar leans with the glass and keeps a near-constant
 // 15-17px margin down its whole 34px height, where a straight full-measure box
 // would clear at its top row and clip at its bottom (the circle narrows down).
-static void prv_draw_uv_bar_frame(GContext *ctx, GPoint gc, int by, int h,
-                                  int r_out, int r_in) {
+static void prv_draw_uv_bar_frame(GContext *ctx, GPoint gc, int by, int h, int r_out, int r_in) {
   graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
   for (int y = by; y < by + h; y++) {
     const int dy = y - gc.y;
@@ -433,7 +432,7 @@ static bool prv_precip_is_the_headline(WeatherType t) {
 // The phone sends temperatures already converted to the user's units, so every absolute
 // threshold below has to be stated in those same units.
 static bool prv_is_imperial(void) {
-  return shell_prefs_get_units_distance() == UnitsDistance_Miles;
+  return shell_prefs_get_units_temperature() == UnitsTemperature_Fahrenheit;
 }
 
 static int prv_temp(int celsius) {
@@ -495,6 +494,10 @@ static void prv_build_alert(const WeatherLocationForecast *f, char *buf, size_t 
   } else if (f->today_wind_mph >= 20) {
     alert = i18n_noop("Windy");
     wind = true;
+  } else if (prv_precip_is_the_headline(t)) {
+    // A wet day must not fall through to a calm sign-off like "All clear".
+    alert = (f->today_precip_mm < 0 || f->today_precip_mm >= 60) ? prv_precip_likely(t)
+                                                                 : prv_precip_chance(t);
   } else {
     // No warning on file — a calm sign-off, deterministic per day's conditions.
     if (t == WeatherType_Sun) {
@@ -682,8 +685,8 @@ void weather_app_layout_draw_uv_bar(GContext *ctx, GPoint gc, int by, int uv_val
   graphics_context_set_stroke_color(ctx, system_theme_get_fg_color());
   graphics_context_set_stroke_width(ctx, 1);
   prv_draw_uv_bar_frame(ctx, gc, by, h, r_out, r_in);
-  prv_draw_sun_glyph(ctx, GPoint(gc.x + sun_dx,
-                                 by + (c ? WX_UVC_SUN_DY : WEATHER_APP_LAYOUT_ROUND_UV_SUN_DY)));
+  prv_draw_sun_glyph(
+      ctx, GPoint(gc.x + sun_dx, by + (c ? WX_UVC_SUN_DY : WEATHER_APP_LAYOUT_ROUND_UV_SUN_DY)));
   graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(ctx, label, fonts_get_system_font(hdr_font),
                      GRect(gc.x + hdr_dx, by + hdr_dy, c ? 96 : 70, 20), GTextOverflowModeFill,
@@ -919,8 +922,8 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // description below it, which a fixed grid cannot absorb the way a flow can.
   // Ink-top offsets per font (box y -> first ink row): G24_BOLD/G28_BOLD +10,
   // LECO_36 +11, G18_BOLD/G18 +7, G14_BOLD +5. Label ink 42..55 then leaves a
-  // 14px gap to the temp's ink at 70 -- emery's exact label->temp air. The rail is solved from the ink, not the
-  // box, so the curve follows what the eye actually sees.
+  // 14px gap to the temp's ink at 70 -- emery's exact label->temp air. The rail is solved from the
+  // ink, not the box, so the curve follows what the eye actually sees.
   graphics_context_set_text_color(ctx, system_theme_get_fg_color());
 
   char caps[24];
@@ -1004,8 +1007,8 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // existing 14px label→temp whitespace, they don't push the temp down.
   // Label→temp air: 17px ink gap minus the user's −3 trim = 14 (gap param 3);
   // the rows below stay reference-tight (9/4) and ride with the temp.
-  prv_draw_text(line, cw, ctx, caps, layout->location_font,
-                system_theme_get_fg_color(), GTextAlignmentLeft);
+  prv_draw_text(line, cw, ctx, caps, layout->location_font, system_theme_get_fg_color(),
+                GTextAlignmentLeft);
   line.y += fonts_get_font_height(fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
   line.y += label_temp_gap;
   // Even ink gaps down the temp / hi-lo / condition stack (matching
@@ -1016,15 +1019,18 @@ static void prv_draw_top_rows(const WeatherAppLayout *layout, GPoint *off, int c
   // condition riding at 93. (The temp trim moves everything below it; only the hi/lo trim
   // moves the condition relative to the hi/lo.)
   line.y += prv_draw_text(line, cw, ctx, t->temp, layout->temperature_font,
-                          system_theme_get_fg_color(), GTextAlignmentLeft) - 1;
+                          system_theme_get_fg_color(), GTextAlignmentLeft) -
+            1;
   line.y += prv_draw_text(line, cw, ctx, t->highlow, layout->high_low_phrase_font,
-                          system_theme_get_fg_color(), GTextAlignmentLeft) - 1;
+                          system_theme_get_fg_color(), GTextAlignmentLeft) -
+            1;
   if (!WEATHER_APP_LAYOUT_RECT_SMALL && t->phrase && t->phrase[0]) {
     // Width-limited so a long phrase ellipsizes before the disc (disc's left
     // edge sits ~x116 in content coords). The small rects skip the phrase row
     // (the header icon carries the condition) to keep the description on-page.
     line.y += prv_draw_text(line, 112, ctx, t->phrase, layout->metrics_value_font,
-                            system_theme_get_fg_color(), GTextAlignmentLeft) - 2;
+                            system_theme_get_fg_color(), GTextAlignmentLeft) -
+              2;
   }
   // Forecast description ("High UV. Winds SW at 12mph. Precipitation 20%."):
   // warning, wind, precip. Measured and CENTERED in the band between the
@@ -1265,25 +1271,16 @@ static void prv_draw_circle_at_layer(Layer *icon_layer, GContext *context,
 }
 
 #if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
-static void prv_draw_weather_pdc_frame(const WeatherAppLayout *layout,
-                                       GContext *ctx,
-                                       WeatherType weather_type,
-                                       GRect frame_rect) {
-  if (!layout || !ctx || !layout->weather_icon_pdc_sequence) {
-    return;
-  }
-  int frame_index = ((int)weather_type <= WeatherType_RainAndSnow)
-      ? (int)weather_type : WeatherType_Generic;
+static void prv_draw_weather_pdc_frame(const WeatherAppLayout *layout, GContext *ctx,
+                                       WeatherType weather_type, GRect frame_rect) {
+  int frame_index =
+      ((int)weather_type <= WeatherType_RainAndSnow) ? (int)weather_type : WeatherType_Generic;
   // No set_bounds_size: the PDC's native viewbox is already the displayed size
   // (75x75) and gdraw_command_frame_draw never reads sequence->size — it draws at
   // the native coords offset by frame_rect.origin. (The sequence is also a RAM
   // clone now, so a write would be legal, but it's simply unnecessary here.)
   GDrawCommandFrame *frame =
-      gdraw_command_sequence_get_frame_by_index(layout->weather_icon_pdc_sequence,
-                                                frame_index);
-  if (!frame) {
-    return;
-  }
+      gdraw_command_sequence_get_frame_by_index(layout->weather_icon_pdc_sequence, frame_index);
   gdraw_command_frame_draw(ctx, layout->weather_icon_pdc_sequence, frame,
                            GPoint(frame_rect.origin.x + WEATHER_APP_LAYOUT_ROUND_PDC_INSET,
                                   frame_rect.origin.y + WEATHER_APP_LAYOUT_ROUND_PDC_INSET));
@@ -1518,8 +1515,8 @@ static void prv_render_layout(Layer *layer, GContext *context) {
 
     // ---- BOTTOM HALF (region separator_y → full_h) ----
     graphics_context_set_fill_color(context, system_theme_get_bg_color());
-    graphics_fill_rect(context, GRect(0, separator_y, bounds.size.w, full_h - separator_y),
-                       0, GCornerNone);
+    graphics_fill_rect(context, GRect(0, separator_y, bounds.size.w, full_h - separator_y), 0,
+                       GCornerNone);
     {
       // Clip the bottom-half passes to below the separator: during the moook bounce the
       // incoming/outgoing text overshoots above it, and the un-clipped bleed used to be
@@ -1571,7 +1568,8 @@ static void prv_render_layout(Layer *layer, GContext *context) {
   // #AAA the hardware offers). 2x2 dots (the darker tone alone carries the
   // "bigger/heavier" read — the taller 3px version was reverted),
   // pitch 4 keeps the reference's ~1:1 dot:gap rhythm.
-  graphics_context_set_fill_color(context, PBL_IF_COLOR_ELSE(GColorDarkGray, system_theme_get_fg_color()));
+  graphics_context_set_fill_color(context,
+                                  PBL_IF_COLOR_ELSE(GColorDarkGray, system_theme_get_fg_color()));
   // Round sits the rule 3px higher than the region split (and the UV widget moved with it).
   // The split itself is deliberately NOT moved: separator_y also anchors the bottom-half fill
   // and the footer's content offset, so shifting it would carry the TOMORROW block up too.
@@ -1592,11 +1590,12 @@ static void prv_render_layout(Layer *layer, GContext *context) {
   // Drawn LAST so it sits over the footer row and the icon rail. The condition
   // mirrors the fin's exactly (prv_fin_* draws only when !next_forecast), so
   // stepping onto the final day swaps the chevron out for the fin.
+  const bool isDark = system_theme_is_dark_mode();
   if (layout->next_forecast) {
-    const int chin_x = -layout->content_layer_origin.x;   // content coords -> screen 0
-    graphics_context_set_fill_color(context, PBL_IF_COLOR_ELSE(
-        system_theme_is_dark_mode() ? GColorDarkGray : GColorLightGray,
-        system_theme_get_bg_color()));
+    const int chin_x = -layout->content_layer_origin.x; // content coords -> screen 0
+    graphics_context_set_fill_color(
+        context,
+        PBL_IF_COLOR_ELSE(isDark ? GColorDarkGray : GColorLightGray, system_theme_get_bg_color()));
     graphics_fill_rect(context,
                        GRect(chin_x, WEATHER_APP_LAYOUT_ROUND_CHIN_Y, PBL_DISPLAY_WIDTH,
                              PBL_DISPLAY_HEIGHT - WEATHER_APP_LAYOUT_ROUND_CHIN_Y),
@@ -1771,6 +1770,13 @@ static void prv_reload_icon(GBitmap **slot, BitmapLayer *bl, const WeatherLocati
     *slot = gbitmap_create_with_resource(
         tiny ? weather_type_get_icon_res_tiny(f->current_weather_type)
              : weather_type_get_icon_res_today(f->current_weather_type));
+#if PBL_BW
+    weather_recolor_gbitmap_for_dark_mode(*slot);
+#elif PBL_RECT
+    if (tiny) {
+      weather_recolor_gbitmap_for_dark_mode(*slot);
+    }
+#endif
   }
   bitmap_layer_set_bitmap(bl, *slot);
 }
@@ -2103,7 +2109,9 @@ void weather_app_layout_init(WeatherAppLayout *layout, const GRect *frame) {
   if (fin_raw) {
     gdraw_command_image_destroy(fin_raw); // munmaps the read-only flash mapping
   }
+#if PBL_RECT
   weather_recolor_pdc_image_for_dark_mode(layout->fin_pdc);
+#endif
 #if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
   layout->weather_icon_pdc_sequence = nullptr;
   layout->current_weather_escape_layer = nullptr;
@@ -2245,7 +2253,9 @@ void weather_app_layout_init(WeatherAppLayout *layout, const GRect *frame) {
           GSize(WEATHER_APP_LAYOUT_ROUND_PDC_ART, WEATHER_APP_LAYOUT_ROUND_PDC_ART));
     }
   }
+#if PBL_RECT
   weather_recolor_pdc_sequence_for_dark_mode(layout->weather_icon_pdc_sequence);
+#endif
   layout->current_weather_escape_layer =
       layer_create_with_data(GRect(0, 0, 1, 1), sizeof(WeatherAppLayout *));
   if (layout->current_weather_escape_layer) {
@@ -2291,6 +2301,9 @@ void weather_app_layout_set_data(WeatherAppLayout *layout,
   if (today_forecast) {
     layout->current_weather_icon = gbitmap_create_with_resource(
         weather_type_get_icon_res_today(today_forecast->current_weather_type));
+#if PBL_BW
+    weather_recolor_gbitmap_for_dark_mode(layout->current_weather_icon);
+#endif
     bitmap_layer_set_bitmap(layout->current_weather_icon_layer, layout->current_weather_icon);
     layer_set_frame(bitmap_layer_get_layer(layout->current_weather_icon_layer),
                     layout->today_icon_rest_frame);
@@ -2302,6 +2315,9 @@ void weather_app_layout_set_data(WeatherAppLayout *layout,
   if (next_forecast) {
     layout->tomorrow_weather_icon = gbitmap_create_with_resource(
         weather_type_get_icon_res_tiny(next_forecast->current_weather_type));
+#if PBL_RECT
+    weather_recolor_gbitmap_for_dark_mode(layout->tomorrow_weather_icon);
+#endif
     bitmap_layer_set_bitmap(layout->tomorrow_weather_icon_layer, layout->tomorrow_weather_icon);
   } else {
     bitmap_layer_set_bitmap(layout->tomorrow_weather_icon_layer, nullptr);
@@ -2320,6 +2336,16 @@ void weather_app_layout_set_fin_allowed(WeatherAppLayout *layout, bool fin_allow
     return;
   layout->fin_allowed = fin_allowed;
   prv_restore_fin_rest(layout);
+}
+
+void weather_app_layout_handle_dark_mode_change(WeatherAppLayout *layout) {
+#if PBL_RECT
+  // Both were recolored once when loaded; the swap is its own inverse
+  weather_invert_pdc_image(layout->fin_pdc);
+#if WEATHER_APP_LAYOUT_USE_PDC_WEATHER_ICONS
+  weather_invert_pdc_sequence(layout->weather_icon_pdc_sequence);
+#endif
+#endif
 }
 
 void weather_app_layout_deinit(WeatherAppLayout *layout) {
@@ -2453,6 +2479,9 @@ static bool prv_prepare_day_transition(WeatherAppLayout *layout,
         new_today ? gbitmap_create_with_resource(
                         weather_type_get_icon_res_today(new_today->current_weather_type))
                   : nullptr;
+#if PBL_BW
+    weather_recolor_gbitmap_for_dark_mode(layout->outgoing_weather_icon);
+#endif
     // Frame set to arc start position below, after circle_center is computed.
     layer_set_hidden(layout->outgoing_weather_icon_layer, false);
     // current_weather_icon_layer already holds the old today bitmap — keep it as-is.

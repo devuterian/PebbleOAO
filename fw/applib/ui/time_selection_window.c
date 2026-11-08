@@ -217,6 +217,7 @@ void time_selection_window_configure(TimeSelectionWindowData *time_selection_win
 static void prv_text_layer_init(Layer *window_layer, TextLayer *text_layer, const GFont font) {
   text_layer_init_with_parameters(text_layer, &GRectZero, nullptr, font, system_theme_get_fg_color(), GColorClear,
                                   GTextAlignmentCenter, GTextOverflowModeTrailingEllipsis);
+  text_layer_set_text_color_follows_theme(text_layer);
   layer_add_child(window_layer, &text_layer->layer);
   layer_set_hidden(&text_layer->layer, true);
 }
@@ -271,11 +272,10 @@ void time_selection_window_init(TimeSelectionWindowData *time_selection_window,
 
   // Status setup
   status_bar_layer_init(&time_selection_window->status_layer);
-  status_bar_layer_set_separator_mode(&time_selection_window->status_layer,
-                                      PBL_IF_COLOR_ELSE(OPTION_MENU_STATUS_SEPARATOR_MODE,
-                                                        StatusBarLayerSeparatorModeNone));
-  layer_add_child(&time_selection_window->window.layer,
-                  &time_selection_window->status_layer.layer);
+  status_bar_layer_set_separator_mode(
+      &time_selection_window->status_layer,
+      PBL_IF_COLOR_ELSE(OPTION_MENU_STATUS_SEPARATOR_MODE, StatusBarLayerSeparatorModeNone));
+  layer_add_child(&time_selection_window->window.layer, &time_selection_window->status_layer.layer);
 
   time_selection_window_configure(time_selection_window, config);
 }

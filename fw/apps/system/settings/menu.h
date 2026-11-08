@@ -20,9 +20,7 @@ typedef enum {
   SettingsMenuItemDateTime,
   SettingsMenuItemDisplay,
   SettingsMenuItemHealth,
-#ifdef CONFIG_THEMING
   SettingsMenuItemThemes,
-#endif
   SettingsMenuItemActivity,
   SettingsMenuItemSystem,
 #if defined(CONFIG_BOARD_OBELIX) || defined(CONFIG_BOARD_QEMU_EMERY)

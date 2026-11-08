@@ -13,9 +13,9 @@
 #include <pbl/services/persist.h>
 #include <pbl/util/uuid.h>
 
-#include <board/board.h>
 #include <kernel/events.h>
 #include <popups/crashed_ui.h>
+#include <popups/mic_banner.h>
 #include <popups/notifications/notification_window.h>
 #include <process_management/app_install_manager.h>
 #include <process_management/pebble_process_md.h>
@@ -76,7 +76,7 @@ void persist_service_client_open(const Uuid *uuid) {
 void persist_service_client_close(const Uuid *uuid) {
 }
 
-SettingsFile *persist_service_lock_and_get_store(const Uuid *uuid) {
+struct pbl_settings_file *persist_service_lock_and_get_store(const Uuid *uuid) {
   return nullptr;
 }
 
@@ -329,7 +329,7 @@ void shell_prefs_set_language(ShellLanguage language) {
 }
 
 GColor shell_prefs_get_theme_highlight_color(void) {
-  return PBL_IF_COLOR_ELSE(GColorVividCerulean, GColorBlack);
+  return GColorBlack;
 }
 
 DarkMode shell_prefs_get_dark_mode(void) {
@@ -341,7 +341,8 @@ void shell_prefs_set_dark_mode(DarkMode mode) {
 
 void shell_prefs_get_dark_mode_schedule(DarkModeSchedule *schedule_out) {
   if (schedule_out) {
-    *schedule_out = (DarkModeSchedule){ .from_hour = 19, .from_minute = 0, .to_hour = 7, .to_minute = 0 };
+    *schedule_out =
+        (DarkModeSchedule){.from_hour = 19, .from_minute = 0, .to_hour = 7, .to_minute = 0};
   }
 }
 
@@ -353,15 +354,20 @@ FontInfo *fonts_get_system_emoji_font_for_size(unsigned int font_height) {
 }
 
 int16_t timeline_peek_get_origin_y(void) {
-  return DISP_ROWS;
+  return PBL_DISPLAY_HEIGHT;
 }
 
 int16_t timeline_peek_get_obstruction_origin_y(void) {
-  return DISP_ROWS;
+  return PBL_DISPLAY_HEIGHT;
 }
 
 int16_t mic_banner_get_obstruction_origin_y(void) {
-  return DISP_ROWS;
+  return PBL_DISPLAY_HEIGHT;
+}
+
+bool mic_banner_get_accessory_area(GRect *area_out) {
+  *area_out = GRectZero;
+  return false;
 }
 
 void mic_banner_handle_process_kill(void) {

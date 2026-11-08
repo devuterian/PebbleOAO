@@ -2262,7 +2262,7 @@ static void show_intro_canvas(GlobeView *view) {
     return;
 
   if (view->window) {
-    window_set_background_color(view->window, system_theme_get_bg_color());
+    window_set_background_color_follows_theme(view->window, false /* dimmed */);
   }
   if (view->canvas_layer)
     layer_set_hidden(view->canvas_layer, false);
@@ -3111,9 +3111,8 @@ static void draw_intro_title(GContext *ctx, GlobeView *view, GRect bounds, int g
   int planet_center_y = globe_y + frame_size.h / 2 + GLOBE_PLANET_CENTER_Y_OFFSET;
   int planet_top = planet_center_y - GLOBE_RENDER_BASE_DIAMETER / 2;
   int title_y = (planet_top - GLOBE_INTRO_TITLE_HEIGHT) / 2;
-  if (title_y < 0) {
+  if (title_y < 0)
     title_y = 0;
-  }
 
   graphics_context_set_text_color(ctx, system_theme_get_fg_color());
   graphics_draw_text(ctx, title, font,
@@ -3176,14 +3175,14 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view, GRect bou
     y += intro_selection_offset(view);
 
   // BW: the dithered blue read as noise under white text — the selected bar
-  // goes solid black instead.
+  // goes solid black/white instead.
   const GColor sel_fill = PBL_IF_COLOR_ELSE(GColorVividCerulean, system_theme_get_fg_color());
   graphics_context_set_fill_color(ctx, selected ? sel_fill : system_theme_get_bg_color());
   graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, bar_h), 0, GCornerNone);
   graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
   graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
 
-  GColor label_color = selected ? GColorWhite : system_theme_get_fg_color();
+  GColor label_color = selected ? system_theme_get_bg_color() : system_theme_get_fg_color();
   GColor bg_color = selected ? sel_fill : system_theme_get_bg_color();
   draw_saved_locations_pin(ctx, GPoint(side_inset, y + (bar_h - GLOBE_SAVED_COG_SIZE) / 2),
                            label_color, bg_color);
@@ -3199,48 +3198,43 @@ static void draw_saved_locations_label(GContext *ctx, GlobeView *view, GRect bou
       GTextOverflowModeTrailingEllipsis,
       GLOBE_SMALL_RECT ? GTextAlignmentLeft : GTextAlignmentCenter, nullptr);
 #else
-    // Uppercase to match the rect city-select redesign's footer treatment.
-    const char *label = i18n_get("SAVED LOCATIONS", view);
-    GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-    // Constant string + constant font: measure once, not per intro frame (28.6fps while the
-    // cradle animates).
-    static GSize text_size;
-    if (text_size.w == 0) {
-        text_size = graphics_text_layout_get_content_size(
-            label,
-            font,
-            GRect(0, 0, 300, GLOBE_SAVED_LABEL_HEIGHT),   // unconstrained: natural label width
-            GTextOverflowModeTrailingEllipsis,
-            GTextAlignmentLeft
-        );
-    }
-    // The TEXT centres on the screen; the pin hangs off its left (so the label reads
-    // centred rather than the pin+text group being centred, which right-shifted the text).
-    int text_x = (bounds.size.w - text_size.w) / 2;
-    // +4: pulled right off the chin's curve so the pin reads fully inside the glass.
-    int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE + 4;
-    if (pin_x < 2) pin_x = 2;
-    int y = bounds.size.h - GLOBE_SAVED_LABEL_HEIGHT -
-            GLOBE_SAVED_LABEL_ROUND_BOTTOM_INSET;
-    if (selected) y += intro_selection_offset(view);
-    if (selected) {
-        int fill_h = PBL_IF_ROUND_ELSE(bounds.size.h - y,
-                                       GLOBE_SAVED_LABEL_HEIGHT);
-        graphics_context_set_fill_color(ctx, GColorVividCerulean);
-        graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, fill_h),
-                           0, GCornerNone);
-    }
-    // Divider above the row, ALWAYS drawn (rect redesign parity): 2px rule replacing
-    // the old selection-only 1px grey line, FULL WIDTH (the glass mask clips it edge to edge).
-    graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
-    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
+  // Uppercase to match the rect city-select redesign's footer treatment.
+  const char *label = i18n_get("SAVED LOCATIONS", view);
+  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  // Constant string + constant font: measure once, not per intro frame (28.6fps while the
+  // cradle animates).
+  static GSize text_size;
+  if (text_size.w == 0) {
+    text_size = graphics_text_layout_get_content_size(
+        label, font,
+        GRect(0, 0, 300, GLOBE_SAVED_LABEL_HEIGHT), // unconstrained: natural label width
+        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft);
+  }
+  // The TEXT centres on the screen; the pin hangs off its left (so the label reads
+  // centred rather than the pin+text group being centred, which right-shifted the text).
+  int text_x = (bounds.size.w - text_size.w) / 2;
+  // +4: pulled right off the chin's curve so the pin reads fully inside the glass.
+  int pin_x = text_x - GLOBE_SAVED_LABEL_GAP - GLOBE_SAVED_COG_SIZE + 4;
+  if (pin_x < 2)
+    pin_x = 2;
+  int y = bounds.size.h - GLOBE_SAVED_LABEL_HEIGHT - GLOBE_SAVED_LABEL_ROUND_BOTTOM_INSET;
+  if (selected)
+    y += intro_selection_offset(view);
+  if (selected) {
+    int fill_h = PBL_IF_ROUND_ELSE(bounds.size.h - y, GLOBE_SAVED_LABEL_HEIGHT);
+    graphics_context_set_fill_color(ctx, GColorVividCerulean);
+    graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, fill_h), 0, GCornerNone);
+  }
+  // Divider above the row, ALWAYS drawn (rect redesign parity): 2px rule replacing
+  // the old selection-only 1px grey line, FULL WIDTH (the glass mask clips it edge to edge).
+  graphics_context_set_fill_color(ctx, system_theme_get_fg_color());
+  graphics_fill_rect(ctx, GRect(0, y, bounds.size.w, 2), 0, GCornerNone);
 
-    GColor label_color = selected ? GColorWhite : system_theme_get_fg_color();
-    GColor bg_color = selected ? GColorVividCerulean : system_theme_get_bg_color();
-    draw_saved_locations_pin(ctx,
-                             GPoint(pin_x, y + (GLOBE_SAVED_LABEL_HEIGHT -
-                                                GLOBE_SAVED_COG_SIZE) / 2),
-                             label_color, bg_color);
+  GColor label_color = selected ? GColorWhite : system_theme_get_fg_color();
+  GColor bg_color = selected ? GColorVividCerulean : system_theme_get_bg_color();
+  draw_saved_locations_pin(ctx,
+                           GPoint(pin_x, y + (GLOBE_SAVED_LABEL_HEIGHT - GLOBE_SAVED_COG_SIZE) / 2),
+                           label_color, bg_color);
 
   graphics_context_set_text_color(ctx, label_color);
   graphics_draw_text(ctx, label, font,
@@ -3583,17 +3577,17 @@ GlobeView *globe_view_create(void) {
     return nullptr;
   }
 
-    // Configure window
-    window_set_user_data(view->window, view);
-    window_set_background_color(view->window, system_theme_get_bg_color());
-    window_set_click_config_provider_with_context(view->window, window_click_provider, view);
-    window_set_window_handlers(view->window, (WindowHandlers) {
-        .appear = window_appear_handler,
-        .disappear = window_disappear_handler,
-    });
-    // Create canvas layer for animation
-    Layer *root_layer = window_get_root_layer(view->window);
-    GRect bounds = layer_get_bounds(root_layer);
+  // Configure window
+  window_set_user_data(view->window, view);
+  window_set_background_color_follows_theme(view->window, false /* dimmed */);
+  window_set_click_config_provider_with_context(view->window, window_click_provider, view);
+  window_set_window_handlers(view->window, (WindowHandlers){
+                                             .appear = window_appear_handler,
+                                             .disappear = window_disappear_handler,
+                                           });
+  // Create canvas layer for animation
+  Layer *root_layer = window_get_root_layer(view->window);
+  GRect bounds = layer_get_bounds(root_layer);
 
   view->canvas_layer = layer_create_with_data(bounds, sizeof(GlobeView *));
   if (!view->canvas_layer) {

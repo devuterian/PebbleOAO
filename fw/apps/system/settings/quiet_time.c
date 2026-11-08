@@ -19,12 +19,12 @@
 #include <pbl/util/size.h>
 #include <pbl/util/string.h>
 
+#include <applib/app_malloc.h>
 #include <applib/ui/action_menu_window_private.h>
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/day_picker.h>
 #include <applib/ui/menu_layer.h>
 #include <applib/ui/time_range_selection_window.h>
-#include <kernel/pbl_malloc.h>
 #include <popups/health_tracking_ui.h>
 #include <resource/resource_ids.auto.h>
 #include <shell/prefs.h>
@@ -291,7 +291,7 @@ static void prv_scheduled_dnd_menu_cleanup(ActionMenu *action_menu, const Action
   SettingsQuietTimeScheduleData *data = context;
   app_free(data->action_menu_text);
   i18n_free_all(&data->action_menu);
-  task_free(root_level);
+  app_free(root_level);
 }
 
 static void prv_scheduled_dnd_menu_push(SettingsQuietTimeScheduleData *data) {
@@ -303,7 +303,7 @@ static void prv_scheduled_dnd_menu_push(SettingsQuietTimeScheduleData *data) {
   };
 
   ActionMenuLevel *level =
-      task_malloc_check(sizeof(ActionMenuLevel) + DNDMenuItem_Count * sizeof(ActionMenuItem));
+      app_malloc_check(sizeof(ActionMenuLevel) + DNDMenuItem_Count * sizeof(ActionMenuItem));
   *level = (ActionMenuLevel){
     .num_items = DNDMenuItem_Count,
     .display_mode = ActionMenuLevelDisplayModeWide,

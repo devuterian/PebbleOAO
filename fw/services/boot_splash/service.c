@@ -7,13 +7,13 @@
 
 #if defined(CONFIG_PBLBOOT) || defined(CONFIG_QEMU) || defined(CONFIG_SOC_POSIX)
 
+#include "splash.xbm"
+
 #include <string.h>
 
 #include <pbl/drivers/display.h>
+#include <pbl/kernel/malloc.h>
 #include <pbl/util/math.h>
-
-#include <board/splash.h>
-#include <kernel/pbl_malloc.h>
 
 enum splash_color {
   SPLASH_COLOR_WHITE,
@@ -35,12 +35,9 @@ static const uint8_t s_argb2222[] = {
 #define PROGRESS_FRAME_DELAY_MS  100
 #define PROGRESS_TOTAL_FRAMES    20
 
-#define BOOT_SPLASH_TASK_STACK_SIZE 2048
-#define BOOT_SPLASH_TASK_PRIORITY   (PBL_PRIO_MAX - 1)
-
 // Boot splash state
 static struct pbl_thread s_boot_splash_thread;
-PBL_THREAD_STACK_DEFINE(s_boot_splash_stack, BOOT_SPLASH_TASK_STACK_SIZE);
+PBL_THREAD_STACK_DEFINE(s_boot_splash_stack, CONFIG_SERVICE_BOOT_SPLASH_THREAD_STACK_SIZE);
 static struct pbl_thread *s_boot_splash_task;
 static volatile bool s_boot_splash_running;
 static struct pbl_display_buffer s_boot_splash_fb;
@@ -165,7 +162,7 @@ static void prv_boot_splash_task(void *param) {
   }
 
   // Cleanup
-  kernel_free(s_boot_splash_fb.data);
+  pbl_free(s_boot_splash_fb.data);
   s_boot_splash_fb.data = nullptr;
   s_boot_splash_task = nullptr;
   pbl_thread_abort(nullptr);
@@ -178,7 +175,7 @@ void boot_splash_start(void) {
 
   // Allocate framebuffer for boot splash
   s_boot_splash_fb = (struct pbl_display_buffer){
-    .data = kernel_malloc(prv_fb_bytes()),
+    .data = pbl_malloc(prv_fb_bytes()),
     .pitch = prv_pitch(),
   };
   if (s_boot_splash_fb.data == nullptr) {
@@ -190,7 +187,7 @@ void boot_splash_start(void) {
   struct pbl_thread_attr attr = {
     .name = "BootSplash",
     .entry = prv_boot_splash_task,
-    .prio = BOOT_SPLASH_TASK_PRIORITY,
+    .prio = CONFIG_SERVICE_BOOT_SPLASH_THREAD_PRIO,
     .privileged = true,
     .stack = s_boot_splash_stack,
     .stack_size = sizeof(s_boot_splash_stack),
@@ -210,14 +207,14 @@ void boot_splash_stop(void) {
 
     // Draw final frame with logo only (no progress bar)
     struct pbl_display_buffer fb = {
-      .data = kernel_malloc(prv_fb_bytes()),
+      .data = pbl_malloc(prv_fb_bytes()),
       .pitch = prv_pitch(),
     };
     if (fb.data != nullptr) {
       prv_clear(&fb);
       prv_draw_logo(&fb);
       prv_show(&fb);
-      kernel_free(fb.data);
+      pbl_free(fb.data);
     }
   }
 }

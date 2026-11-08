@@ -24,7 +24,7 @@
 #define MODAL_EXPAND_TO_APP_ANIMATION       (RESOURCE_ID_MODAL_EXPAND_TO_APP_SEQUENCE)
 #endif
 
-#define CONTRACT_BORDER_COLOR               system_theme_get_fg_color()
+#define CONTRACT_BORDER_COLOR system_theme_get_fg_color()
 
 typedef struct {
   GColor outer_color;

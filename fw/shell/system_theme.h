@@ -4,9 +4,9 @@
 #pragma once
 
 #include <applib/fonts/fonts.h>
+#include <applib/graphics/gtypes.h>
 #include <applib/platform.h>
 #include <applib/preferred_content_size.h>
-#include <applib/graphics/gtypes.h>
 
 //! System Theme Text Style is a font collection used to unify text styles across the system.
 //! It contains a variety of different font sizes for use in an application, each meant for a
@@ -124,3 +124,7 @@ GColor system_theme_get_bg_color(void);
 //! @return The foreground color appropriate for the current theme (white in dark mode on color
 //!         displays, black otherwise).
 GColor system_theme_get_fg_color(void);
+
+//! @return The default menu highlight (accent) color: the user's theme highlight color for system
+//!         apps, GColorBlack for 3rd-party apps (their historical default).
+GColor system_theme_get_highlight_color(void);

@@ -6,11 +6,11 @@
 #include <pbl/services/i18n/i18n.h>
 
 #include <applib/app.h>
+#include <applib/app_malloc.h>
 #include <applib/ui/app_window_stack.h>
 #include <applib/ui/dialogs/simple_dialog.h>
 #include <applib/ui/menu_layer.h>
 #include <applib/ui/window.h>
-#include <kernel/pbl_malloc.h>
 #include <process_management/app_manager.h>
 #include <process_management/app_menu_data_source.h>
 #include <process_state/app_state/app_state.h>
@@ -79,7 +79,7 @@ static int16_t get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex 
     return focused_cell_height;
   }
 #if PBL_DISPLAY_HEIGHT >= 200
-  return ((DISP_ROWS - STATUS_BAR_LAYER_HEIGHT * 2) - focused_cell_height) / 4;
+  return ((PBL_DISPLAY_HEIGHT - STATUS_BAR_LAYER_HEIGHT * 2) - focused_cell_height) / 4;
 #else
   return MENU_CELL_ROUND_UNFOCUSED_SHORT_CELL_HEIGHT;
 #endif
@@ -161,11 +161,6 @@ static void prv_window_load(Window *window) {
                              .draw_row = draw_row_callback,
                              .select_click = select_callback,
                            });
-  GColor normal_bg = shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite;
-  menu_layer_set_normal_colors(&data->menu_layer, normal_bg, gcolor_legible_over(normal_bg));
-  GColor highlight_bg = shell_prefs_get_theme_highlight_color();
-  menu_layer_set_highlight_colors(&data->menu_layer, highlight_bg,
-                                  gcolor_legible_over(highlight_bg));
   menu_layer_set_click_config_onto_window(menu_layer, window);
   menu_layer_set_scroll_wrap_around(menu_layer, shell_prefs_get_menu_scroll_wrap_around_enable());
   menu_layer_set_scroll_vibe_on_wrap(
@@ -197,8 +192,6 @@ static void handle_init(void) {
                                        .appear = prv_window_appear,
                                        .unload = prv_window_unload,
                                      });
-  window_set_background_color(window,
-                              shell_prefs_get_theme_dark_background() ? GColorBlack : GColorWhite);
   const bool animated = true;
   app_window_stack_push(window, animated);
 }
