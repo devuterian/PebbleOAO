@@ -4115,7 +4115,7 @@ msgid "SKIP"
 msgstr "건너뜀"
 
 msgid "Sunset to Sunrise"
-msgstr "해 질 때부터 해 뜰 때까지"
+msgstr "일몰부터 일출까지"
 
 msgid "Bigger & Bolder"
 msgstr "더 크고 굵게"
