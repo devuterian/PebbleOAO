@@ -14,15 +14,35 @@
 #include <applib/ui/ui.h>
 #include <shell/prefs.h>
 
-static const char *const s_dark_mode_labels[] = {
-  [DarkModeOff] = pbl_i18n_noop("Off"),
-  [DarkModeOn] = pbl_i18n_noop("On"),
-  [DarkModeScheduled] = pbl_i18n_noop("Schedule"),
-  [DarkModeAmbient] = pbl_i18n_noop("Ambient"),
+// Menu rows, in the order shown; the mode values follow the phone's numbering instead
+static const DarkMode s_dark_mode_rows[] = {
+  DarkModeOff,
+  DarkModeOn,
+  DarkModeScheduled,
+  DarkModeAmbient,
 #ifdef CONFIG_BACKLIGHT_HAS_COLOR
-  [DarkModeSunset] = pbl_i18n_noop("Sunset to Sunrise"),
+  DarkModeSunset,
 #endif
 };
+
+static const char *const s_dark_mode_labels[] = {
+  pbl_i18n_noop("Off"),
+  pbl_i18n_noop("On"),
+  pbl_i18n_noop("Schedule"),
+  pbl_i18n_noop("Ambient"),
+#ifdef CONFIG_BACKLIGHT_HAS_COLOR
+  pbl_i18n_noop("Sunset to Sunrise"),
+#endif
+};
+
+static int prv_row_for_mode(DarkMode mode) {
+  for (size_t i = 0; i < PBL_ARRAY_SIZE(s_dark_mode_rows); i++) {
+    if (s_dark_mode_rows[i] == mode) {
+      return i;
+    }
+  }
+  return 0;
+}
 
 static void prv_refresh_parent(DarkModeMenu *menu) {
   settings_menu_reload_data(menu->menu_item);
@@ -31,7 +51,7 @@ static void prv_refresh_parent(DarkModeMenu *menu) {
 
 static void prv_menu_select(OptionMenu *option_menu, int selection, void *context) {
   DarkModeMenu *menu = settings_option_menu_get_context(context);
-  const DarkMode mode = (DarkMode)selection;
+  const DarkMode mode = s_dark_mode_rows[selection];
   shell_prefs_set_dark_mode(mode);
   if (mode == DarkModeScheduled) {
     app_window_stack_remove(&option_menu->window, false /* animated */);
@@ -74,7 +94,7 @@ void dark_mode_menu_deinit(DarkModeMenu *menu) {
 }
 
 void dark_mode_menu_push(DarkModeMenu *menu) {
-  const int index = (int)shell_prefs_get_dark_mode();
+  const int index = prv_row_for_mode(shell_prefs_get_dark_mode());
   const OptionMenuCallbacks callbacks = {
     .select = prv_menu_select,
   };
@@ -98,7 +118,7 @@ void dark_mode_menu_schedule_push(DarkModeMenu *menu) {
 }
 
 const char *dark_mode_menu_get_mode_label(void) {
-  return s_dark_mode_labels[shell_prefs_get_dark_mode()];
+  return s_dark_mode_labels[prv_row_for_mode(shell_prefs_get_dark_mode())];
 }
 
 void dark_mode_menu_format_schedule(char *buf, size_t buf_size) {

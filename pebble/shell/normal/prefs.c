@@ -1253,6 +1253,29 @@ static void prv_migrate_dark_mode_order(struct pbl_settings_file *file) {
                    sizeof(migrated));
 }
 
+// Ambient was 3 until upstream gave 3 to the sunset mode; move a stored 3 to the new value once.
+#define PREF_KEY_DARK_MODE_AMBIENT_MOVED "darkModeAmbientMoved"
+static void prv_migrate_dark_mode_ambient(struct pbl_settings_file *file) {
+  const size_t marker_len = sizeof(PREF_KEY_DARK_MODE_AMBIENT_MOVED);
+  if (pbl_settings_get_len(file, PREF_KEY_DARK_MODE_AMBIENT_MOVED, marker_len) > 0) {
+    return;
+  }
+
+  uint8_t mode;
+  const size_t key_len = sizeof(PREF_KEY_DARK_MODE);
+  if (pbl_settings_get_len(file, PREF_KEY_DARK_MODE, key_len) == sizeof(mode) &&
+      pbl_settings_get(file, PREF_KEY_DARK_MODE, key_len, &mode, sizeof(mode)) == 0 &&
+      mode == 3) {
+    mode = DarkModeAmbient;
+    PBL_LOG_INFO("Migrating dark mode pref to %u", mode);
+    pbl_settings_set(file, PREF_KEY_DARK_MODE, key_len, &mode, sizeof(mode));
+  }
+
+  const bool migrated = true;
+  pbl_settings_set(file, PREF_KEY_DARK_MODE_AMBIENT_MOVED, marker_len, &migrated,
+                   sizeof(migrated));
+}
+
 // ------------------------------------------------------------------------------------
 static void prv_pref_set(const char *key, const void *value, size_t val_len);
 
@@ -1276,6 +1299,7 @@ void shell_prefs_init(void) {
   prv_migrate_activity_hrm_prefs(&file);
   prv_migrate_activity_spo2_prefs(&file);
   prv_migrate_dark_mode_order(&file);
+  prv_migrate_dark_mode_ambient(&file);
 
 #if !TIMELINE_PEEK_WATCHFACE_FIT_SUPPORTED
   {

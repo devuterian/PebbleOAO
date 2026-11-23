@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <pbl/fs/fs.h>
+#include <pbl/settings/settings.h>
 #include <pbl/services/blob_db/prefs_db.h>
 #include <pbl/util/size.h>
 #include <pbl/util/uuid.h>
@@ -141,6 +142,33 @@ void test_prefs_db__dark_mode(void) {
   uint8_t stored;
   cl_assert_equal_i(prefs_db_read((uint8_t *)"darkMode", strlen("darkMode"), &stored, 1), 0);
   cl_assert_equal_i(stored, DarkModeOff);
+}
+
+extern void shell_prefs_init(void);
+
+static void prv_store_raw(const char *key, const void *val, size_t len) {
+  struct pbl_settings_file file;
+  cl_assert_equal_i(pbl_settings_open(&file, SHELL_PREFS_FILE_NAME, SHELL_PREFS_FILE_LEN), 0);
+  cl_assert_equal_i(pbl_settings_set(&file, key, strlen(key) + 1, val, len), 0);
+  pbl_settings_close(&file);
+}
+
+void test_prefs_db__dark_mode_ambient_moves_off_3(void) {
+  // A build that already reordered the modes stored Ambient as 3
+  const bool migrated = true;
+  prv_store_raw("darkModeOrderMigrated", &migrated, sizeof(migrated));
+  const uint8_t old_ambient = 3;
+  prv_store_raw("darkMode", &old_ambient, sizeof(old_ambient));
+
+  shell_prefs_init();
+  cl_assert_equal_i(shell_prefs_get_dark_mode(), DarkModeAmbient);
+
+  // Only once: a 3 stored afterwards is the sunset mode and stays
+  struct pbl_settings_file file;
+  cl_assert_equal_i(pbl_settings_open(&file, SHELL_PREFS_FILE_NAME, SHELL_PREFS_FILE_LEN), 0);
+  const char *marker = "darkModeAmbientMoved";
+  cl_assert(pbl_settings_get_len(&file, marker, strlen(marker) + 1) > 0);
+  pbl_settings_close(&file);
 }
 
 void test_prefs_db__dark_mode_schedule(void) {
