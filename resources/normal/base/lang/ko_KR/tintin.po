@@ -4098,3 +4098,97 @@ msgstr "기상 시까지"
 #. Quiet Time while the user is asleep
 msgid "Sleep Aware"
 msgstr "수면 연동"
+
+msgid "Retrying"
+msgstr "다시 시도 중"
+
+msgid "Retrying offline"
+msgstr "오프라인으로 다시 시도 중"
+
+msgid "Don't Skip"
+msgstr "건너뛰기 취소"
+
+msgid "Skip Next Alarm"
+msgstr "다음 알람 건너뛰기"
+
+msgid "SKIP"
+msgstr "건너뜀"
+
+msgid "Sunset to Sunrise"
+msgstr "해 질 때부터 해 뜰 때까지"
+
+msgid "Bigger & Bolder"
+msgstr "더 크고 굵게"
+
+msgid "Huge"
+msgstr "아주 크게"
+
+msgid "Kraepelin"
+msgstr "Kraepelin"
+
+msgid "van Hees"
+msgstr "van Hees"
+
+msgid "Sleep Algorithm"
+msgstr "수면 분석 방식"
+
+msgid "Periwinkle"
+msgstr "페리윙클"
+
+msgid "Clear"
+msgstr "맑음"
+
+msgid "Listening..."
+msgstr "듣는 중..."
+
+msgid "This app needs hardware this watch does not have."
+msgstr "이 앱에 필요한 하드웨어가 이 시계에 없어요."
+
+msgid "Short night! Try going to bed a little earlier tonight."
+msgstr "짧게 잤어요! 오늘 밤에는 조금 일찍 자 보세요."
+
+msgid "Almost there! A little more sleep tonight would help."
+msgstr "거의 다 왔어요! 오늘 밤 조금만 더 자 보세요."
+
+msgid "A long night! Great for catching up; a steady routine helps most."
+msgstr "오래 잤어요! 밀린 잠을 채우기 좋지만 일정한 습관이 가장 좋아요."
+
+msgid ""
+"Short night? You slept for %dH %dM. Most adults need at least 7 hours, so "
+"try heading to bed earlier tonight."
+msgstr "짧게 잤나요? %d시간 %d분 잤어요. 성인은 대부분 7시간 이상 자야 하니 오늘 밤에는 일찍 자 보세요."
+
+msgid ""
+"You slept for %dH %dM. Sleep fuels everything you do; let's aim for more "
+"tonight 😉"
+msgstr "%d시간 %d분 잤어요. 잠은 모든 일의 힘이 돼요. 오늘 밤에는 더 자 봐요 😉"
+
+msgid ""
+"You slept for %dH %dM. You're close! A little extra tonight goes a long way."
+msgstr "%d시간 %d분 잤어요. 거의 다 왔어요! 오늘 밤 조금만 더 자면 큰 도움이 돼요."
+
+msgid ""
+"Good morning! You slept for %dH %dM. Just a bit more sleep would help you "
+"feel your best."
+msgstr "좋은 아침! %d시간 %d분 잤어요. 조금만 더 자면 훨씬 개운할 거예요."
+
+msgid ""
+"You slept for %dH %dM. A long night can help you catch up after short ones; "
+"a steady routine is what counts."
+msgstr "%d시간 %d분 잤어요. 짧게 잔 뒤에는 오래 자는 것도 도움이 되지만, 일정한 습관이 가장 중요해요."
+
+msgid ""
+"Well rested? You slept for %dH %dM. Extra sleep helps you recover, but most "
+"adults do best with 7 to 9 hours."
+msgstr "푹 쉬었나요? %d시간 %d분 잤어요. 많이 자면 회복에 좋지만 성인은 대부분 7–9시간이 가장 좋아요."
+
+msgid ""
+"You slept for %dH %dM. That's a long night! Great for recovering, but a "
+"regular bedtime and wake time will help you feel your best."
+msgstr "%d시간 %d분 잤어요. 오래 잤네요! 회복에는 좋지만 일정한 시간에 자고 일어나는 게 더 도움이 돼요."
+
+msgid ""
+"You slept for %dH %dM, more than most adults need. Catching up now and then "
+"is fine; try to keep a steady routine."
+msgstr ""
+"%d시간 %d분 잤어요. 대부분의 성인에게 필요한 것보다 많이 잤어요. 가끔 밀린 잠을 채우는 건 괜찮지만 일정한 습관을 유지해 보세요."
