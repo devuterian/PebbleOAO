@@ -8,6 +8,8 @@
 #include "stubs_logging.h"
 
 static bool s_enabled, s_charging;
+static uint32_t s_millipercent;
+uint32_t battery_state_get_millipercent(void) { return s_millipercent; }
 static int s_writes, s_callbacks;
 static BatteryChargeState s_charge;
 static RegularTimerInfo *s_timer;
@@ -26,6 +28,7 @@ void launcher_task_add_callback(CallbackEventCallback callback, void *data) {
 }
 
 static void prv_evaluate(int pct, bool plugged) {
+  s_millipercent = pct * 1000U;
   battery_charge_limit_evaluate((PreciseBatteryChargeState){ .pct = pct, .is_plugged = plugged });
 }
 
@@ -69,10 +72,23 @@ void test_battery_charge_limit__disabling_restores_charging(void) {
 }
 
 void test_battery_charge_limit__timer_defers_hardware_write_to_kernel(void) {
+  s_millipercent = 80000;
   s_charge = (BatteryChargeState){ .charge_percent = 80, .is_plugged = true };
   s_timer->cb(NULL);
   cl_assert_equal_i(s_callbacks, 1);
   cl_assert_equal_i(s_writes, 0);
   s_callback(NULL);
   cl_assert(!s_charging);
+}
+
+void test_battery_charge_limit__does_not_round_thresholds_up(void) {
+  s_millipercent = 79999;
+  battery_charge_limit_evaluate((PreciseBatteryChargeState){ .pct = 80, .is_plugged = true });
+  cl_assert(!battery_charge_limit_is_active());
+  prv_evaluate(80, true);
+  s_millipercent = 77001;
+  battery_charge_limit_evaluate((PreciseBatteryChargeState){ .pct = 78, .is_plugged = true });
+  cl_assert(battery_charge_limit_is_active());
+  prv_evaluate(77, true);
+  cl_assert(!battery_charge_limit_is_active());
 }

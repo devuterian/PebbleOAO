@@ -1,0 +1,14 @@
+[0/2] Re-checking globbed directories...
+[1/12] Checking the firmware version
+[2/9] Extracting strings into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/fw.pot
+[3/9] Merging catalogs into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/pebbleos.pot
+[4/9] Building C object src/fw/shell/CMakeFiles/src__fw__shell.dir/normal/battery_ui.c.obj
+[5/9] Linking C executable pebbleos.elf
+Memory region         Used Size  Region Size  %age Used
+           FLASH:     1702256 B         4 MB     40.58%
+             RAM:      117792 B       305 KB     37.72%
+[6/9] Generating pebbleos.bin
+[7/9] Generating pebbleos.hex
+[8/9] Checking resource size
+Resources: [################### ]  94.24% (1976272/2097152 bytes)
+

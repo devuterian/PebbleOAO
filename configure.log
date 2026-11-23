@@ -1,0 +1,9 @@
+-- PebbleOS SDK: /Users/marie/Documents/Codex/pebble/watchos-audio-work/sdk (unversioned)
+-- Kconfig: 935 symbols for qemu_emery
+-- Optimization: size (-Os)
+-- libc: picolibc (pre-built)
+-- Board: qemu_emery (emery), variant: normal
+-- Resources: 655 resources in 45 batches, 22 declarations
+-- Configuring done (1.1s)
+-- Generating done (0.5s)
+-- Build files have been written to: /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview

@@ -2,6 +2,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <math.h>
+#include "services/battery/charge_estimate.h"
 
 #include "board/board.h"
 #include <pbl/drivers/battery.h>
@@ -70,6 +71,9 @@ static uint64_t prv_ref_time;
 static int32_t s_last_voltage_mv;
 static int32_t s_last_temp_mc;
 static uint32_t s_last_soc_cpct;
+static uint32_t s_last_soc_mpct;
+
+uint32_t battery_state_get_millipercent(void) { return s_last_soc_mpct; }
 static uint32_t s_soc_cpct_min = UINT32_MAX;
 static int32_t s_analytics_last_voltage_mv;
 static uint32_t s_analytics_last_cpct;
@@ -84,6 +88,24 @@ static void prv_track_soc_min(void) {
 }
 static uint32_t s_last_tte;
 static uint32_t s_last_ttf;
+static uint32_t s_charge_mw;
+static uint32_t s_charge_sample_time;
+static uint32_t s_charge_start_time;
+static uint32_t s_charge_start_cpct;
+static bool s_charge_sample_valid;
+
+bool battery_state_get_charge_estimate(uint8_t target, uint32_t *milliwatts,
+                                       uint32_t *seconds) {
+  uint32_t now = rtc_get_ticks() / RTC_TICKS_HZ;
+  if (!s_charge_sample_valid || now - s_charge_sample_time > 90 ||
+      !battery_is_usb_connected()) {
+    return false;
+  }
+  *milliwatts = s_charge_mw;
+  *seconds = charge_estimate_seconds(target, s_last_ttf, s_charge_start_cpct,
+                                     s_last_soc_cpct, s_charge_sample_time - s_charge_start_time);
+  return true;
+}
 static RtcTicks s_last_log;
 static bool s_charger_enabled;
 
@@ -317,6 +339,7 @@ static void prv_update_state(void *force_update) {
 
   ret = battery_get_constants(&constants);
   if (ret < 0) {
+    s_charge_sample_valid = false;
     PBL_LOG_ERR("Could not obtain constants, skipping update (%d)", ret);
     return;
   }
@@ -339,6 +362,7 @@ static void prv_update_state(void *force_update) {
 
   ret = battery_charge_status_get(&chg_status);
   if (ret < 0) {
+    s_charge_sample_valid = false;
     PBL_LOG_ERR("Could not obtain charge status, skipping update (%d)", ret);
     return;
   }
@@ -372,6 +396,17 @@ static void prv_update_state(void *force_update) {
 
   pct_int = (uint8_t)ceilf(pct);
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
+  uint32_t previous_mpct = s_last_soc_mpct;
+  s_last_soc_mpct = (uint32_t)(fminf(100.0f, fmaxf(0.0f, pct)) * 1000.0f);
+#ifdef CONFIG_BOARD_OBELIX
+  // Integer SOC is rounded up; exact charge-limit crossings still need an event.
+  if ((previous_mpct < 80000 && s_last_soc_mpct >= 80000) ||
+      (previous_mpct > 77000 && s_last_soc_mpct <= 77000)) {
+    update = true;
+  }
+#else
+  (void)previous_mpct;
+#endif
   prv_track_soc_min();
   if (pct_int != s_last_battery_charge_state.pct) {
     s_last_battery_charge_state.pct = pct_int;
@@ -383,9 +418,7 @@ static void prv_update_state(void *force_update) {
     float ttf;
 
     ttf = nrf_fuel_gauge_ttf_get();
-    if (!isnan(ttf)) {
-      s_last_ttf = (uint32_t)ttf;
-    }
+    s_last_ttf = isfinite(ttf) && ttf > 0 && ttf < 86400 ? (uint32_t)ttf : 0;
 
     s_last_tte = 0U;
   } else {
@@ -397,6 +430,20 @@ static void prv_update_state(void *force_update) {
     }
 
     s_last_ttf = 0U;
+  }
+
+  uint32_t sample_time = now / RTC_TICKS_HZ;
+  if (is_charging && constants.v_mv > 0 && constants.i_ua > 0) {
+    if (!s_charge_sample_valid || sample_time - s_charge_sample_time > 90 ||
+        s_last_soc_cpct < s_charge_start_cpct) {
+      s_charge_start_time = sample_time;
+      s_charge_start_cpct = s_last_soc_cpct;
+    }
+    s_charge_mw = (uint64_t)constants.v_mv * constants.i_ua / 1000000;
+    s_charge_sample_time = sample_time;
+    s_charge_sample_valid = true;
+  } else {
+    s_charge_sample_valid = false;
   }
 
 #if FUEL_GAUGE_STATEFUL
@@ -455,6 +502,8 @@ static void prv_schedule_update(uint32_t delay, bool force_update) {
                                  (void *)force_update, 0 /*flags*/);
   PBL_ASSERTN(success);
 }
+
+void battery_state_request_sample(void) { prv_enqueue_update(false); }
 
 void battery_state_force_update(void) { prv_schedule_update(0, true); }
 
@@ -521,6 +570,7 @@ void battery_state_init(void) {
   prv_ref_time = rtc_get_ticks();
 
   s_last_soc_cpct = (uint32_t)(pct * 100.0f);
+  s_last_soc_mpct = (uint32_t)(fminf(100.0f, fmaxf(0.0f, pct)) * 1000.0f);
   prv_track_soc_min();
   s_last_battery_charge_state.pct = (uint8_t)ceilf(pct);
   s_last_battery_charge_state.charge_percent = (uint32_t)(pct * RATIO32_MAX) / 100U;
@@ -545,6 +595,7 @@ void battery_state_init(void) {
 }
 
 void battery_state_handle_connection_event(bool is_connected) {
+  s_charge_sample_valid = false;
   prv_schedule_update(RECONNECTION_DELAY_MS, true);
 }
 

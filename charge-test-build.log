@@ -1,0 +1,77 @@
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- Unit tests: 337
+-- Configuring done (2.2s)
+-- Generating done (1.5s)
+-- Build files have been written to: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit
+[0/4] Re-checking globbed directories...
+[1/14] Generating clar harness for test_battery_charge_limit
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/test_battery_charge_limit
+  test_battery_charge_limit (5 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/test_battery_charge_limit"
+[2/14] Building src/fw/shell/normal/battery_ui_fsm.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/shell/normal/battery_ui_fsm.c:13:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/shell/normal/battery_ui_fsm.c:13:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[3/14] Building src/fw/services/battery/battery_charge_limit.c
+[4/14] Building src/fw/shell/normal/battery_ui_fsm.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/shell/normal/battery_ui_fsm.c:13:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/shell/normal/battery_ui_fsm.c:13:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[5/14] Building C object CMakeFiles/test_battery_charge_limit.dir/fw/services/test_battery_charge_limit.c.o
+[6/14] Building C object CMakeFiles/test_battery_ui_fsm_obelix.dir/fw/shell/normal/test_battery_ui_fsm.c.o
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/shell/normal/test_battery_ui_fsm.c:12:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/shell/normal/test_battery_ui_fsm.c:12:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[7/14] Building C object CMakeFiles/test_battery_ui_fsm_percent_obelix.dir/fw/shell/normal/test_battery_ui_fsm.c.o
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/shell/normal/test_battery_ui_fsm.c:12:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/shell/normal/test_battery_ui_fsm.c:12:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[8/14] Building C object CMakeFiles/test_battery_charge_limit.dir/fw/services/test_battery_charge_limit/clar_main.c.o
+[9/14] Linking C executable fw/shell/normal/test_battery_ui_fsm_obelix/runme_obelix
+[10/14] Linking C executable fw/services/test_battery_charge_limit/runme
+[11/14] Linking C executable fw/shell/normal/test_battery_ui_fsm_percent_obelix/runme_obelix

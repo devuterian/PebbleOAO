@@ -863,7 +863,10 @@ void timeline_invoke_action(const TimelineItem *item, const TimelineItemAction *
     case TimelineItemActionTypeAncsDial:
     {
       const char *caller_id = attribute_get_string(&item->attr_list,
-                                                   AttributeIdTitle, "Unknown");
+                                                   AttributeIdTitle, NULL);
+      if (!caller_id) {
+        caller_id = i18n_get("Unknown", &i18n_key);
+      }
       prv_put_outgoing_call_event(item->header.ancs_uid, caller_id);
       notifications_handle_notification_action_result(NULL);
       ancs_perform_action(item->header.ancs_uid, ActionIDPositive);

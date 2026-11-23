@@ -1,0 +1,16 @@
+[0/2] Re-checking globbed directories...
+[1/14] Extracting strings into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/src/fw/services/activity/services_activity.pot
+[2/14] Merging catalogs into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/src/fw/services/services.pot
+[3/14] Merging catalogs into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/pebbleos.pot
+[4/14] Checking the firmware version
+[5/11] Building C object src/fw/services/activity/CMakeFiles/src__fw__services__activity.dir/health_util.c.obj
+[6/11] Building C object src/fw/services/activity/CMakeFiles/src__fw__services__activity.dir/activity_insights.c.obj
+[7/11] Linking C executable pebbleos.elf
+Memory region         Used Size  Region Size  %age Used
+           FLASH:     1701264 B         4 MB     40.56%
+             RAM:      117632 B       305 KB     37.66%
+[8/11] Generating pebbleos.bin
+[9/11] Generating pebbleos.hex
+[10/11] Checking resource size
+Resources: [################### ]  94.20% (1975597/2097152 bytes)
+

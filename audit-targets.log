@@ -1,0 +1,19 @@
+[0/2] Re-checking globbed directories...
+[1/13] Generating clar harness for test_battery_charge_limit
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/test_battery_charge_limit
+  test_battery_charge_limit (4 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/test_battery_charge_limit"
+[2/13] Generating clar harness for test_hourly_chime
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/test_hourly_chime
+  test_hourly_chime (7 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/test_hourly_chime"
+[3/13] Building src/fw/services/battery/battery_charge_limit.c
+[4/13] Building src/fw/services/clock/hourly_chime.c
+[5/13] Building src/fw/services/activity/health_util.c
+[6/13] Linking C executable fw/services/activity/test_health_util/runme
+[7/13] Building C object CMakeFiles/test_hourly_chime.dir/fw/services/test_hourly_chime.c.o
+[8/13] Building C object CMakeFiles/test_battery_charge_limit.dir/fw/services/test_battery_charge_limit/clar_main.c.o
+[9/13] Building C object CMakeFiles/test_hourly_chime.dir/fw/services/test_hourly_chime/clar_main.c.o
+[10/13] Building C object CMakeFiles/test_battery_charge_limit.dir/fw/services/test_battery_charge_limit.c.o
+[11/13] Linking C executable fw/services/test_hourly_chime/runme
+[12/13] Linking C executable fw/services/test_battery_charge_limit/runme

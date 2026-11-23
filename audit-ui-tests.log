@@ -1,0 +1,376 @@
+[0/2] Re-checking globbed directories...
+[1/49] Building src/fw/flash_region/filesystem_regions.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.c:4:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.c:4:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[2/49] Building src/fw/resource/resource_storage_builtin.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource_storage_builtin.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/include/pbl/services/process_management/app_storage.h:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource_storage_builtin.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/include/pbl/services/process_management/app_storage.h:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[3/49] Building src/fw/flash_region/flash_region.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.c:4:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.c:4:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[4/49] Building src/fw/resource/resource_storage_file.c
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource_storage_file.c:191:23: warning: cast to smaller integer type 'ResAppNum' (aka 'unsigned int') from 'const void *' [-Wvoid-pointer-to-int-cast]
+  191 |   ResAppNum app_num = (ResAppNum)entry->store_data;
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource_storage_file.c:217:23: warning: cast to smaller integer type 'ResAppNum' (aka 'unsigned int') from 'const void *' [-Wvoid-pointer-to-int-cast]
+  217 |   ResAppNum app_num = (ResAppNum)entry->store_data;
+      |                       ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2 warnings generated.
+[5/49] Building src/fw/resource/resource_storage.c
+[6/49] Building src/fw/resource/resource.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource.c:13:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/include/pbl/services/process_management/app_storage.h:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource.c:13:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/include/pbl/services/process_management/app_storage.h:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource.c:41:26: warning: cast to smaller integer type 'uint32_t' (aka 'unsigned int') from 'void *' [-Wvoid-pointer-to-int-cast]
+   41 |   uint32_t resource_id = (uint32_t)data;
+      |                          ^~~~~~~~~~~~~~
+3 warnings generated.
+[7/49] Building src/fw/util/crc8.c
+[8/49] Building src/fw/resource/resource_storage_flash.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource_storage_flash.c:9:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/include/pbl/services/process_management/app_storage.h:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/resource/resource_storage_flash.c:9:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/include/pbl/services/process_management/app_storage.h:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[9/49] Building src/fw/services/filesystem/app_file.c
+[10/49] Building src/fw/services/filesystem/flash_translation.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/services/filesystem/flash_translation.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/services/filesystem/flash_translation.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[11/49] Building src/fw/util/legacy_checksum.c
+[12/49] Building src/fw/services/filesystem/pfs.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/services/filesystem/pfs.c:16:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/services/filesystem/pfs.c:16:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/filesystem_regions.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[13/49] Building src/fw/drivers/flash/flash_crc.c
+[14/49] Building tests/fakes/fake_rtc.c
+[15/49] Building tests/fixtures/resources/pfs_resource_table.c
+[16/49] Building tests/fakes/fake_spi_flash.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fakes/fake_spi_flash.c:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fakes/fake_spi_flash.c:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+2 warnings generated.
+[17/49] Generating clar harness for test_text_resources
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/applib/test_text_resources
+  test_text_resources (20 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/applib/test_text_resources"
+[18/49] Building src/fw/applib/fonts/codepoint.c
+[19/49] Building src/fw/system/hexdump.c
+[20/49] Building tests/fixtures/resources/builtin_resources.auto.c
+[21/49] Generating clar harness for test_system_theme
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/shell/test_system_theme
+  test_system_theme (1 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/shell/test_system_theme"
+[22/49] Building src/fw/applib/fonts/fonts.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/fonts/fonts.c:9:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/fonts/fonts.c:37:32: warning: unknown warning group '-Wstringop-truncation', ignored [-Wunknown-warning-option]
+   37 | #pragma GCC diagnostic ignored "-Wstringop-truncation"
+      |                                ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/fonts/fonts.c:55:77: warning: cast to smaller integer type 'uint32_t' (aka 'unsigned int') from 'ResHandle' (aka 'void *') [-Wvoid-pointer-to-int-cast]
+   55 |   GFont res = fonts_load_custom_font_system(sys_get_current_resource_num(), (uint32_t)handle);
+      |                                                                             ^~~~~~~~~~~~~~~~
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/fonts/fonts.c:7:
+/Volumes/marie-4TB2/codex-pebble-health-preview/tests/overrides/default/applib/applib_malloc.auto.h:9:14: warning: unused function 'applib_zalloc' [-Wunused-function]
+    9 | static void* applib_zalloc(size_t size) {
+      |              ^~~~~~~~~~~~~
+4 warnings generated.
+[23/49] Building tests/fw/applib/test_text_resources_font_stub.c
+[24/49] Generating clar harness for test_watchface_palm
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/shell/normal/test_watchface_palm
+  test_watchface_palm (6 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/shell/normal/test_watchface_palm"
+[25/49] Building src/fw/applib/graphics/text_resources.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.c:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+1 warning generated.
+[26/49] Building src/fw/shell/system_theme.c
+[27/49] Building src/fw/applib/graphics/gcolor_definitions.c
+[28/49] Building src/fw/shell/normal/watchface_palm.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/shell/normal/watchface_palm.c:7:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/shell/normal/watchface_palm.c:7:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[29/49] Building src/fw/applib/ui/recognizer/recognizer.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/recognizer/recognizer.c:10:
+/Volumes/marie-4TB2/codex-pebble-health-preview/tests/overrides/default/applib/applib_malloc.auto.h:9:14: warning: unused function 'applib_zalloc' [-Wunused-function]
+    9 | static void* applib_zalloc(size_t size) {
+      |              ^~~~~~~~~~~~~
+1 warning generated.
+[30/49] Generating clar harness for test_recognizer_lifecycle
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/ui/recognizer/test_recognizer_lifecycle
+  test_recognizer_lifecycle (2 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/ui/recognizer/test_recognizer_lifecycle"
+[31/49] Building src/fw/applib/graphics/gtypes.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gtypes.c:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gtypes.c:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[32/49] Building src/fw/applib/ui/layer.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/layer.c:9:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/layer.c:9:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/layer.c:217:21: warning: taking address of packed member 'clip_box' of class or structure 'GDrawState' may result in an unaligned pointer value [-Waddress-of-packed-member]
+  217 |         grect_clip(&ctx->draw_state.clip_box, &levels_layer_frame_in_ctx_space);
+      |                     ^~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/layer.c:228:26: warning: taking address of packed member 'clip_box' of class or structure 'GDrawState' may result in an unaligned pointer value [-Waddress-of-packed-member]
+  228 |     if (!grect_is_empty(&ctx->draw_state.clip_box)) {
+      |                          ^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/layer.c:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/tests/overrides/default/applib/applib_malloc.auto.h:9:14: warning: unused function 'applib_zalloc' [-Wunused-function]
+    9 | static void* applib_zalloc(size_t size) {
+      |              ^~~~~~~~~~~~~
+5 warnings generated.
+[33/49] Building src/fw/applib/ui/recognizer/recognizer_manager.c
+[34/49] Building tests/fw/ui/recognizer/test_recognizer_impl.c
+[35/49] Building src/fw/applib/ui/window_manager.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window_manager.c:4:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window_manager.c:4:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[36/49] Building C object CMakeFiles/test_text_resources.dir/fw/applib/test_text_resources/clar_main.c.o
+[37/49] Building src/fw/applib/ui/window.c
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:7:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:7:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:71:20: warning: taking address of packed member 'drawing_box' of class or structure 'GDrawState' may result in an unaligned pointer value [-Waddress-of-packed-member]
+   71 |     gpoint_add_eq(&draw_state->drawing_box.origin, displacement);
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:72:20: warning: taking address of packed member 'clip_box' of class or structure 'GDrawState' may result in an unaligned pointer value [-Waddress-of-packed-member]
+   72 |     gpoint_add_eq(&draw_state->clip_box.origin, displacement);
+      |                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:76:15: warning: taking address of packed member 'clip_box' of class or structure 'GDrawState' may result in an unaligned pointer value [-Waddress-of-packed-member]
+   76 |   grect_clip(&draw_state->clip_box, &saved_state->clip_box);
+      |               ^~~~~~~~~~~~~~~~~~~~
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:89:17: warning: taking address of packed member 'clip_box' of class or structure 'GDrawState' may result in an unaligned pointer value [-Waddress-of-packed-member]
+   89 |     grect_clip(&ctx->draw_state.clip_box, &window->layer.frame);
+      |                 ^~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window.c:16:
+/Volumes/marie-4TB2/codex-pebble-health-preview/tests/overrides/default/applib/applib_malloc.auto.h:9:14: warning: unused function 'applib_zalloc' [-Wunused-function]
+    9 | static void* applib_zalloc(size_t size) {
+      |              ^~~~~~~~~~~~~
+7 warnings generated.
+[38/49] Building C object CMakeFiles/test_system_theme.dir/fw/shell/test_system_theme/clar_main.c.o
+[39/49] Building C object CMakeFiles/test_system_theme.dir/fw/shell/test_system_theme.c.o
+[40/49] Building C object CMakeFiles/test_text_resources.dir/fw/applib/test_text_resources.c.o
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/applib/test_text_resources.c:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fixtures/load_test_resources.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:39:9: warning: 'FLASH_REGION_CD_BEGIN' macro redefined [-Wmacro-redefined]
+   39 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_FIRMWARE_DEST_BEGIN
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:68:9: note: previous definition is here
+   68 | #define FLASH_REGION_CD_BEGIN FLASH_REGION_START_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/applib/test_text_resources.c:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fixtures/load_test_resources.h:6:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region.h:40:9: warning: 'FLASH_REGION_CD_END' macro redefined [-Wmacro-redefined]
+   40 | #define FLASH_REGION_CD_END FLASH_REGION_FIRMWARE_DEST_END
+      |         ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/flash_region/flash_region_gd25q256e.h:69:9: note: previous definition is here
+   69 | #define FLASH_REGION_CD_END FLASH_REGION_END_ADDR(CD)
+      |         ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/applib/test_text_resources.c:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+/Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/applib/test_text_resources.c:602:25: warning: unused variable 'codepoint_range' [-Wunused-variable]
+  602 |   const CodePoint_Range codepoint_range[] = {
+      |                         ^~~~~~~~~~~~~~~
+4 warnings generated.
+[41/49] Building C object CMakeFiles/test_watchface_palm.dir/fw/shell/normal/test_watchface_palm/clar_main.c.o
+[42/49] Linking C executable fw/shell/test_system_theme/runme
+[43/49] Building C object CMakeFiles/test_recognizer_lifecycle.dir/fw/ui/recognizer/test_recognizer_lifecycle/clar_main.c.o
+[44/49] Building C object CMakeFiles/test_watchface_palm.dir/fw/shell/normal/test_watchface_palm.c.o
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/shell/normal/test_watchface_palm.c:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/shell/normal/test_watchface_palm.c:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[45/49] Linking C executable fw/applib/test_text_resources/runme
+[46/49] Building C object CMakeFiles/test_recognizer_lifecycle.dir/fw/ui/recognizer/test_recognizer_lifecycle.c.o
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/ui/recognizer/test_recognizer_lifecycle.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/ui/recognizer/test_recognizer_lifecycle.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/ui/window_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/kernel/ui/modals/modal_manager.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/ui/recognizer/test_recognizer_lifecycle.c:21:
+/Volumes/marie-4TB2/codex-pebble-health-preview/tests/stubs/stubs_gbitmap.h:43:26: warning: taking address of packed member 'bounds' of class or structure 'GBitmap' may result in an unaligned pointer value [-Waddress-of-packed-member]
+   43 |   grect_clip(&sub_rect, &base_bitmap->bounds);
+      |                          ^~~~~~~~~~~~~~~~~~~
+3 warnings generated.
+[47/49] Linking C executable fw/shell/normal/test_watchface_palm/runme
+[48/49] Linking C executable fw/ui/recognizer/test_recognizer_lifecycle/runme

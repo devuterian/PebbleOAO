@@ -1,0 +1,18 @@
+[0/2] Re-checking globbed directories...
+[1/15] Extracting strings into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/src/fw/apps/apps.pot
+[2/15] Merging catalogs into /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/pebbleos.pot
+[3/15] Checking the firmware version
+[4/12] Building C object src/fw/apps/system/CMakeFiles/src__fw__apps__system.dir/settings/settings.c.obj
+[5/12] Building C object src/fw/apps/system/CMakeFiles/src__fw__apps__system.dir/settings/window.c.obj
+[6/12] Building C object src/fw/apps/system/CMakeFiles/src__fw__apps__system.dir/notifications.c.obj
+[7/12] Linking C executable pebbleos.elf
+Memory region         Used Size  Region Size  %age Used
+           FLASH:     1701328 B         4 MB     40.56%
+             RAM:      117632 B       305 KB     37.66%
+[8/12] Generating pebbleos.bin
+[9/12] Generating pebbleos.hex
+[10/12] Checking resource size
+Resources: [################### ]  94.22% (1975975/2097152 bytes)
+
+[11/12] cd /Volumes/marie-4TB2/codex-pebble-health-preview && /opt/homebrew/bin/cmake -E env "PATH=/Users/marie/Documents/Codex/pebble/watchos-audio-work/sdk/arm-none-eabi/bin:/Users/marie/Documents/Codex/pebble/marie-PebbleOS-chime/.venv/bin:/opt/homebrew/bin:/Users/marie/.local/bin:/opt/homebrew/opt/python@3.10/libexec/bin:/opt/homebrew/opt/python@3.10/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin://Applications/Topaz Photo.app/Contents/Resources/bin:/Library/Apple/usr/bin:/opt/homebrew/share/android-commandlinetools/platform-tools:/opt/homebrew/share/android-commandlinetools/cmdline-tools/latest/bin:/opt/homebrew/opt/python@3.10/libexec/bin:/opt/homebrew/opt/python@3.10/bin:/Users/marie/.codex/tmp/arg0/codex-arg0zOxvc8:/Users/marie/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/marie/.local/bin:/Users/marie/.nvm/versions/node/v22.23.2/bin:/opt/homebrew/opt/python@3.11/bin:/Users/marie/.lmstudio/bin:/Users/marie/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources:/Users/marie/.local/bin" /Users/marie/Documents/Codex/pebble/marie-PebbleOS-chime/.venv/bin/python /Volumes/marie-4TB2/codex-pebble-health-preview/tools/cmake/firmware.py qemu-image-micro --input /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/pebbleos.hex --output /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/qemu_micro_flash.bin
+Writing micro flash image to /Volumes/marie-4TB2/codex-pebble-health-preview/build-health-preview/qemu_micro_flash.bin

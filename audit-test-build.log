@@ -1,0 +1,57 @@
+[0/2] Re-checking globbed directories...
+[1/40] Generating common.pb.c
+[2/40] Generating simple.pb.c
+[3/40] Generating measurements.pb.c
+[4/40] Generating activity.pb.c
+[5/40] Generating event.pb.c
+[6/40] Generating payload.pb.c
+[7/40] Building C object lib/util/CMakeFiles/libutil.dir/build_id.c.o
+[8/40] Building C object lib/util/CMakeFiles/libutil.dir/circular_cache.c.o
+[9/40] Building C object lib/util/CMakeFiles/libutil.dir/circular_buffer.c.o
+[10/40] Building C object vendor/duma/CMakeFiles/duma.dir/sem_inc.c.o
+[11/40] Building C object vendor/duma/CMakeFiles/duma.dir/print.c.o
+[12/40] Building C object vendor/duma/CMakeFiles/duma.dir/duma.c.o
+[13/40] Building C object lib/util/CMakeFiles/libutil.dir/hash.c.o
+[14/40] Building C object lib/util/CMakeFiles/libutil.dir/crc32.c.o
+[15/40] Building C object lib/util/CMakeFiles/libutil.dir/hexdump.c.o
+[16/40] Building C object lib/util/CMakeFiles/libutil.dir/heap.c.o
+[17/40] Building C object lib/util/CMakeFiles/libutil.dir/iterator.c.o
+[18/40] Building C object lib/util/CMakeFiles/libutil.dir/math.c.o
+[19/40] Building C object lib/util/CMakeFiles/libutil.dir/keyed_circular_cache.c.o
+[20/40] Building C object lib/util/CMakeFiles/libutil.dir/list.c.o
+[21/40] Building C object lib/util/CMakeFiles/libutil.dir/order.c.o
+[22/40] Building C object lib/util/CMakeFiles/libutil.dir/math_fixed.c.o
+[23/40] Building C object lib/util/CMakeFiles/libutil.dir/platform.c.o
+[24/40] Building C object lib/util/CMakeFiles/libutil.dir/sort.c.o
+[25/40] Building C object lib/util/CMakeFiles/libutil.dir/slist.c.o
+[26/40] Building C object lib/util/CMakeFiles/libutil.dir/trig.c.o
+[27/40] Building C object lib/util/CMakeFiles/libutil.dir/string.c.o
+[28/40] Building C object lib/util/CMakeFiles/libutil.dir/uuid.c.o
+[29/40] Building C object lib/btutil/CMakeFiles/libbtutil.dir/bt_device.c.o
+[30/40] Building C object lib/btutil/CMakeFiles/libbtutil.dir/bt_uuid.c.o
+[31/40] Building C object lib/btutil/CMakeFiles/libbtutil.dir/sm_util.c.o
+[32/40] Linking C static library vendor/duma/libduma.a
+[33/40] Linking C static library lib/util/liblibutil.a
+[34/40] Linking C static library lib/btutil/liblibbtutil.a
+[35/40] Generating clar harness for test_health_util
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/activity/test_health_util
+  test_health_util (2 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/services/activity/test_health_util"
+[36/40] Building src/fw/services/activity/health_util.c
+[37/40] Building C object CMakeFiles/test_health_util.dir/fw/services/activity/test_health_util.c.o
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/services/activity/test_health_util.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/stubs/stubs_graphics.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:8:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/text_resources.h:99:17: warning: field 'cache_data_scratch' with variable sized type 'LineCacheData' not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   99 |   LineCacheData cache_data_scratch;
+      |                 ^
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/fw/services/activity/test_health_util.c:8:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/tests/stubs/stubs_graphics.h:6:
+In file included from /Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/graphics.h:5:
+/Volumes/marie-4TB2/codex-pebble-health-preview/src/fw/applib/graphics/gcontext.h:33:13: warning: field 'font_cache' with variable sized type 'FontCache' (aka 'struct FontCache') not at the end of a struct or class is a GNU extension [-Wgnu-variable-sized-type-not-at-end]
+   33 |   FontCache font_cache;
+      |             ^
+2 warnings generated.
+[38/40] Building C object CMakeFiles/test_health_util.dir/fw/services/activity/test_health_util/clar_main.c.o
+[39/40] Linking C executable fw/services/activity/test_health_util/runme

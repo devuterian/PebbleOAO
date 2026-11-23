@@ -1929,7 +1929,7 @@ msgstr "깊은 수면"
 #: src/fw/apps/system/health/ui.c:65
 #, c-format
 msgid "TYPICAL %s"
-msgstr "평소 %s"
+msgstr "%s요일 평균"
 
 #: src/fw/apps/system/health/hr_summary_card.c:114
 msgid "BPM"
@@ -3574,7 +3574,7 @@ msgstr "%B "
 #: src/fw/services/clock/service.c:978
 #, c-format
 msgid "%e"
-msgstr "%e"
+msgstr "%e일"
 
 #: src/fw/services/clock/service.c:1029
 msgid "this morning"
@@ -3627,3 +3627,110 @@ msgstr "알림 시작"
 
 msgid "Chime End"
 msgstr "알림 종료"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Red"
+msgstr "빨강"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Orange"
+msgstr "주황"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Yellow"
+msgstr "노랑"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Green"
+msgstr "초록"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Cyan"
+msgstr "청록"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Light Blue"
+msgstr "하늘색"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Royal Blue"
+msgstr "파랑"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Purple"
+msgstr "보라"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Magenta"
+msgstr "자홍"
+
+#: src/fw/apps/system/settings/themes.c
+msgid "Pink"
+msgstr "분홍"
+
+#: src/fw/services/timeline/timeline_actions.c
+msgid "Success"
+msgstr "완료"
+
+msgid "Charge complete!"
+msgstr "충전 완료!"
+
+msgid "Cruising after a full charge"
+msgstr "완충 후 항해 중"
+
+msgid "%luh %lum left"
+msgstr "%lu시간 %lu분 남음"
+
+msgid "%lum left"
+msgstr "%lu분 남음"
+
+msgid "Calculating"
+msgstr "계산 중"
+
+msgid "Charging screen"
+msgstr "충전 화면"
+
+msgid "Decimal places"
+msgstr "소수 자릿수"
+
+msgid "Battery percentage"
+msgstr "배터리 잔량"
+
+msgid "Battery charge power"
+msgstr "배터리 충전 전력"
+
+msgid "Time remaining"
+msgstr "남은 충전 시간"
+
+msgid "Charging icon"
+msgstr "충전 아이콘"
+
+msgid "Clock"
+msgstr "시계"
+
+msgid "Refresh interval"
+msgstr "갱신 간격"
+
+msgid "Reset charging display"
+msgstr "충전 화면 초기화"
+
+msgid "Icon only"
+msgstr "아이콘만"
+
+msgid "%u digits"
+msgstr "%u자리"
+
+msgid "%u seconds"
+msgstr "%u초"
+
+msgid "Charging settings"
+msgstr "충전"
+
+msgid "Original charging screen"
+msgstr "순정 표시"
+
+msgid "All charging details"
+msgstr "전체 표시"
+
+msgid "Icon and percentage"
+msgstr "잔량만 표시"

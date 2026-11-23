@@ -122,7 +122,10 @@ static void prv_menu_layer_draw_row(GContext* ctx, const Layer *cell_layer, Menu
 static int16_t prv_menu_layer_get_cell_height(PBL_UNUSED MenuLayer *menu_layer,
                                               PBL_UNUSED MenuIndex *cell_index, PBL_UNUSED void *context) {
 #if PBL_RECT
-  return LAUNCHER_MENU_LAYER_CELL_RECT_CELL_HEIGHT;
+  const int16_t text_height =
+      fonts_get_font_height(fonts_get_system_font(LAUNCHER_MENU_LAYER_TITLE_FONT)) +
+      fonts_get_font_height(fonts_get_system_font(LAUNCHER_MENU_LAYER_SUBTITLE_FONT)) + 4;
+  return MAX(LAUNCHER_MENU_LAYER_CELL_RECT_CELL_HEIGHT, text_height);
 #elif PBL_ROUND
   return menu_layer_is_index_selected(menu_layer, cell_index) ?
       LAUNCHER_MENU_LAYER_CELL_ROUND_FOCUSED_CELL_HEIGHT :

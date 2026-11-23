@@ -1,0 +1,7 @@
+__ISB () at ./third_party/cmsis_core/CMSIS/CMSIS/Core/Include/cmsis_gcc.h:266
+warning: 266	./third_party/cmsis_core/CMSIS/CMSIS/Core/Include/cmsis_gcc.h: No such file or directory
+Breakpoint 1 at 0x11180: file ./src/fw/shell/normal/battery_ui.c, line 34.
+
+Breakpoint 1, prv_charge_draw (layer=0x2003b55c, ctx=0x2000b820 <s_kernel_graphics_context>) at ./src/fw/shell/normal/battery_ui.c:34
+warning: 34	./src/fw/shell/normal/battery_ui.c: No such file or directory
+[Inferior 1 (process 1) detached]

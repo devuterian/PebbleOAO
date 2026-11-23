@@ -1,0 +1,8 @@
+[0/2] Re-checking globbed directories...
+[1/5] Generating clar harness for test_charging_preferences
+folder: /Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/shell/test_charging_preferences
+  test_charging_preferences (3 tests)
+Written Clar suite to "/Volumes/marie-4TB2/codex-pebble-health-preview/build-test-audit/fw/shell/test_charging_preferences"
+[2/5] Building C object CMakeFiles/test_charging_preferences.dir/fw/shell/test_charging_preferences.c.o
+[3/5] Building C object CMakeFiles/test_charging_preferences.dir/fw/shell/test_charging_preferences/clar_main.c.o
+[4/5] Linking C executable fw/shell/test_charging_preferences/runme

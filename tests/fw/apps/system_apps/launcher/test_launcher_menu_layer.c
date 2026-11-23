@@ -205,7 +205,9 @@ bool timeline_resources_is_system(TimelineResourceId timeline_id) {
 #include "stubs_session.h"
 #include "stubs_sleep.h"
 #include "stubs_status_bar_layer.h"
+#define system_theme_get_font_key stub_system_theme_get_font_key
 #include "stubs_system_theme.h"
+#undef system_theme_get_font_key
 #include "stubs_syscalls.h"
 #include "stubs_task_watchdog.h"
 #include "stubs_tick.h"
@@ -234,8 +236,17 @@ bool shell_prefs_get_menu_scroll_wrap_around_enable(void) {
   return false;
 }
 
+static PreferredContentSize s_content_size;
+
 PreferredContentSize system_theme_get_content_size(void) {
-  return PreferredContentSizeDefault;
+  return s_content_size;
+}
+
+const char *system_theme_get_font_key(TextStyleFont font) {
+  const bool large = s_content_size == PreferredContentSizeExtraLarge;
+  return font == TextStyleFont_MenuCellTitle ?
+      (large ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_24_BOLD) :
+      (large ? FONT_KEY_GOTHIC_24 : FONT_KEY_GOTHIC_18);
 }
 
 void vibes_enqueue_custom_pattern(VibePattern pattern) {}
@@ -260,6 +271,7 @@ GContext *graphics_context_get_current_context(void) {
 }
 
 void test_launcher_menu_layer__initialize(void) {
+  s_content_size = PreferredContentSizeDefault;
   // Setup framebuffer and graphics context
   fb = malloc(sizeof(FrameBuffer));
   framebuffer_init(fb, &(GSize) {DISP_COLS, DISP_ROWS});
@@ -330,6 +342,25 @@ void prv_render_launcher_menu_layer(uint16_t selected_index) {
 
 // Tests
 //////////////////////
+
+void test_launcher_menu_layer__large_text_row_height(void) {
+#if PBL_RECT
+  AppMenuDataSource data_source = {};
+  app_menu_data_source_init(&data_source, NULL, NULL);
+  s_content_size = PreferredContentSizeExtraLarge;
+  LauncherMenuLayer launcher = {};
+  launcher_menu_layer_init(&launcher, &data_source);
+  cl_assert(launcher.title_font == fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  cl_assert(launcher.subtitle_font == fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  MenuIndex index = MenuIndex(0, 0);
+  const int16_t height = launcher.menu_layer.callbacks.get_cell_height(
+      &launcher.menu_layer, &index, &launcher);
+  cl_assert(height >= fonts_get_font_height(launcher.title_font) +
+                          fonts_get_font_height(launcher.subtitle_font) + 4);
+  launcher_menu_layer_deinit(&launcher);
+  app_menu_data_source_deinit(&data_source);
+#endif
+}
 
 void test_launcher_menu_layer__long_title(void) {
   prv_render_launcher_menu_layer(LauncherMenuLayerTestApp_LongTitle);

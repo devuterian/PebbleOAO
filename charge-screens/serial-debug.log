@@ -1,0 +1,19 @@
+warning: File "/Volumes/marie-4TB2/codex-pebble-health-preview/.gdbinit" auto-loading has been declined by your `auto-load safe-path' set to "$debugdir:$datadir/auto-load".
+To enable execution of this file add
+	add-auto-load-safe-path /Volumes/marie-4TB2/codex-pebble-health-preview/.gdbinit
+line to your configuration file "/Users/marie/Library/Preferences/gdb/gdbinit".
+To completely disable this security protection add
+	set auto-load safe-path /
+line to your configuration file "/Users/marie/Library/Preferences/gdb/gdbinit".
+For more information about this security protection see the
+"Auto-loading safe path" section in the GDB manual.  E.g., run from the shell:
+	info "(gdb)Auto-loading safe path"
+__ISB () at ./third_party/cmsis_core/CMSIS/CMSIS/Core/Include/cmsis_gcc.h:266
+266	  __ASM volatile ("isb 0xF":::"memory");
+Breakpoint 1 at 0xf518: file ./src/fw/drivers/qemu/qemu_battery.c, line 62.
+
+Breakpoint 1, qemu_battery_msg_callback (data=0x2003bb98 "5\001", '\275' <repeats 198 times>..., len=2) at ./src/fw/drivers/qemu/qemu_battery.c:62
+62	  if (len != sizeof(*hdr)) {
+$1 = 2
+$2 = {battery_pct = 53 '5', charger_connected = 1 '\001'}
+[Inferior 1 (process 1) detached]
