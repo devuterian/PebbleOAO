@@ -1,17 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Core Devices LLC
 # SPDX-License-Identifier: Apache-2.0
 #
-# PebbleOS-wide values for the NimBLE options generated under
+# The Bluetooth subsystem's values for the NimBLE options generated under
 # third_party/nimble. Sourced before them so these defaults win.
 
 if BT
-
-# NimBLE's transport choice says where the link layer lives. PebbleOS supplies
-# its own transport for every controller other than the in-image NimBLE one.
-choice NIMBLE_BLE_TRANSPORT_LL_CHOICE
-    default NIMBLE_BLE_TRANSPORT_LL_NATIVE if BT_HCI_NRF52
-    default NIMBLE_BLE_TRANSPORT_LL_CUSTOM
-endchoice
 
 # The largest MTU that fits one 251-byte LL PDU, with its 4-byte L2CAP header.
 config NIMBLE_BLE_ATT_PREFERRED_MTU
@@ -58,5 +51,13 @@ config NIMBLE_BLE_SVC_DIS_DEFAULT_READ_PERM
 # NimBLE default.
 config NIMBLE_BLE_GATT_MAX_PROCS
     default 8
+
+# The firmware keeps one bonding: room for a second lets a new phone pair
+# before the old bonding goes. Each bonding has a few subscriptions.
+config NIMBLE_BLE_STORE_MAX_BONDS
+    default 2
+
+config NIMBLE_BLE_STORE_MAX_CCCDS
+    default 16
 
 endif # BT

@@ -8,6 +8,7 @@
 #include <pbl/kernel/irq.h>
 #include <pbl/kernel/mmio.h>
 
+#include <devicetree/regs.h>
 #include <hardware/nrf52_rng.h>
 
 #define CACHE_SIZE 32U
@@ -19,11 +20,11 @@ static uint8_t s_out;
 static bool s_inited;
 
 static inline uint32_t prv_getreg(uint32_t offset) {
-  return pbl_readl(NRF52_RNG_BASE + offset);
+  return pbl_readl(PBL_DT_REG_RNG + offset);
 }
 
 static inline void prv_putreg(uint32_t offset, uint32_t value) {
-  pbl_writel(value, NRF52_RNG_BASE + offset);
+  pbl_writel(value, PBL_DT_REG_RNG + offset);
 }
 
 static void prv_rng_irq_handler(void) {
@@ -55,7 +56,7 @@ static void prv_init(void) {
   s_inited = true;
 }
 
-bool rng_rand(uint32_t *rand_out) {
+int rng_rand(uint32_t *rand_out) {
   uint8_t *out = (uint8_t *)rand_out;
   size_t n = 0U;
 
@@ -77,5 +78,5 @@ bool rng_rand(uint32_t *rand_out) {
     pbl_irq_unlock();
   }
 
-  return true;
+  return 0;
 }

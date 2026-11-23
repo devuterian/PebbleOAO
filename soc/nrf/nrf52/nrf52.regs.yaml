@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+# Blocks the SoC code reaches without a device; POWER and APPROTECT share the
+# registers of CLOCK
+config: SOC_NRF52
+labels:
+  - clock
+  - ficr
+  - uicr
+  - nvmc
+  - ppi
