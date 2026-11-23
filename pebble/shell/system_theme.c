@@ -168,6 +168,20 @@ static bool prv_is_ambient_dark(void) {
   return s_ambient_is_dark;
 }
 
+//! Whether the clock is in [start_min, end_min), a window that may wrap past midnight
+static bool prv_in_window(int start_min, int end_min) {
+  struct pbl_tm time_now;
+  clock_get_time_tm(&time_now);
+  const int now_min = time_now.tm_hour * 60 + time_now.tm_min;
+  if (start_min == end_min) {
+    return false;
+  }
+  if (start_min < end_min) {
+    return (now_min >= start_min && now_min < end_min);
+  }
+  return (now_min >= start_min || now_min < end_min);
+}
+
 //! Effective dark mode, for system UI and the app dark mode service alike
 static bool prv_is_dark_mode_active(void) {
   switch (shell_prefs_get_dark_mode()) {
@@ -180,20 +194,13 @@ static bool prv_is_dark_mode_active(void) {
     case DarkModeScheduled: {
       DarkModeSchedule schedule;
       shell_prefs_get_dark_mode_schedule(&schedule);
-      struct pbl_tm time_now;
-      clock_get_time_tm(&time_now);
-      const int now_min = time_now.tm_hour * 60 + time_now.tm_min;
-      const int start_min = schedule.from_hour * 60 + schedule.from_minute;
-      const int end_min = schedule.to_hour * 60 + schedule.to_minute;
-      if (start_min == end_min) {
-        return false;
-      }
-      if (start_min < end_min) {
-        return (now_min >= start_min && now_min < end_min);
-      } else {
-        return (now_min >= start_min || now_min < end_min);
-      }
+      return prv_in_window(schedule.from_hour * 60 + schedule.from_minute,
+                           schedule.to_hour * 60 + schedule.to_minute);
     }
+#ifdef CONFIG_BACKLIGHT_HAS_COLOR
+    case DarkModeSunset:
+      return prv_in_window(backlight_get_sunset_minute(), backlight_get_sunrise_minute());
+#endif
     default:
       return false;
   }

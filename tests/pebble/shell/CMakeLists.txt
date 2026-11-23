@@ -12,6 +12,7 @@ pbl_clar_test(test_system_dark_mode
     pebble/shell/system_theme.c
     pebble/shell/system_theme_style.c
   PLATFORMS emery
+  DEFINES CONFIG_BACKLIGHT_HAS_COLOR=1
 )
 
 pbl_clar_test(test_charging_preferences)

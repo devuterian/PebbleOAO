@@ -352,6 +352,7 @@ typedef enum DarkMode {
   DarkModeOn = 1,
   DarkModeScheduled = 2, // Follows the configured start/end time schedule
   DarkModeAmbient = 3,  // Follows the ambient light sensor; dark mode when ambient light is low
+  DarkModeSunset = 4,   // Dark between the backlight's sunset and sunrise times
   DarkModeCount
 } DarkMode;
 

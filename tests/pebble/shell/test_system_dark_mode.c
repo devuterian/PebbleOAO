@@ -27,6 +27,9 @@ PreferredContentSize system_theme_get_content_size(void) { return PreferredConte
 uint32_t light_get_ambient_gate_lux(void) { return s_light ? 100 : 0; }
 uint32_t light_get_dark_threshold(void) { return 10; }
 uint64_t pbl_uptime_ticks(void) { return s_ticks; }
+static uint16_t s_sunrise_minute, s_sunset_minute;
+uint16_t backlight_get_sunrise_minute(void) { return s_sunrise_minute; }
+uint16_t backlight_get_sunset_minute(void) { return s_sunset_minute; }
 void clock_get_time_tm(struct pbl_tm *value) {
   *value = (struct pbl_tm){ .tm_hour = s_hour, .tm_min = s_minute };
 }
@@ -81,6 +84,20 @@ void test_system_dark_mode__overnight_schedule_boundaries(void) {
   s_hour = 0;
   cl_assert(system_theme_is_dark_mode());
   s_hour = 7;
+  cl_assert(!system_theme_is_dark_mode());
+}
+
+void test_system_dark_mode__sunset_to_sunrise(void) {
+  s_mode = DarkModeSunset;
+  s_sunset_minute = 17 * 60 + 30;
+  s_sunrise_minute = 7 * 60 + 15;
+  s_hour = 17; s_minute = 29;
+  cl_assert(!system_theme_is_dark_mode());
+  s_minute = 30;
+  cl_assert(system_theme_is_dark_mode());
+  s_hour = 7; s_minute = 14;
+  cl_assert(system_theme_is_dark_mode());
+  s_minute = 15;
   cl_assert(!system_theme_is_dark_mode());
 }
 

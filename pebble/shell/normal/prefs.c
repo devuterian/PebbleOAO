@@ -516,6 +516,9 @@ static bool prv_set_s_backlight_color_sunrise_minute(uint16_t *minute) {
   const bool valid = *minute < PBL_MIN_PER_DAY;
   s_backlight_color_sunrise_minute = valid ? *minute : BACKLIGHT_COLOR_DEFAULT_SUNRISE_MINUTE;
   light_handle_color_prefs_changed();
+  if (s_dark_mode == DarkModeSunset) {
+    dark_mode_updater_prefs_changed();
+  }
   return valid;
 }
 
@@ -523,6 +526,9 @@ static bool prv_set_s_backlight_color_sunset_minute(uint16_t *minute) {
   const bool valid = *minute < PBL_MIN_PER_DAY;
   s_backlight_color_sunset_minute = valid ? *minute : BACKLIGHT_COLOR_DEFAULT_SUNSET_MINUTE;
   light_handle_color_prefs_changed();
+  if (s_dark_mode == DarkModeSunset) {
+    dark_mode_updater_prefs_changed();
+  }
   return valid;
 }
 #endif
@@ -1063,7 +1069,12 @@ static bool prv_set_s_music_show_album_art(bool *enabled) {
 }
 
 static bool prv_set_s_dark_mode(uint8_t *mode) {
-  if (*mode >= DarkModeCount) {
+  bool valid = *mode < DarkModeCount;
+#ifndef CONFIG_BACKLIGHT_HAS_COLOR
+  // No sunrise/sunset times without a color backlight
+  valid = valid && *mode != DarkModeSunset;
+#endif
+  if (!valid) {
     s_dark_mode = DarkModeOff;
     dark_mode_updater_prefs_changed();
     return false;

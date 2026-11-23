@@ -12,10 +12,14 @@ static bool s_initialized;
 static struct pbl_cron_job s_schedule_start_job;
 static struct pbl_cron_job s_schedule_end_job;
 
+static bool prv_follows_clock(DarkMode mode) {
+  return mode == DarkModeScheduled || mode == DarkModeSunset;
+}
+
 static void prv_schedule_edge_callback(struct pbl_cron_job *job, void *data) {
   system_theme_request_dark_mode_check();
   // Scheduled mode may have been switched off while this job was running
-  if (shell_prefs_get_dark_mode() == DarkModeScheduled) {
+  if (prv_follows_clock(shell_prefs_get_dark_mode())) {
     pbl_cron_job_schedule(job);
   }
 }
@@ -49,13 +53,22 @@ void dark_mode_updater_prefs_changed(void) {
     prv_schedule_daily_job(&s_schedule_start_job, schedule.from_hour, schedule.from_minute);
     prv_schedule_daily_job(&s_schedule_end_job, schedule.to_hour, schedule.to_minute);
   }
+#ifdef CONFIG_BACKLIGHT_HAS_COLOR
+  if (shell_prefs_get_dark_mode() == DarkModeSunset) {
+    // Same sunrise/sunset the night backlight color uses, kept current by the phone
+    const uint16_t sunset = backlight_get_sunset_minute();
+    const uint16_t sunrise = backlight_get_sunrise_minute();
+    prv_schedule_daily_job(&s_schedule_start_job, sunset / 60, sunset % 60);
+    prv_schedule_daily_job(&s_schedule_end_job, sunrise / 60, sunrise % 60);
+  }
+#endif
   // The change itself can flip the mode, including switching it off
   system_theme_request_dark_mode_check();
 }
 
 void dark_mode_updater_handle_clock_change(void) {
   // A clock jump can cross a schedule edge that cron then skips
-  if (s_initialized && shell_prefs_get_dark_mode() == DarkModeScheduled) {
+  if (s_initialized && prv_follows_clock(shell_prefs_get_dark_mode())) {
     system_theme_request_dark_mode_check();
   }
 }

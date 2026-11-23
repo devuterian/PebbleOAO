@@ -19,6 +19,9 @@ static const char *const s_dark_mode_labels[] = {
   [DarkModeOn] = pbl_i18n_noop("On"),
   [DarkModeScheduled] = pbl_i18n_noop("Schedule"),
   [DarkModeAmbient] = pbl_i18n_noop("Ambient"),
+#ifdef CONFIG_BACKLIGHT_HAS_COLOR
+  [DarkModeSunset] = pbl_i18n_noop("Sunset to Sunrise"),
+#endif
 };
 
 static void prv_refresh_parent(DarkModeMenu *menu) {
