@@ -579,7 +579,9 @@ static void prv_activity_spo2_schedule_update(void) {
     return;
   }
   s_activity_state.activity_spo2.update_pending = true;
-  pbl_sys_work_call(prv_activity_spo2_update_system_cb, nullptr);
+  if (!pbl_sys_work_call(prv_activity_spo2_update_system_cb, nullptr)) {
+    s_activity_state.activity_spo2.update_pending = false;
+  }
 }
 
 // Kernel BG callback for the activity SpO2 session. Only fires while we are sampling (our session
