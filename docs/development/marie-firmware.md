@@ -73,6 +73,21 @@ This installs a custom version; it does not redirect the official mobile app's
 update checks to this GitHub repository. Future custom versions can be sideloaded
 in the same way. See [Building firmware](building_fw.md) for official instructions.
 
+## Build environment
+
+On macOS, `source tools/marie_env.sh` before `pbl`, `cmake` or `ctest`. It puts
+the repository's `.venv` first, so CMake does not pick a newer system Python
+without the build's packages, and reports anything missing.
+`tools/marie_env.sh --install` installs the SDK named in `SDK_VERSION`, `dtc` and
+the Python requirements.
+
+## Upstream syncs
+
+`tools/marie_upstream_check.sh` test merges `upstream/main` into `origin/main` in
+a separate worktree and reports the conflicting files, without touching any
+checkout. Merge upstream weekly, while the conflicts stay few. `rerere` is
+enabled in this clone, so a conflict resolved once is reused.
+
 ## Egg salad UI validation
 
 The rectangular launcher and notification list follow the selected text size.
