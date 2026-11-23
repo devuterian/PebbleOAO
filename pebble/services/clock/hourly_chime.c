@@ -108,7 +108,8 @@ void hourly_chime_tick(time_t now) {
   const bool duplicate = s_last_minute == minute;
   s_last_minute = minute;
   pbl_mutex_unlock(&s_lock);
+  // Called from the high priority queue, which must not wait for a free slot
   if (!duplicate) {
-    pbl_sys_work_call(prv_play, (void *)(uintptr_t)now);
+    pbl_sys_work_try_call(prv_play, (void *)(uintptr_t)now);
   }
 }

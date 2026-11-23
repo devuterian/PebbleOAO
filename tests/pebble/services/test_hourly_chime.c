@@ -56,7 +56,7 @@ bool speaker_service_play_chime_resource(uint32_t id) {
   s_plays++;
   return true;
 }
-bool pbl_sys_work_call(pbl_work_call_fn_t cb, void *data) {
+bool pbl_sys_work_try_call(pbl_work_call_fn_t cb, void *data) {
   cl_assert(!s_pending);
   s_pending = cb;
   s_context = data;
