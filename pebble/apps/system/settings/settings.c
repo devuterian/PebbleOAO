@@ -114,6 +114,9 @@ static int16_t prv_get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *ce
       SETTINGS_CATEGORY_MENU_NUM_UNFOCUSED_ROWS_PER_SIDE;
   return menu_layer_is_index_selected(menu_layer, cell_index) ? focused_cell_height
                                                               : unfocused_cell_height;
+#elif PBL_DISPLAY_HEIGHT >= 200
+  // Title-only rows: use the tighter small cell height so more rows fit on tall displays
+  return menu_cell_small_cell_height();
 #else
   return fonts_get_font_height(system_theme_get_font(TextStyleFont_MenuCellTitle)) + 12;
 #endif
