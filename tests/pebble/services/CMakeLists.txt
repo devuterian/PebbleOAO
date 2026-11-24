@@ -475,6 +475,13 @@ pbl_clar_test(test_hourly_chime
   DEFINES RESOURCE_ID_HOURLY_CHIME=1234
 )
 
+pbl_clar_test(test_key_sounds
+  SOURCES
+    pebble/services/speaker/key_sounds.c
+    tests/fakes/fake_settings.c
+  DEFINES CONFIG_KEY_SOUNDS=1 RESOURCE_ID_HOURLY_CHIME=1234
+)
+
 pbl_clar_test(test_battery_charge_estimate)
 
 pbl_clar_test(test_qemu_charge_connection
