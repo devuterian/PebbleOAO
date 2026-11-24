@@ -19,13 +19,18 @@ def history(directory, extra_tags=()):
         if match:
             records.append((int(match[2]), match[3], tag))
     records.sort()
-    used = set()
+    used = []
     for expected, (number, dessert, tag) in enumerate(records, 1):
-        if number != expected or dessert[0] != chr(97 + (number - 1) % 26):
-            raise ValueError(f"Release sequence or dessert initial is invalid: {tag}")
+        if number != expected:
+            raise ValueError(f"Release sequence is invalid: {tag}")
+        # A fix release keeps the previous dessert; a new one takes the next letter.
+        if used and dessert == used[-1]:
+            continue
         if dessert in used:
             raise ValueError(f"Dessert already used: {dessert}")
-        used.add(dessert)
+        if dessert[0] != chr(97 + len(used) % 26):
+            raise ValueError(f"Dessert initial is invalid: {tag}")
+        used.append(dessert)
     return records
 
 
@@ -37,14 +42,8 @@ def next_tag(directory, base, dessert, extra_tags=()):
         raise ValueError("Use an English dessert name, separated by spaces or hyphens")
     records = history(directory, extra_tags)
     number = len(records) + 1
-    initial = chr(97 + (number - 1) % 26)
-    if dessert[0] != initial:
-        raise ValueError(
-            f"Release {number:03d} needs a dessert starting with {initial.upper()}"
-        )
-    if dessert in {record[1] for record in records}:
-        raise ValueError(f"Dessert already used: {dessert}")
     tag = f"{base}-ver{number:03d}-{dessert}"
+    history(directory, [*extra_tags, tag])
     # The firmware's version field holds 31 characters plus its terminator.
     if len(tag) > 31:
         raise ValueError(

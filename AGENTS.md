@@ -128,7 +128,10 @@ become callable from user apps.
 - Increment the custom version globally for every new release, including
   prereleases. Do not reset it when the upstream base version changes.
 - Dessert names start with A, then B through Z, then cycle back to A. Choose
-  desserts familiar to Korean users and never reuse a previous dessert name.
+  desserts familiar to Korean users and never reuse an older dessert name.
+  A minor fix release keeps the previous release's dessert and only increments
+  the number (`ver015-o-gamza` then `ver016-o-gamza`); the letter advances only
+  with a new dessert.
   Check all GitHub releases, drafts, and tags before assigning a name or number.
 - Release notes contain only short, natural Korean changelog bullets in a
   friendly human voice. Do not include installation instructions. Keep detailed
