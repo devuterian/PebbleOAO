@@ -29,7 +29,7 @@ void hourly_chime_init(void) {
       .start_minute = 600, .end_minute = 0, .interval_minutes = 60, .enabled = 1};
   s_last_minute = -1;
   struct pbl_settings_file file;
-  if (pbl_settings_open(&file, "hourlychime", 128) == 0) {
+  if (pbl_settings_open(&file, "/hourlychime", 128) == 0) {
     HourlyChimeSettings saved;
     if (pbl_settings_get(&file, "settings", 8, &saved, sizeof(saved)) == 0 && prv_valid(&saved)) {
       s_settings = saved;
@@ -52,7 +52,7 @@ bool hourly_chime_set_settings(const HourlyChimeSettings *settings) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   struct pbl_settings_file file;
   bool saved = false;
-  if (pbl_settings_open(&file, "hourlychime", 128) == 0) {
+  if (pbl_settings_open(&file, "/hourlychime", 128) == 0) {
     saved = pbl_settings_set(&file, "settings", 8, settings, sizeof(*settings)) == 0;
     pbl_settings_close(&file);
   }

@@ -64,7 +64,7 @@ bool pbl_sys_work_try_call(pbl_work_call_fn_t cb, void *data) {
   return true;
 }
 int pbl_settings_open(struct pbl_settings_file *file, const char *name, int max_used_space) {
-  return 0;
+  return name[0] == '/' ? 0 : -ENOENT;
 }
 void pbl_settings_close(struct pbl_settings_file *file) {}
 int pbl_settings_get(struct pbl_settings_file *file, const void *key, size_t key_len,

@@ -92,6 +92,9 @@ int pbl_settings_delete(struct pbl_settings_file *file, const void *key, size_t 
 }
 
 int pbl_settings_open(struct pbl_settings_file *file, const char *name, int max_used_space) {
+  if ((name == nullptr) || (name[0] != '/')) {
+    return -ENOENT;
+  }
   if (s_settings_file.open) {
     return -EBUSY;
   } else {

@@ -35,7 +35,7 @@ uint8_t key_sounds_volume(uint8_t level) {
 }
 void key_sounds_init(void) {
   struct pbl_settings_file file;
-  if (pbl_settings_open(&file, "keysounds", 128) == 0) {
+  if (pbl_settings_open(&file, "/keysounds", 128) == 0) {
     KeySoundSettings saved;
     if (pbl_settings_get(&file, "settings", 8, &saved, sizeof(saved)) == 0 &&
         prv_valid(saved)) {
@@ -57,7 +57,7 @@ bool key_sounds_set_settings(KeySoundSettings v) {
   pbl_mutex_lock(&s_lock, PBL_FOREVER);
   struct pbl_settings_file file;
   bool saved = false;
-  if (pbl_settings_open(&file, "keysounds", 128) == 0) {
+  if (pbl_settings_open(&file, "/keysounds", 128) == 0) {
     saved = pbl_settings_set(&file, "settings", 8, &v, sizeof(v)) == 0;
     pbl_settings_close(&file);
   }
